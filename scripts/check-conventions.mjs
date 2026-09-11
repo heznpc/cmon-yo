@@ -8,7 +8,7 @@ const event = process.env.GITHUB_EVENT_PATH
   ? JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'))
   : {};
 const pr = event.pull_request;
-const branch = pr?.head.ref ?? git('branch', '--show-current');
+const branch = pr?.head.ref ?? process.env.GITHUB_REF_NAME ?? git('branch', '--show-current');
 const failures = [];
 if (branch !== 'main' && !branchPattern.test(branch)) failures.push(`Invalid branch: ${branch}`);
 if (pr && !subjectPattern.test(pr.title)) failures.push('PR title must use Conventional Commits.');
