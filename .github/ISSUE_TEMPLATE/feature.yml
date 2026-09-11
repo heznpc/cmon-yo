@@ -1,0 +1,31 @@
+name: 기능 / 구현 단위
+description: 사용자 행동과 수용조건을 기준으로 작업을 정의합니다.
+title: "feat: "
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: 사용자 문제와 기대 결과
+      description: 어떤 행동에서 무엇이 달라져야 하는지 적습니다.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: 범위와 제외 범위
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 수용조건과 증거
+      description: 입력·기대 결과·관측 방법을 적습니다.
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: 테스트·QA·디버깅 계획
+      description: 자동 검사, 실행 환경, 오류 흐름과 수정 후 재검증 범위를 적습니다.
+    validations:
+      required: true

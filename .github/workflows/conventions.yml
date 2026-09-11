@@ -1,0 +1,23 @@
+name: Conventions
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  conventions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: node scripts/check-conventions.mjs

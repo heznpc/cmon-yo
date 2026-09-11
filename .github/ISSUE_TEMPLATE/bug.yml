@@ -1,0 +1,29 @@
+name: 버그
+description: 재현 가능한 문제와 기대 동작을 기록합니다.
+title: "fix: "
+body:
+  - type: textarea
+    id: observed
+    attributes:
+      label: 실제 동작과 기대 동작
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 재현 단계
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: 환경·버전·기기
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 증거와 재검증 조건
+      description: 민감정보를 제거한 로그·화면과 수정 후 확인할 동작을 적습니다.
+    validations:
+      required: true
