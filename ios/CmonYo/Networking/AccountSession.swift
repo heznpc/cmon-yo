@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import Security
+import WebKit
 
 struct AccountUser: Codable, Equatable, Sendable {
   let id: String
@@ -9,6 +10,7 @@ struct AccountUser: Codable, Equatable, Sendable {
   let emailVerified: Bool
 }
 struct AccountResponse: Decodable { let user: AccountUser? }
+struct WebSessionConfiguration: Decodable { let userId: String; let cookieName: String; let secure: Bool }
 struct NativeCredential: Decodable { let token: String }
 struct ActionResult: Decodable { let success: Bool }
 struct ProductError: Error, LocalizedError {
@@ -73,6 +75,7 @@ final class AccountSession {
   private(set) var restoring = true
   var notice: String?
   private var token: String?
+  private(set) var discussionDataStore = WKWebsiteDataStore.nonPersistent()
   private var transport: URLSession
   private let vault: any SessionCredentialStore
   init(baseURL: URL, credentialStore: (any SessionCredentialStore)? = nil) {
@@ -131,9 +134,29 @@ final class AccountSession {
   func login(email: String, password: String) async throws {
     let credential: NativeCredential = try await request("api/native/auth/sign-in/email", method: "POST", body: JSONEncoder().encode(["email": email, "password": password]), authenticated: false)
     try vault.save(credential.token)
+    discussionDataStore = WKWebsiteDataStore.nonPersistent()
     generation += 1; token = credential.token
     try await refreshAccount()
     notice = nil
+  }
+  func prepareDiscussion() async throws -> WKWebsiteDataStore {
+    let epoch = generation
+    let config: WebSessionConfiguration = try await request("api/native/web-session", method: "POST", body: Data("{}".utf8))
+    guard epoch == generation, config.userId == user?.id, let token,
+      let host = baseURL.host, config.secure == (baseURL.scheme == "https"),
+      config.cookieName == (config.secure ? "__Secure-cmon.session_token" : "cmon.session_token")
+    else { throw ProductError(status: 0, code: "RESPONSE") }
+    var properties: [HTTPCookiePropertyKey: Any] = [
+      .name: config.cookieName, .value: token, .domain: host, .path: "/",
+      HTTPCookiePropertyKey("HttpOnly"): "TRUE",
+      HTTPCookiePropertyKey("SameSite"): "Lax"
+    ]
+    if config.secure { properties[.secure] = "TRUE" }
+    guard let cookie = HTTPCookie(properties: properties), cookie.isHTTPOnly, cookie.isSecure == config.secure else { throw ProductError(status: 0, code: "RESPONSE") }
+    let store = discussionDataStore
+    await store.httpCookieStore.setCookie(cookie)
+    guard epoch == generation else { throw CancellationError() }
+    return store
   }
   func emailAction(_ action: String, email: String, password: String = "", name: String = "") async throws {
     var body = ["email": email]
@@ -148,6 +171,7 @@ final class AccountSession {
     do { try clear() } catch { notice = error.localizedDescription }
   }
   private func clear() throws {
+    discussionDataStore = WKWebsiteDataStore.nonPersistent()
     user = nil; token = nil; generation += 1; privacyEpoch += 1
     transport.invalidateAndCancel(); transport = Self.makeTransport()
     try vault.save(nil)

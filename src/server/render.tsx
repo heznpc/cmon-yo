@@ -36,6 +36,7 @@ export async function renderPage(
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width,initial-scale=1" />
         <meta name="referrer" content="no-referrer" />
+        <meta name="cmon-request-id" content={reply.request.id} />
         {state.stream ? (
           <script dangerouslySetInnerHTML={{ __html: streamBootstrap(state.stream) }} />
         ) : null}
@@ -75,6 +76,7 @@ export async function renderPage(
         rendering.pipe(stream);
       },
       onShellError() {
+        reply.request.observe({ event: 'ssr_shell_failed' });
         clean();
         stream.destroy();
         if (!reply.sent && !reply.raw.headersSent && !reply.raw.destroyed && !signal.aborted)
@@ -82,7 +84,10 @@ export async function renderPage(
       },
       onError() {
         renderFailed = true;
-        reply.log.error({ event: 'ssr_render_error' });
+        reply.request.observe({
+          event: 'ssr_render_error',
+          phase: reply.raw.headersSent ? 'stream' : 'shell',
+        });
       },
     },
   );

@@ -1,7 +1,9 @@
+import { activateRecoveryAccount, clearRecovery } from '../recovery/storage';
 import {
   createContext,
   useContext,
   useEffect,
+  useLayoutEffect,
   useState,
   type ReactNode,
   type RefObject,
@@ -22,6 +24,9 @@ export function ViewerGate({
   const client = useQueryClient(),
     identity = useContext(DocumentIdentity);
   const [userId, setUserId] = useState(initial);
+  useLayoutEffect(() => {
+    if (userId !== undefined) activateRecoveryAccount(userId);
+  }, [userId]);
   const [error, setError] = useState(false),
     [attempt, setAttempt] = useState(0);
   useEffect(() => {
@@ -38,6 +43,7 @@ export function ViewerGate({
         if (controller.signal.aborted) return;
         const id = account.user?.id ?? null;
         if (identity.current !== undefined && identity.current !== id) {
+          clearRecovery();
           void client.cancelQueries({ queryKey: ['private'] });
           client.removeQueries({ queryKey: ['private'] });
           window.location.reload();

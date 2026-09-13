@@ -1,3 +1,4 @@
+import { installObservability, type Observation } from './observability';
 import { randomUUID } from 'node:crypto';
 import { deferState } from './deferred';
 import type { StreamResources } from '../app/stream';
@@ -33,6 +34,7 @@ export function createApp({
   deadlineMs = 5000,
   onCleanup,
   observe,
+  telemetry,
   places = databasePlaces(undefined, kmaWeather()),
   auth,
   meetings,
@@ -52,6 +54,7 @@ export function createApp({
     durationMs: number;
     requestId: string;
   }) => void;
+  telemetry?: (event: Observation) => void;
   places?: PlaceService;
   auth?: AuthService;
   meetings?: MeetingService;
@@ -59,7 +62,18 @@ export function createApp({
   attendance?: AttendanceService;
   trustProxy?: false | string[];
 }) {
-  const app = Fastify({ logger: false, trustProxy });
+  const app = Fastify({
+    logger: false,
+    trustProxy,
+    genReqId: (request) => {
+      const supplied = request.headers['x-request-id'];
+      return typeof supplied === 'string' &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(supplied)
+        ? supplied
+        : randomUUID();
+    },
+  });
+  installObservability(app, telemetry);
   app.addHook('onResponse', async (request, reply) => {
     observe?.({
       route: request.routeOptions.url ?? 'unmatched',

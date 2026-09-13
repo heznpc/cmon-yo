@@ -1,3 +1,4 @@
+import type { Observation } from '../src/server/observability';
 import { test, expect, vi } from 'vitest';
 import { createApp } from '../src/server/app';
 import { renderPage } from '../src/server/render';
@@ -25,6 +26,7 @@ function service(weather: PlaceService['weather']): PlaceService {
   };
 }
 test('a render error after the shell finishes the stream and releases its request', async () => {
+  const events: Observation[] = [];
   const held = gate<void>(),
     cleanup = vi.fn();
   function LateFailure(): never {
@@ -33,6 +35,7 @@ test('a render error after the shell finishes the stream and releases its reques
   }
   const app = createApp({
     onCleanup: cleanup,
+    telemetry: (event) => events.push(event),
     places: service(async () => ({ placeId: id, weather: data.weather })),
     renderer: async () => (reply, state, client, assets, signal) =>
       renderPage(
@@ -59,6 +62,13 @@ test('a render error after the shell finishes the stream and releases its reques
       /* consume React's boundary recovery instruction */
     }
     expect(response.status).toBe(200);
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        event: 'ssr_render_error',
+        phase: 'stream',
+        requestId: response.headers.get('x-request-id'),
+      }),
+    );
     await vi.waitFor(() => expect(cleanup).toHaveBeenCalledTimes(1));
   } finally {
     app.server.closeAllConnections();

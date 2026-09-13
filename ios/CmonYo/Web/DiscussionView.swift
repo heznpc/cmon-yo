@@ -34,17 +34,21 @@ struct DiscussionView: View {
 struct DiscussionWebView: UIViewRepresentable {
   let origin: URL
   let meetupID: String
+  var dataStore: WKWebsiteDataStore? = nil
   @Binding var loading: Bool
   @Binding var failed: Bool
   let onReturn: (String) -> Void
   func makeCoordinator() -> Coordinator { Coordinator(self) }
   func makeUIView(context: Context) -> WKWebView {
     let config = WKWebViewConfiguration()
+    if let dataStore { config.websiteDataStore = dataStore }
     config.userContentController.addScriptMessageHandler(
       context.coordinator.bridge, contentWorld: .page, name: "cmonYo")
     let view = WKWebView(frame: .zero, configuration: config)
     view.navigationDelegate = context.coordinator
-    view.load(URLRequest(url: origin.appending(path: "meetups/\(meetupID)/discussion")))
+    var url = origin.appending(path: "meetups/\(meetupID)/discussion")
+    if dataStore != nil { url.append(queryItems: [.init(name: "surface", value: "native")]) }
+    view.load(URLRequest(url: url))
     return view
   }
   func updateUIView(_ view: WKWebView, context: Context) {}
@@ -94,6 +98,18 @@ struct DiscussionWebView: UIViewRepresentable {
       let allowed = bridge.accepts(
         scheme: url.scheme ?? "", host: url.host ?? "", port: url.port ?? 0,
         mainFrame: navigationAction.targetFrame?.isMainFrame == true)
+      if allowed && parent.dataStore != nil {
+        if url.path == "/meetups/\(parent.meetupID)" {
+          parent.onReturn(parent.meetupID)
+          decisionHandler(.cancel)
+          return
+        }
+        guard url.path == "/meetups/\(parent.meetupID)/discussion" else {
+          if url.path == "/account" { parent.failed = true }
+          decisionHandler(.cancel)
+          return
+        }
+      }
       decisionHandler(allowed ? .allow : .cancel)
     }
     func webView(
@@ -106,6 +122,48 @@ struct DiscussionWebView: UIViewRepresentable {
         parent.failed = true
       }
       decisionHandler(.allow)
+    }
+  }
+}
+
+
+// One authenticated Web surface, presented over the existing Native detail.
+struct AuthenticatedDiscussionView: View {
+  @Environment(AccountSession.self) private var session
+  @Environment(\.dismiss) private var dismiss
+  let meetupID: String
+  let onReturn: () -> Void
+  @State private var dataStore: WKWebsiteDataStore?
+  @State private var loading = true
+  @State private var failed = false
+  @State private var attempt = 0
+  var body: some View {
+    NavigationStack {
+      VStack(spacing: 12) {
+        if loading { ProgressView("모임 이야기를 불러오는 중…") }
+        if failed {
+          Text("모임 이야기를 열지 못했습니다. 계정과 연결을 확인하고 다시 시도해 주세요.")
+          Button("모임 이야기 다시 시도") { attempt += 1 }.frame(minHeight: 44)
+        }
+        if let dataStore {
+          DiscussionWebView(origin: session.baseURL, meetupID: meetupID, dataStore: dataStore,
+            loading: $loading, failed: $failed, onReturn: { id in
+              guard id == meetupID else { return }
+              onReturn()
+              dismiss()
+            }).id(attempt).accessibilityIdentifier("authenticated-discussion")
+        }
+      }
+      .navigationTitle("모임 이야기")
+      .navigationBarTitleDisplayMode(.inline)
+      .toolbar { ToolbarItem(placement: .cancellationAction) { Button("닫기") { dismiss() } } }
+      .task(id: attempt) {
+        loading = true; failed = false; dataStore = nil
+        do { dataStore = try await session.prepareDiscussion() }
+        catch is CancellationError { return }
+        catch { loading = false; failed = true }
+      }
+      .onChange(of: session.generation) { _, _ in dismiss() }
     }
   }
 }

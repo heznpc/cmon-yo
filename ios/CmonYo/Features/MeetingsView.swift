@@ -75,6 +75,8 @@ struct MeetingListView: View {
   }
 }
 
+struct MeetingDiscussionRoute: Identifiable { let id: String }
+
 struct MeetingRecordView: View {
   @Environment(AccountSession.self) private var session
   let id: String
@@ -86,6 +88,7 @@ struct MeetingRecordView: View {
   @State private var login: AccountView.LoginRoute?
   @State private var confirm: String?
   @State private var command = MeetingCommand()
+  @State private var discussion: MeetingDiscussionRoute?
   var body: some View {
     List {
       if let error { Text(error).accessibilityIdentifier("meeting-error") }
@@ -96,6 +99,10 @@ struct MeetingRecordView: View {
         Text(m.place.name); Text(m.sportLabel)
         Text("\(m.stateLabel) · \(m.participantCount)/\(m.capacity)명")
         Text(m.description.isEmpty ? "등록된 설명이 없습니다." : m.description)
+        if session.user != nil {
+          Button("모임 이야기 · 댓글 쓰기") { discussion = .init(id: id) }
+            .disabled(loading || error != nil)
+        }
         if session.user == nil {
           Button("로그인하고 계속하기") { login = .init() }
         } else if !loading && error == nil && membership?.version == m.version {
@@ -124,6 +131,10 @@ struct MeetingRecordView: View {
     }.navigationTitle("모임 상세")
       .task(id: "\(attempt):\(session.generation):\(session.user?.id ?? "anonymous")") { await load() }
       .sheet(item: $login) { _ in AccountLoginView() }
+      .sheet(item: $discussion) { route in
+        AuthenticatedDiscussionView(meetupID: route.id) { attempt += 1 }
+      }
+      .onChange(of: session.generation) { _, _ in discussion = nil }
   }
   private func change(_ action: String, meeting: MeetingRecord) {
     guard let body = try? JSONEncoder().encode(MeetingChange(action: action, expectedVersion: meeting.version)) else { return }

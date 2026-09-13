@@ -1,3 +1,4 @@
+import { clearRecovery } from '../recovery/storage';
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { accountSchema } from '../../contracts/account';
@@ -16,6 +17,7 @@ export function useAccountBoundary(userId: string | null) {
       client.removeQueries({ queryKey: ['private'] });
     };
     const changed = () => {
+      clearRecovery();
       clear();
       window.location.reload();
     };
@@ -46,7 +48,7 @@ export function useAccountBoundary(userId: string | null) {
     const channel = new BroadcastChannel('cmon-account');
     channel.onmessage = changed;
     const show = (event: PageTransitionEvent) => {
-      if (event.persisted) changed();
+      if (event.persisted) void verify();
     };
     const visibility = () => {
       if (document.visibilityState === 'visible') void verify();

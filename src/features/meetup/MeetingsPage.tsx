@@ -378,7 +378,7 @@ function MeetingActions({
     setConfirm(null);
     await Promise.all([query.refetch(), route.userId ? member.refetch() : Promise.resolve()]);
   };
-  const command = useMeetingCommand(route.userId, async () => {
+  const command = useMeetingCommand(route.userId, 'membership:' + id, ready, async () => {
     await client.invalidateQueries({ queryKey: ['private', route.userId, 'meetings'] });
     await client.invalidateQueries({ queryKey: ['meetings', 'list'] });
     await refresh();

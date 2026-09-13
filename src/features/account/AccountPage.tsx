@@ -1,3 +1,4 @@
+import { clearRecovery } from '../recovery/storage';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { accountKey, accountSchema, type Account } from '../../contracts/account';
@@ -115,6 +116,7 @@ export function AccountPage({ route }: { route: AccountRoute }) {
   }, [error]);
   async function changeIdentity(destination: string) {
     identityChanging.current = true;
+    clearRecovery();
     markIdentityChanging();
     await client.cancelQueries({ queryKey: ['private'] });
     client.removeQueries({ queryKey: ['private'] });

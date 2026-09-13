@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useDraft } from '../recovery/useDraft';
+import { postDraftScope, postDraftSchema } from './postDraft';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { placeListSchema, placesKey } from '../../contracts/place';
@@ -8,24 +10,34 @@ import { meetingRequest } from '../../api/meetings';
 import { form } from '../account/account.css';
 const sports = { walking: '걷기', running: '달리기', cycling: '자전거' };
 export function PostEditor({
+  userId,
   post,
   disabled,
   submit,
 }: {
+  userId: string;
   post?: Post;
   disabled: boolean;
-  submit: (input: z.infer<typeof postInputSchema>) => Promise<boolean>;
+  submit: (input: z.infer<typeof postInputSchema>, version: number | null) => Promise<boolean>;
 }) {
-  const [title, setTitle] = useState(post?.title ?? ''),
-    [body, setBody] = useState(post?.body ?? ''),
-    [sport, setSport] = useState(post?.sport ?? 'walking'),
-    [placeId, setPlaceId] = useState(post?.placeId ?? ''),
-    [meetupId, setMeetupId] = useState(post?.meetupId ?? ''),
-    [preview, setPreview] = useState(false),
+  const bodyId = 'post-body-' + (post?.id ?? 'new');
+  const draft = useDraft(
+    userId,
+    postDraftScope(post?.id),
+    {
+      title: post?.title ?? '',
+      body: post?.body ?? '',
+      sport: post?.sport ?? 'walking',
+      placeId: post?.placeId ?? '',
+      meetupId: post?.meetupId ?? '',
+      version: post?.version ?? null,
+    },
+    postDraftSchema,
+  );
+  const { title, body, sport, placeId, meetupId } = draft.value;
+  const [preview, setPreview] = useState(false),
     [error, setError] = useState('');
-  const [hydrated, setHydrated] = useState(false);
-  useEffect(() => setHydrated(true), []);
-  const locked = disabled || !hydrated;
+  const locked = disabled || !draft.hydrated;
   const places = useQuery({
     queryKey: placesKey,
     queryFn: ({ signal }) => meetingRequest('/api/v1/places', placeListSchema, { signal }),
@@ -54,7 +66,7 @@ export function PostEditor({
           setError('제목·본문·관련 주소를 확인해 주세요.');
           return;
         }
-        void submit(p.data);
+        void submit(p.data, draft.value.version);
       }}
     >
       <label>
@@ -64,7 +76,7 @@ export function PostEditor({
           required
           maxLength={120}
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(e) => draft.update({ ...draft.value, title: e.target.value })}
         />
       </label>
       <label>
@@ -72,7 +84,7 @@ export function PostEditor({
         <select
           disabled={locked}
           value={sport}
-          onChange={(e) => setSport(e.target.value as typeof sport)}
+          onChange={(e) => draft.update({ ...draft.value, sport: e.target.value as typeof sport })}
         >
           {Object.entries(sports).map(([v, l]) => (
             <option key={v} value={v}>
@@ -81,22 +93,25 @@ export function PostEditor({
           ))}
         </select>
       </label>
-      <label>
-        본문
-        <textarea
-          disabled={locked}
-          required
-          maxLength={5000}
-          rows={8}
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-        />
-      </label>
+      <label htmlFor={bodyId}>본문</label>
+      <textarea
+        id={bodyId}
+        disabled={locked}
+        required
+        maxLength={5000}
+        rows={8}
+        value={body}
+        onChange={(e) => draft.update({ ...draft.value, body: e.target.value })}
+      />
       <details>
         <summary>관련 시설·모임 (선택)</summary>
         <label>
           관련 시설
-          <select disabled={locked} value={placeId} onChange={(e) => setPlaceId(e.target.value)}>
+          <select
+            disabled={locked}
+            value={placeId}
+            onChange={(e) => draft.update({ ...draft.value, placeId: e.target.value })}
+          >
             <option value="">연결하지 않음</option>
             {places.data?.places.map((p) => (
               <option key={p.id} value={p.id}>
@@ -107,7 +122,11 @@ export function PostEditor({
         </label>
         <label>
           관련 모임
-          <select disabled={locked} value={meetupId} onChange={(e) => setMeetupId(e.target.value)}>
+          <select
+            disabled={locked}
+            value={meetupId}
+            onChange={(e) => draft.update({ ...draft.value, meetupId: e.target.value })}
+          >
             <option value="">연결하지 않음</option>
             {meetings.data?.meetups.map((m) => (
               <option key={m.id} value={m.id}>
@@ -140,7 +159,14 @@ export function PostEditor({
       {preview ? <p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{body}</p> : null}
       {error ? <p role="alert">{error}</p> : null}
       <button disabled={locked}>게시글 저장</button>
-      <p>계정 전환·화면 종료 시 초안이 지워집니다. 제출 실패 시 이 화면의 입력은 유지됩니다.</p>
+      <button type="button" disabled={locked} onClick={draft.discard}>
+        초안 폐기
+      </button>
+      {draft.message ? <p role="status">{draft.message}</p> : null}
+      <p>
+        화면 이동·새로고침 후에도 이 브라우저에서 초안을 이어 쓸 수 있습니다. 저장 성공·초안
+        폐기·계정 전환 시 정리됩니다.
+      </p>
     </form>
   );
 }

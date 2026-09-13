@@ -34,14 +34,19 @@ export function MeetingEditor({
     retry: false,
     queryFn: ({ signal }) => publicAPI.places(signal),
   });
-  const command = useMeetingCommand(userId, async (id) => {
-    await Promise.all([
-      client.invalidateQueries({ queryKey: ['meetings', 'list'] }),
-      client.invalidateQueries({ queryKey: ['private', userId, 'meetings'] }),
-    ]);
-    if (onSaved) await onSaved();
-    else navigate(`/meetups/${id}`);
-  });
+  const command = useMeetingCommand(
+    userId,
+    'editor:' + (initial?.id ?? 'new'),
+    ready,
+    async (id) => {
+      await Promise.all([
+        client.invalidateQueries({ queryKey: ['meetings', 'list'] }),
+        client.invalidateQueries({ queryKey: ['private', userId, 'meetings'] }),
+      ]);
+      if (onSaved) await onSaved();
+      else navigate(`/meetups/${id}`);
+    },
+  );
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const data = new FormData(e.currentTarget);

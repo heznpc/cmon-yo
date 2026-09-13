@@ -1,3 +1,5 @@
+import { getCookies } from 'better-auth/cookies';
+import { currentAccount } from './routes';
 import type { FastifyInstance } from 'fastify';
 import type { AuthService } from './service';
 
@@ -5,6 +7,24 @@ import type { AuthService } from './service';
 // A separate transport drops browser cookies and never exposes a credential on
 // the Web auth endpoints. No CORS permission is granted to other origins.
 export function registerNativeAuth(app: FastifyInstance, auth?: AuthService) {
+  app.post('/api/native/web-session', { bodyLimit: 1024 }, async (request, reply) => {
+    const fail = (status: number, code: string) =>
+      reply.code(status).send({ error: { code, requestId: request.id, retryable: status >= 500 } });
+    if (!auth) return fail(503, 'AUTH_UNAVAILABLE');
+    if (request.headers.cookie || request.headers.origin || request.headers['sec-fetch-site'])
+      return fail(403, 'INVALID_ORIGIN');
+    if (!request.headers.authorization?.startsWith('Bearer ')) return fail(401, 'UNAUTHENTICATED');
+    try {
+      const account = await currentAccount(auth, request, reply);
+      if (!account.user?.emailVerified) return fail(401, 'UNAUTHENTICATED');
+      // The already verified signed Native credential is also a valid session
+      // cookie. Return configuration only; never send credentials to browser JS.
+      const cookie = getCookies(auth.options).sessionToken;
+      return { userId: account.user.id, cookieName: cookie.name, secure: cookie.attributes.secure };
+    } catch {
+      return fail(503, 'AUTH_UNAVAILABLE');
+    }
+  });
   for (const action of [
     'sign-in/email',
     'sign-up/email',

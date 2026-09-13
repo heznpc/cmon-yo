@@ -1,3 +1,4 @@
+import { observeWeather } from './observability';
 import { databaseAttendance } from './services/attendance';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
@@ -51,10 +52,14 @@ const app = createApp({
   trustProxy: proxyTrust(process.env.TRUST_PROXY),
   attendance: pool && !fixtureMode ? databaseAttendance(pool) : undefined,
   community: pool && !fixtureMode ? databaseCommunity(pool) : undefined,
+  telemetry: (event) => console.log(JSON.stringify(event)),
   observe: (event) => console.log(JSON.stringify({ event: 'http', ...event })),
   auth,
   meetings: fixtureMode ? undefined : databaseMeetings(pool),
-  places: databasePlaces(pool, kmaWeather({ key: process.env.KMA_API_KEY })),
+  places: databasePlaces(
+    pool,
+    kmaWeather({ key: process.env.KMA_API_KEY, observe: observeWeather }),
+  ),
   service: fixtureService(process.env.MEETUP_FIXTURE_PATH),
   assets,
   renderer: async () =>

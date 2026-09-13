@@ -1,3 +1,8 @@
+import { reportClientEvent } from '../api/telemetry';
+window.addEventListener('error', () => reportClientEvent({ event: 'browser_error' }));
+window.addEventListener('unhandledrejection', () =>
+  reportClientEvent({ event: 'unhandled_rejection' }),
+);
 import { hydrateRoot } from 'react-dom/client';
 import { QueryClient } from '@tanstack/react-query';
 import { App, prepareInitialRoute, type InitialState } from './App';
@@ -15,6 +20,7 @@ hydrateRoot(
   {
     onRecoverableError() {
       console.error('Hydration recovery required');
+      reportClientEvent({ event: 'hydration_error' });
     },
   },
 );
