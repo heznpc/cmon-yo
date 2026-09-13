@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct MeetingsTab: View {
-  var body: some View { NavigationStack { MeetingListView() } }
+  var body: some View { NavigationStack { MeetingListView().toolbar { NeighborhoodToolbar() } } }
 }
 struct MeetingListView: View {
   @Environment(AccountSession.self) private var session
@@ -30,27 +30,30 @@ struct MeetingListView: View {
             if dateEnabled { DatePicker("날짜 · 한국 시간", selection: $day, displayedComponents: .date).environment(\.timeZone, TimeZone(identifier: "Asia/Seoul")!) }
             Button("조건 적용") { page = 0; attempt += 1 }.disabled(loading)
           }
-          NavigationLink("모임 만들기") { MeetingEditorView(placeId: placeId) }
+          NavigationLink("모임 만들기") { MeetingEditorView(placeId: placeId) }.buttonStyle(NeighborhoodButton())
         }
         if loading { ProgressView("모임을 불러오는 중…") }
         if let error { Text(error) }
         if !loading && error == nil && rows.isEmpty { Text(mine ? "아직 주최하거나 참여한 모임이 없습니다." : "조건에 맞는 모임이 없습니다.") }
         ForEach(rows) { meeting in
           NavigationLink { MeetingRecordView(id: meeting.id) } label: {
-            VStack(alignment: .leading, spacing: 8) {
-              Text(meeting.title).font(.headline)
+            HStack(alignment: .top, spacing: 16) {
+              NeighborhoodIcon(symbol: meeting.sport == "cycling" ? "bicycle" : meeting.sport == "running" ? "figure.run" : "figure.walk")
+              VStack(alignment: .leading, spacing: 6) {
+              Text(meeting.title).font(.headline).foregroundStyle(.primary)
               Text(meeting.place.name + " · " + meeting.sportLabel)
               Text(MeetingRecord.display(meeting.start))
               Text("\(meeting.stateLabel) · \(meeting.participantCount)/\(meeting.capacity)명")
               if mine { Text(meeting.role == "host" ? "주최" : meeting.participationStatus == "cancelled" ? "참여 취소" : "참여 중") }
-            }.fixedSize(horizontal: false, vertical: true)
+              }.font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }.padding(.vertical, 12)
           }
         }
         Button("모임 목록 새로고침") { attempt += 1 }.disabled(loading)
         if page > 0 { Button("이전 페이지") { page -= 1; attempt += 1 }.disabled(loading) }
         if let nextPage { Button("다음 페이지") { page = nextPage; attempt += 1 }.disabled(loading) }
       }
-    }.navigationTitle(mine ? "내 모임" : "운동 모임")
+    }.listStyle(.plain).navigationTitle(mine ? "내 모임" : "운동 모임")
       .task(id: "\(attempt):\(session.generation):\(session.user?.id ?? "anonymous")") { await load() }
       .sheet(item: $login) { _ in AccountLoginView() }
   }
@@ -101,7 +104,7 @@ struct MeetingRecordView: View {
         Text(m.description.isEmpty ? "등록된 설명이 없습니다." : m.description)
         if session.user != nil {
           Button("모임 이야기 · 댓글 쓰기") { discussion = .init(id: id) }
-            .disabled(loading || error != nil)
+            .buttonStyle(NeighborhoodButton()).disabled(loading || error != nil)
         }
         if session.user == nil {
           Button("로그인하고 계속하기") { login = .init() }
@@ -116,7 +119,7 @@ struct MeetingRecordView: View {
             Text("참여 중입니다.")
             if m.mutable { Button("참여 취소") { confirm = "leave" }.disabled(command.pending || command.uncertain) }
           } else if m.mutable && m.participantCount < m.capacity {
-            Button("참여하기") { change("join", meeting: m) }.disabled(command.pending || command.uncertain)
+            Button("참여하기") { change("join", meeting: m) }.buttonStyle(NeighborhoodButton()).disabled(command.pending || command.uncertain)
           }
           if let confirm {
             Text(confirm == "cancel" ? "모임을 취소하면 모든 참여자에게 취소 상태로 표시됩니다." : "참여를 취소하시겠습니까?")
@@ -199,7 +202,7 @@ struct MeetingEditorView: View {
           DatePicker("시작 · 한국 시간", selection: $start).environment(\.timeZone, TimeZone(identifier: "Asia/Seoul")!)
           DatePicker("종료 · 한국 시간", selection: $end).environment(\.timeZone, TimeZone(identifier: "Asia/Seoul")!)
           Stepper("정원 · 주최자 포함 \(draft.capacity)명", value: $draft.capacity, in: 2...100)
-          Button(initial == nil ? "모임 생성" : "수정 저장") { submit() }.disabled(places.isEmpty)
+          Button(initial == nil ? "모임 생성" : "수정 저장") { submit() }.buttonStyle(NeighborhoodButton()).disabled(places.isEmpty)
         }.disabled(command.pending || command.uncertain)
         if let error { Text(error) }
         if places.isEmpty { Button("시설 다시 조회") { Task { await loadPlaces() } } }

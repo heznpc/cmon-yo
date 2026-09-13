@@ -36,7 +36,7 @@ import { StreamSlot } from '../../app/stream';
 import { ViewerGate } from '../account/ViewerGate';
 import { useNavigate } from 'react-router';
 import { AppLink } from '../../app/navigation';
-import { form } from '../account/account.css';
+import { Icon } from '../../app/Icon';
 
 export type MeetingsRoute = {
   section: 'meetings';
@@ -79,39 +79,41 @@ export function MeetingsPage({ route, ready = true }: { route: MeetingsRoute; re
           ? `/meetups/${route.id}`
           : '/meetups';
   return (
-    <main className={css.page}>
+    <>
       <ProductNav />
-      {!ready ? (
-        <div role="status">
-          <p>계정을 확인하지 못했거나 확인 중입니다.</p>
-          <button onClick={() => window.dispatchEvent(new Event('focus'))}>계정 다시 확인</button>
-        </div>
-      ) : null}
-      {route.mode === 'list' ? (
-        <MeetingList route={route} ready={ready} />
-      ) : route.mode === 'detail' ? (
-        <MeetingDetail route={route} />
-      ) : route.mode === 'mine' ? (
-        <MyMeetings route={route} ready={ready} />
-      ) : (
-        <>
-          <h1>모임 만들기</h1>
-          {route.userId ? (
-            <div hidden={!ready}>
-              <Suspense fallback={<p role="status">양식을 불러오는 중…</p>}>
-                <MeetingEditor
-                  userId={route.userId}
-                  placeId={route.filters.placeId}
-                  ready={ready}
-                />
-              </Suspense>
-            </div>
-          ) : (
-            <Login returnTo={returnTo} />
-          )}
-        </>
-      )}
-    </main>
+      <main id="page-content" tabIndex={-1} className={css.page}>
+        {!ready ? (
+          <div role="status">
+            <p>계정을 확인하지 못했거나 확인 중입니다.</p>
+            <button onClick={() => window.dispatchEvent(new Event('focus'))}>계정 다시 확인</button>
+          </div>
+        ) : null}
+        {route.mode === 'list' ? (
+          <MeetingList route={route} ready={ready} />
+        ) : route.mode === 'detail' ? (
+          <MeetingDetail route={route} />
+        ) : route.mode === 'mine' ? (
+          <MyMeetings route={route} ready={ready} />
+        ) : (
+          <>
+            <h1>모임 만들기</h1>
+            {route.userId ? (
+              <div hidden={!ready}>
+                <Suspense fallback={<p role="status">양식을 불러오는 중…</p>}>
+                  <MeetingEditor
+                    userId={route.userId}
+                    placeId={route.filters.placeId}
+                    ready={ready}
+                  />
+                </Suspense>
+              </div>
+            ) : (
+              <Login returnTo={returnTo} />
+            )}
+          </>
+        )}
+      </main>
+    </>
   );
 }
 function MeetingList({ route, ready }: { route: MeetingsRoute; ready: boolean }) {
@@ -128,9 +130,9 @@ function MeetingList({ route, ready }: { route: MeetingsRoute; ready: boolean })
   return (
     <>
       <h1>같이 운동할 모임</h1>
-      <p>현재 수집 지역은 무안군입니다. 정원에는 주최자도 포함됩니다.</p>
+      <p className={css.lead}>무안군 이웃과 걷고, 달리고, 함께해요.</p>
       <form
-        className={form}
+        className={css.filters}
         action="/meetups"
         onSubmit={(e) => {
           e.preventDefault();
@@ -166,8 +168,10 @@ function MeetingList({ route, ready }: { route: MeetingsRoute; ready: boolean })
         <button>조건 적용</button>
       </form>
       <AppLink
+        className={css.primary}
         href={`/meetups/new${route.filters.placeId ? `?placeId=${route.filters.placeId}` : ''}`}
       >
+        <Icon name="plus" />
         모임 만들기
       </AppLink>
       {query.isError ? (
@@ -177,11 +181,24 @@ function MeetingList({ route, ready }: { route: MeetingsRoute; ready: boolean })
       <ul>
         {query.data?.meetups.map((m) => (
           <li key={m.id}>
-            <AppLink href={`/meetups/${m.id}`}>{m.title}</AppLink>
-            <p>
-              {m.place.name} · {sports[m.sport]} · {displayDate(m.startsAt)} · {summary(m)} ·{' '}
-              {m.participantCount}/{m.capacity}명
-            </p>
+            <AppLink className={css.row} href={`/meetups/${m.id}`} aria-label={m.title}>
+              <span className={css.rowIcon}>
+                <Icon name="meetings" />
+              </span>
+              <span className={css.rowContent}>
+                <span className={css.category}>
+                  {sports[m.sport]} · {summary(m)}
+                </span>
+                <span className={css.rowTitle}>{m.title}</span>
+                <span className={css.metadata}>
+                  {m.place.name} · {displayDate(m.startsAt)}
+                </span>
+                <span className={css.metadata}>
+                  {m.participantCount}/{m.capacity}명 · 주최자 포함
+                </span>
+              </span>
+              <Icon name="chevron" />
+            </AppLink>
           </li>
         ))}
       </ul>
@@ -439,7 +456,7 @@ function MeetingActions({
               ) : null}
             </>
           ) : active ? (
-            <button disabled={!safe} onClick={() => action('join')}>
+            <button className={css.primary} disabled={!safe} onClick={() => action('join')}>
               참여하기
             </button>
           ) : null}

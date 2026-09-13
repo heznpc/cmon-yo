@@ -6,27 +6,39 @@ struct FacilitiesView: View {
   @State private var error: String?
   @State private var loading = true
   @State private var attempt = 0
+  @State private var search = ""
   var body: some View {
     NavigationStack {
       ScrollView {
-        VStack(alignment: .leading, spacing: 20) {
-          Text("무안군 공공시설 파일럿").font(.headline)
+        LazyVStack(alignment: .leading, spacing: 20) {
+          Text("가까운 공원에서 오늘의 운동을 시작해요.").foregroundStyle(.secondary)
           if let error { Text(error).accessibilityIdentifier("facility-error") }
           if error != nil && places != nil { Text("이전에 불러온 목록입니다. 최신 정보를 확인하지 못했습니다.") }
           if places?.isEmpty == true { Text("등록된 시설 정보가 없습니다.") }
-          ForEach(places ?? []) { place in
-            VStack(alignment: .leading, spacing: 8) {
-              NavigationLink(place.name) { FacilityDetailView(api: api, id: place.id) }
-                .font(.headline).frame(minHeight: 44)
-              Text(place.address)
-              Text(place.exerciseFacilities.isEmpty ? "운동시설 정보 미제공" : place.exerciseFacilities.joined(separator: " · "))
-            }.frame(maxWidth: .infinity, alignment: .leading)
+          ForEach((places ?? []).filter { search.isEmpty || ($0.name + " " + $0.address).localizedCaseInsensitiveContains(search) }) { place in
+            NavigationLink { FacilityDetailView(api: api, id: place.id) } label: {
+              HStack(alignment: .top, spacing: 16) {
+                NeighborhoodIcon(symbol: "tree")
+                VStack(alignment: .leading, spacing: 6) {
+                  Text(place.name).font(.headline).foregroundStyle(.primary)
+                  Text(place.address).font(.subheadline).foregroundStyle(.secondary)
+                  Text(place.exerciseFacilities.isEmpty ? "운동시설 정보 미제공" : place.exerciseFacilities.joined(separator: " · ")).font(.subheadline).foregroundStyle(.secondary)
+                }.frame(maxWidth: .infinity, alignment: .leading)
+                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary).accessibilityHidden(true)
+              }.padding(.vertical, 8)
+            }.buttonStyle(.plain)
+            Divider()
+          }
+          if !search.isEmpty && places != nil && !(places ?? []).contains(where: { ($0.name + " " + $0.address).localizedCaseInsensitiveContains(search) }) {
+            Text("검색한 이름·주소의 시설이 없습니다.").foregroundStyle(.secondary)
           }
           if loading { ProgressView("시설을 불러오는 중…") }
           Button(error == nil ? "시설 새로고침" : "다시 시도") { attempt += 1 }.disabled(loading).frame(minHeight: 44)
           FacilitySource()
-        }.padding().buttonStyle(.bordered).controlSize(.large)
+        }.padding(24).buttonStyle(.bordered).controlSize(.large)
       }.navigationTitle("공원과 운동시설")
+        .toolbar { NeighborhoodToolbar() }
+        .searchable(text: $search, prompt: "시설 이름·주소 검색")
         .task(id: attempt) {
           loading = true
           do {
@@ -57,7 +69,7 @@ private struct FacilityDetailView: View {
           Text(detail.place.name).font(.title).bold().accessibilityAddTraits(.isHeader)
           Text(detail.place.kind + " · " + detail.place.address)
           NavigationLink("이 장소의 모임 보기") { MeetingListView(placeId: id) }
-          NavigationLink("이 장소에서 모임 만들기") { MeetingEditorView(placeId: id) }
+          NavigationLink("이 장소에서 모임 만들기") { MeetingEditorView(placeId: id) }.buttonStyle(NeighborhoodButton())
           Text(detail.place.exerciseFacilities.isEmpty ? "운동시설 정보 미제공" : detail.place.exerciseFacilities.joined(separator: " · "))
           Text("공공데이터 기준일 \(detail.place.sourceDate). 현재 이용 가능 여부는 현장과 다를 수 있습니다.")
           WeatherSection(api: api, id: id).id(id)

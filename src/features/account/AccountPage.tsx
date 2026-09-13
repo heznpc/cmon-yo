@@ -172,151 +172,162 @@ export function AccountPage({ route }: { route: AccountRoute }) {
     });
   }
   return (
-    <main className={css.page}>
+    <>
       <ProductNav />
-      <h1>내 계정</h1>
-      <p role="alert" tabIndex={-1} ref={status}>
-        {error || (query.isError ? '계정 정보를 확인하지 못했습니다. 다시 시도해 주세요.' : '')}
-      </p>
-      <p role="status">{pending ? '처리 중…' : message}</p>
-      {query.isError ? (
-        <button disabled={query.isFetching} onClick={() => void query.refetch()}>
-          계정 다시 조회
-        </button>
-      ) : null}
-      {user && mode !== 'reset' ? (
-        <section aria-label="로그인한 계정">
-          <p>{user.name}님</p>
-          <p>{user.email}</p>
-          <button
-            disabled={!ready || pending}
-            onClick={() =>
-              void run(async () => {
-                await authAction('sign-out', {});
-                await changeIdentity('/account');
-              })
-            }
-          >
-            로그아웃
-          </button>
-          <button
-            disabled={!ready || pending}
-            onClick={() =>
-              void run(async () => {
-                await authAction('delete-user', { callbackURL: '/account' });
-                setMessage('탈퇴 확인 메일을 확인해 주세요.');
-              })
-            }
-          >
-            계정 탈퇴 메일 받기
-          </button>
-        </section>
-      ) : (
-        <>
-          <h2>{labels[mode]}</h2>
-          <form className={formStyle} onSubmit={(event) => void submit(event)}>
-            {mode === 'signup' ? (
-              <label>
-                닉네임
-                <input name="name" required maxLength={60} autoComplete="nickname" />
-              </label>
-            ) : null}
-            {mode !== 'reset' ? (
-              <label>
-                이메일
-                <input
-                  name="email"
-                  type="email"
-                  required
-                  autoComplete="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                />
-              </label>
-            ) : null}
-            {mode !== 'forgot' ? (
-              <label>
-                비밀번호
-                <input
-                  name="password"
-                  type="password"
-                  required
-                  minLength={12}
-                  maxLength={128}
-                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                />
-                <span>12~128자</span>
-              </label>
-            ) : null}
-            <button disabled={!ready || pending}>{labels[mode]}</button>
-          </form>
-          <div className={css.actions}>
-            {(['login', 'signup', 'forgot'] as const)
-              .filter((item) => item !== mode)
-              .map((item) => (
+      <main id="page-content" tabIndex={-1} className={css.page}>
+        <div className={css.account}>
+          <h1>내 계정</h1>
+          <p role="alert" tabIndex={-1} ref={status}>
+            {error || (query.isError ? '계정 정보를 확인하지 못했습니다. 다시 시도해 주세요.' : '')}
+          </p>
+          <p role="status">{pending ? '처리 중…' : message}</p>
+          {query.isError ? (
+            <button disabled={query.isFetching} onClick={() => void query.refetch()}>
+              계정 다시 조회
+            </button>
+          ) : null}
+          {user && mode !== 'reset' ? (
+            <section aria-label="로그인한 계정">
+              <p>{user.name}님</p>
+              <p>{user.email}</p>
+              <button
+                disabled={!ready || pending}
+                onClick={() =>
+                  void run(async () => {
+                    await authAction('sign-out', {});
+                    await changeIdentity('/account');
+                  })
+                }
+              >
+                로그아웃
+              </button>
+              <button
+                disabled={!ready || pending}
+                onClick={() =>
+                  void run(async () => {
+                    await authAction('delete-user', { callbackURL: '/account' });
+                    setMessage('탈퇴 확인 메일을 확인해 주세요.');
+                  })
+                }
+              >
+                계정 탈퇴 메일 받기
+              </button>
+            </section>
+          ) : (
+            <>
+              <h2>{labels[mode]}</h2>
+              <form className={formStyle} onSubmit={(event) => void submit(event)}>
+                {mode === 'signup' ? (
+                  <label>
+                    닉네임
+                    <input name="name" required maxLength={60} autoComplete="nickname" />
+                  </label>
+                ) : null}
+                {mode !== 'reset' ? (
+                  <label>
+                    이메일
+                    <input
+                      name="email"
+                      type="email"
+                      required
+                      autoComplete="email"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                    />
+                  </label>
+                ) : null}
+                {mode !== 'forgot' ? (
+                  <label>
+                    비밀번호
+                    <input
+                      name="password"
+                      type="password"
+                      required
+                      minLength={12}
+                      maxLength={128}
+                      autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                    />
+                    <span>12~128자</span>
+                  </label>
+                ) : null}
+                <button className={css.primary} disabled={!ready || pending}>
+                  {labels[mode]}
+                </button>
+              </form>
+              <div className={css.actions}>
+                {(['login', 'signup', 'forgot'] as const)
+                  .filter((item) => item !== mode)
+                  .map((item) => (
+                    <button
+                      key={item}
+                      disabled={pending}
+                      onClick={() => {
+                        setMode(item);
+                        setError('');
+                        setMessage('');
+                      }}
+                    >
+                      {labels[item]}
+                    </button>
+                  ))}
+              </div>
+              <button
+                disabled={!ready || pending || !email}
+                onClick={() =>
+                  void run(async () => {
+                    await authAction('send-verification-email', {
+                      email,
+                      callbackURL: accountReturn,
+                    });
+                    setMessage('인증이 필요한 계정이면 메일을 보냈습니다.');
+                  })
+                }
+              >
+                인증 메일 다시 받기
+              </button>
+              {providers.map((provider) => (
                 <button
-                  key={item}
-                  disabled={pending}
-                  onClick={() => {
-                    setMode(item);
-                    setError('');
-                    setMessage('');
-                  }}
+                  key={provider}
+                  disabled={!ready || pending}
+                  onClick={() =>
+                    void run(async () => {
+                      const result = await authAction('sign-in/social', {
+                        provider,
+                        callbackURL: route.returnTo,
+                        errorCallbackURL: '/account',
+                        disableRedirect: true,
+                      });
+                      if (
+                        !result ||
+                        typeof result !== 'object' ||
+                        !('url' in result) ||
+                        typeof result.url !== 'string'
+                      )
+                        throw new Error('로그인을 시작하지 못했습니다.');
+                      const url = new URL(result.url);
+                      if (url.protocol !== 'https:')
+                        throw new Error('로그인 주소를 확인하지 못했습니다.');
+                      window.location.assign(url.href);
+                    })
+                  }
                 >
-                  {labels[item]}
+                  {
+                    (
+                      {
+                        google: 'Google',
+                        kakao: '카카오',
+                        naver: '네이버',
+                        apple: 'Apple',
+                      } as Record<string, string>
+                    )[provider]
+                  }{' '}
+                  로그인
                 </button>
               ))}
-          </div>
-          <button
-            disabled={!ready || pending || !email}
-            onClick={() =>
-              void run(async () => {
-                await authAction('send-verification-email', { email, callbackURL: accountReturn });
-                setMessage('인증이 필요한 계정이면 메일을 보냈습니다.');
-              })
-            }
-          >
-            인증 메일 다시 받기
-          </button>
-          {providers.map((provider) => (
-            <button
-              key={provider}
-              disabled={!ready || pending}
-              onClick={() =>
-                void run(async () => {
-                  const result = await authAction('sign-in/social', {
-                    provider,
-                    callbackURL: route.returnTo,
-                    errorCallbackURL: '/account',
-                    disableRedirect: true,
-                  });
-                  if (
-                    !result ||
-                    typeof result !== 'object' ||
-                    !('url' in result) ||
-                    typeof result.url !== 'string'
-                  )
-                    throw new Error('로그인을 시작하지 못했습니다.');
-                  const url = new URL(result.url);
-                  if (url.protocol !== 'https:')
-                    throw new Error('로그인 주소를 확인하지 못했습니다.');
-                  window.location.assign(url.href);
-                })
-              }
-            >
-              {
-                (
-                  { google: 'Google', kakao: '카카오', naver: '네이버', apple: 'Apple' } as Record<
-                    string,
-                    string
-                  >
-                )[provider]
-              }{' '}
-              로그인
-            </button>
-          ))}
-        </>
-      )}
-    </main>
+            </>
+          )}
+        </div>
+      </main>
+    </>
   );
 }

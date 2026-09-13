@@ -74,7 +74,7 @@ test('hydration preserves an already scrolled SSR list and reuses its facility r
   });
   await page.goto('/places', { waitUntil: 'commit' });
   const facility = page.locator('main ul').getByRole('link').last();
-  const facilityName = (await facility.textContent())!;
+  const facilityName = await facility.getByRole('heading').innerText();
   await facility.scrollIntoViewIfNeeded();
   const scroll = await page.evaluate(() => window.scrollY);
   expect(scroll).toBeGreaterThan(0);

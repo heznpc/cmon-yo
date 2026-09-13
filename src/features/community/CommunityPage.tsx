@@ -15,8 +15,8 @@ import {
 } from '../../contracts/community';
 import { meetingRequest, MeetingRequestError } from '../../api/meetings';
 import { ViewerGate, AccountBoundary } from '../account/ViewerGate';
-import { form } from '../account/account.css';
 import { ProductNav } from '../../app/ProductNav';
+import { Icon } from '../../app/Icon';
 import * as styles from '../meetup/meetup.css';
 export type CommunityRoute = {
   section: 'community';
@@ -88,205 +88,224 @@ function CommunityContent({ route, ready }: { route: CommunityRoute; ready: bool
   const canWrite =
     !!userId && ready && !pending && !uncertain && !detail.isError && !detail.isFetching;
   return (
-    <main className={styles.page}>
+    <>
       {!embedded ? <ProductNav /> : null}
-      {!parsed.success ? <p role="alert">조회 조건을 확인해 주세요.</p> : null}
-      {!ready ? (
-        <p role="status">
-          계정을 확인하는 중입니다.{' '}
-          <button onClick={() => window.dispatchEvent(new Event('focus'))}>계정 다시 확인</button>
-        </p>
-      ) : null}
-      <div hidden={!ready}>
-        <h1>
-          {mode === 'activity'
-            ? '내 활동'
-            : mode === 'create'
-              ? '게시글 작성'
-              : mode === 'mine'
-                ? '내 글'
-                : mode === 'discussion'
-                  ? '모임 이야기'
-                  : mode === 'detail'
-                    ? missing
-                      ? '게시글을 찾을 수 없습니다.'
-                      : (detail.data?.title ?? '게시글')
-                    : '동네 운동 이야기'}
-        </h1>
-        {notice ? <p role="status">{notice}</p> : null}
-        {uncertain && !pending ? (
-          <div role="alert">
-            <button disabled={pending} onClick={() => void command.inspect()}>
-              저장 결과 확인
-            </button>
-            <button disabled={pending} onClick={() => void command.retry()}>
-              같은 요청 다시 보내기
-            </button>
-          </div>
-        ) : null}
-        {!userId && embedded ? (
-          <p>앱에서 다시 로그인한 뒤 모임 이야기를 열어 주세요.</p>
-        ) : !userId ? (
-          <p>
-            <Link to={'/account?returnTo=' + encodeURIComponent(loc.pathname + loc.search)}>
-              로그인하고 작성하기
-            </Link>
+      <main
+        id="page-content"
+        tabIndex={-1}
+        className={[styles.page, embedded ? styles.embeddedPage : ''].join(' ')}
+      >
+        {!parsed.success ? <p role="alert">조회 조건을 확인해 주세요.</p> : null}
+        {!ready ? (
+          <p role="status">
+            계정을 확인하는 중입니다.{' '}
+            <button onClick={() => window.dispatchEvent(new Event('focus'))}>계정 다시 확인</button>
           </p>
         ) : null}
-        {error ? (
-          <p role="alert">
-            {missing ? '삭제되었거나 볼 수 없는 글입니다.' : '불러오지 못했습니다.'}
-            <button
-              onClick={() => {
-                if (mode === 'detail') void detail.refetch();
-                else void list.refetch();
-              }}
-            >
-              다시 조회
-            </button>
-          </p>
-        ) : null}
-        {mode === 'list' || mode === 'mine' ? (
-          <>
-            <nav className={styles.actions}>
-              <Link to="/community/new">글 쓰기</Link>
-            </nav>
-            <form
-              className={form}
-              onSubmit={(e) => {
-                e.preventDefault();
-                const d = new FormData(e.currentTarget);
-                nav(
-                  loc.pathname + '?' + new URLSearchParams({ sport: String(d.get('sport') ?? '') }),
-                );
-              }}
-            >
-              <label>
-                종목
-                <select name="sport" defaultValue={f.sport ?? ''}>
-                  <option value="">전체</option>
-                  {Object.entries(sports).map(([v, l]) => (
-                    <option key={v} value={v}>
-                      {l}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button>조회</button>
-            </form>
-            <p>무안군 · 질문과 후기를 나누세요.</p>
-            {list.data?.posts.length === 0 ? <p>아직 게시글이 없습니다.</p> : null}
-            <ul>
-              {list.data?.posts.map((p) => (
-                <li key={p.id}>
-                  <Link to={'/community/' + p.id}>{p.title}</Link> · {p.authorName} ·{' '}
-                  {sports[p.sport]}
-                </li>
-              ))}
-            </ul>
-            {f.page > 0 || f.cursor ? (
-              <Link to={loc.pathname + '?' + new URLSearchParams({ sport: f.sport ?? '' })}>
-                첫 페이지
-              </Link>
-            ) : null}
-            {list.data?.nextPage != null ? (
-              <Link
-                to={
-                  loc.pathname +
-                  '?' +
-                  new URLSearchParams({ ...f, page: '0', cursor: list.data.nextCursor! })
-                }
-              >
-                다음 페이지
-              </Link>
-            ) : null}
-          </>
-        ) : null}
-        {mode === 'activity' && userId ? (
-          <Activity userId={userId} ready={ready} mutate={mutate} disabled={!canWrite} />
-        ) : null}
-        {mode === 'create' && userId ? (
-          <Suspense fallback={<p role="status">작성 양식을 불러오는 중…</p>}>
-            <PostEditor
-              userId={userId!}
-              disabled={!canWrite}
-              submit={(input) => mutate({ action: 'create', input })}
-            />
-          </Suspense>
-        ) : null}
-        {mode === 'detail' && detail.data && !missing ? (
-          <>
+        <div hidden={!ready}>
+          <h1>
+            {mode === 'activity'
+              ? '내 활동'
+              : mode === 'create'
+                ? '게시글 작성'
+                : mode === 'mine'
+                  ? '내 글'
+                  : mode === 'discussion'
+                    ? '모임 이야기'
+                    : mode === 'detail'
+                      ? missing
+                        ? '게시글을 찾을 수 없습니다.'
+                        : (detail.data?.title ?? '게시글')
+                      : '동네 운동 이야기'}
+          </h1>
+          {notice ? <p role="status">{notice}</p> : null}
+          {uncertain && !pending ? (
+            <div role="alert">
+              <button disabled={pending} onClick={() => void command.inspect()}>
+                저장 결과 확인
+              </button>
+              <button disabled={pending} onClick={() => void command.retry()}>
+                같은 요청 다시 보내기
+              </button>
+            </div>
+          ) : null}
+          {!userId && embedded ? (
+            <p>앱에서 다시 로그인한 뒤 모임 이야기를 열어 주세요.</p>
+          ) : !userId ? (
             <p>
-              {detail.data.authorName} · {sports[detail.data.sport]}
+              <Link to={'/account?returnTo=' + encodeURIComponent(loc.pathname + loc.search)}>
+                로그인하고 작성하기
+              </Link>
             </p>
-            {editing ? (
-              <Suspense fallback={<p role="status">작성 양식을 불러오는 중…</p>}>
-                <PostEditor
-                  userId={userId!}
-                  post={editing}
-                  disabled={!canWrite}
-                  submit={(input, version) =>
-                    mutate({
-                      action: 'edit',
-                      id: id!,
-                      expectedVersion: version ?? editing.version,
-                      input,
-                    })
+          ) : null}
+          {error ? (
+            <p role="alert">
+              {missing ? '삭제되었거나 볼 수 없는 글입니다.' : '불러오지 못했습니다.'}
+              <button
+                onClick={() => {
+                  if (mode === 'detail') void detail.refetch();
+                  else void list.refetch();
+                }}
+              >
+                다시 조회
+              </button>
+            </p>
+          ) : null}
+          {mode === 'list' || mode === 'mine' ? (
+            <>
+              <p className={styles.lead}>무안군 · 질문과 후기를 나누세요.</p>
+              <nav className={styles.actions}>
+                <Link className={styles.primary} to="/community/new">
+                  <Icon name="plus" />글 쓰기
+                </Link>
+              </nav>
+              <form
+                className={styles.compactFilters}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const d = new FormData(e.currentTarget);
+                  nav(
+                    loc.pathname +
+                      '?' +
+                      new URLSearchParams({ sport: String(d.get('sport') ?? '') }),
+                  );
+                }}
+              >
+                <label>
+                  종목
+                  <select name="sport" defaultValue={f.sport ?? ''}>
+                    <option value="">전체</option>
+                    {Object.entries(sports).map(([v, l]) => (
+                      <option key={v} value={v}>
+                        {l}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button>조회</button>
+              </form>
+              {list.data?.posts.length === 0 ? <p>아직 게시글이 없습니다.</p> : null}
+              <ul>
+                {list.data?.posts.map((p) => (
+                  <li key={p.id}>
+                    <Link className={styles.row} to={'/community/' + p.id} aria-label={p.title}>
+                      <span className={styles.rowContent}>
+                        <span className={styles.category}>{sports[p.sport]}</span>
+                        <span className={styles.rowTitle}>{p.title}</span>
+                        <span className={styles.excerpt}>{p.body}</span>
+                        <span className={styles.metadata}>{p.authorName}</span>
+                      </span>
+                      <Icon name="chevron" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              {f.page > 0 || f.cursor ? (
+                <Link to={loc.pathname + '?' + new URLSearchParams({ sport: f.sport ?? '' })}>
+                  첫 페이지
+                </Link>
+              ) : null}
+              {list.data?.nextPage != null ? (
+                <Link
+                  to={
+                    loc.pathname +
+                    '?' +
+                    new URLSearchParams({ ...f, page: '0', cursor: list.data.nextCursor! })
                   }
-                />
-              </Suspense>
-            ) : (
-              <p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{detail.data.body}</p>
-            )}
-            {detail.data.placeId ? (
-              <Link to={'/places/' + detail.data.placeId}>관련 시설</Link>
-            ) : null}{' '}
-            {detail.data.meetupId ? (
-              <Link to={'/meetups/' + detail.data.meetupId}>관련 모임</Link>
-            ) : null}
-            {userId === detail.data.authorId ? (
-              <div className={styles.actions}>
-                <button
-                  disabled={!canWrite}
-                  onClick={() => setEditing(editing ? null : detail.data!)}
                 >
-                  {editing ? '수정 닫기' : '글 수정'}
-                </button>
-                <Confirm
-                  label="글 삭제"
-                  disabled={!canWrite}
-                  run={() =>
-                    mutate({ action: 'delete', id: id!, expectedVersion: detail.data!.version })
-                  }
-                />
-              </div>
-            ) : userId ? (
-              <Moderation
+                  다음 페이지
+                </Link>
+              ) : null}
+            </>
+          ) : null}
+          {mode === 'activity' && userId ? (
+            <Activity userId={userId} ready={ready} mutate={mutate} disabled={!canWrite} />
+          ) : null}
+          {mode === 'create' && userId ? (
+            <Suspense fallback={<p role="status">작성 양식을 불러오는 중…</p>}>
+              <PostEditor
+                userId={userId!}
                 disabled={!canWrite}
-                authorId={detail.data.authorId}
-                target="post"
-                id={id!}
-                mutate={mutate}
+                submit={(input) => mutate({ action: 'create', input })}
               />
-            ) : null}
-          </>
-        ) : null}
-        {mode === 'discussion' || (mode === 'detail' && detail.data && !missing) ? (
-          <Comments
-            receipt={receipt}
-            parent={mode === 'detail' ? 'post' : 'meetup'}
-            id={id!}
-            userId={userId}
-            ready={ready}
-            disabled={!canWrite}
-            mutate={mutate}
-          />
-        ) : null}
-        {mode === 'discussion' ? <DiscussionReturn id={id!} /> : null}
-        {mode === 'mine' && userId ? (
-          <Blocks userId={userId} disabled={!canWrite} mutate={mutate} />
-        ) : null}
-      </div>
-    </main>
+            </Suspense>
+          ) : null}
+          {mode === 'detail' && detail.data && !missing ? (
+            <>
+              <p>
+                {detail.data.authorName} · {sports[detail.data.sport]}
+              </p>
+              {editing ? (
+                <Suspense fallback={<p role="status">작성 양식을 불러오는 중…</p>}>
+                  <PostEditor
+                    userId={userId!}
+                    post={editing}
+                    disabled={!canWrite}
+                    submit={(input, version) =>
+                      mutate({
+                        action: 'edit',
+                        id: id!,
+                        expectedVersion: version ?? editing.version,
+                        input,
+                      })
+                    }
+                  />
+                </Suspense>
+              ) : (
+                <p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                  {detail.data.body}
+                </p>
+              )}
+              {detail.data.placeId ? (
+                <Link to={'/places/' + detail.data.placeId}>관련 시설</Link>
+              ) : null}{' '}
+              {detail.data.meetupId ? (
+                <Link to={'/meetups/' + detail.data.meetupId}>관련 모임</Link>
+              ) : null}
+              {userId === detail.data.authorId ? (
+                <div className={styles.actions}>
+                  <button
+                    disabled={!canWrite}
+                    onClick={() => setEditing(editing ? null : detail.data!)}
+                  >
+                    {editing ? '수정 닫기' : '글 수정'}
+                  </button>
+                  <Confirm
+                    label="글 삭제"
+                    disabled={!canWrite}
+                    run={() =>
+                      mutate({ action: 'delete', id: id!, expectedVersion: detail.data!.version })
+                    }
+                  />
+                </div>
+              ) : userId ? (
+                <Moderation
+                  disabled={!canWrite}
+                  authorId={detail.data.authorId}
+                  target="post"
+                  id={id!}
+                  mutate={mutate}
+                />
+              ) : null}
+            </>
+          ) : null}
+          {mode === 'discussion' || (mode === 'detail' && detail.data && !missing) ? (
+            <Comments
+              receipt={receipt}
+              parent={mode === 'detail' ? 'post' : 'meetup'}
+              id={id!}
+              userId={userId}
+              ready={ready}
+              disabled={!canWrite}
+              mutate={mutate}
+            />
+          ) : null}
+          {mode === 'discussion' ? <DiscussionReturn id={id!} /> : null}
+          {mode === 'mine' && userId ? (
+            <Blocks userId={userId} disabled={!canWrite} mutate={mutate} />
+          ) : null}
+        </div>
+      </main>
+    </>
   );
 }

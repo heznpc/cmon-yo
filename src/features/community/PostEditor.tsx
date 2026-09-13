@@ -8,6 +8,7 @@ import { meetingListSchema, meetingListKey } from '../../contracts/meetings';
 import { postInputSchema, type Post } from '../../contracts/community';
 import { meetingRequest } from '../../api/meetings';
 import { form } from '../account/account.css';
+import { primary } from '../meetup/meetup.css';
 const sports = { walking: '걷기', running: '달리기', cycling: '자전거' };
 export function PostEditor({
   userId,
@@ -75,6 +76,7 @@ export function PostEditor({
           disabled={locked}
           required
           maxLength={120}
+          placeholder="제목을 입력하세요."
           value={title}
           onChange={(e) => draft.update({ ...draft.value, title: e.target.value })}
         />
@@ -100,6 +102,7 @@ export function PostEditor({
         required
         maxLength={5000}
         rows={8}
+        placeholder="이웃과 나누고 싶은 이야기를 적어 주세요."
         value={body}
         onChange={(e) => draft.update({ ...draft.value, body: e.target.value })}
       />
@@ -158,7 +161,9 @@ export function PostEditor({
       </button>
       {preview ? <p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{body}</p> : null}
       {error ? <p role="alert">{error}</p> : null}
-      <button disabled={locked}>게시글 저장</button>
+      <button className={primary} disabled={locked}>
+        게시글 저장
+      </button>
       <button type="button" disabled={locked} onClick={draft.discard}>
         초안 폐기
       </button>

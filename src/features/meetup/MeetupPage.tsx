@@ -69,7 +69,7 @@ export function MeetupPage({ route }: { route: Route }) {
   const meetup = query.data?.meetup;
   const notFound = query.data === null;
   return (
-    <main className={css.page}>
+    <main className={[css.page, css.embeddedPage].join(' ')}>
       <header>
         <p>C'mon Yo!</p>
         <p className={css.note}>공개 샘플 모임 · 실제 모집이 아닙니다.</p>

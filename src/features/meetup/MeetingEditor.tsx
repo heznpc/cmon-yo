@@ -5,6 +5,7 @@ import { meetingInputSchema, type Meeting, type MeetingInput } from '../../contr
 import { placesKey } from '../../contracts/place';
 import { publicAPI } from '../../api/public';
 import { form } from '../account/account.css';
+import { primary } from './meetup.css';
 import { useMeetingCommand } from './useMeetingCommand';
 const sports = { walking: '걷기', running: '달리기', cycling: '자전거' };
 function localTime(iso: string) {
@@ -156,7 +157,9 @@ export function MeetingEditor({
               defaultValue={initial?.capacity ?? 6}
             />
           </label>
-          <button disabled={!places.data}>{initial ? '수정 저장' : '모임 생성'}</button>
+          <button className={primary} disabled={!places.data}>
+            {initial ? '수정 저장' : '모임 생성'}
+          </button>
         </fieldset>
       </form>
       {places.isError ? (

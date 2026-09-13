@@ -6,6 +6,7 @@ import { meetingRequest } from '../../api/meetings';
 import { useDraft } from '../recovery/useDraft';
 import { form } from '../account/account.css';
 import { Confirm, Moderation } from './Moderation';
+import { primary } from '../meetup/meetup.css';
 const commentDraftSchema = z.object({ body: z.string().max(2000) });
 export function Comments({
   receipt,
@@ -122,7 +123,9 @@ export function Comments({
             value={body}
             onChange={(e) => draft.update({ body: e.target.value })}
           />
-          <button disabled={disabled || !draft.hydrated || !body.trim()}>댓글 등록</button>
+          <button className={primary} disabled={disabled || !draft.hydrated || !body.trim()}>
+            댓글 등록
+          </button>
           <button type="button" disabled={disabled} onClick={draft.discard}>
             댓글 초안 폐기
           </button>

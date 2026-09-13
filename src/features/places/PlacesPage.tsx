@@ -14,6 +14,7 @@ import * as css from '../meetup/meetup.css';
 import { StreamSlot } from '../../app/stream';
 import { AppLink } from '../../app/navigation';
 import { ProductNav } from '../../app/ProductNav';
+import { Icon } from '../../app/Icon';
 
 function FacilityInfo({ place }: { place: Place }) {
   return (
@@ -83,18 +84,23 @@ function WeatherInfo({ weather, refreshFailed }: { weather: Weather; refreshFail
 }
 export function PlacesPage({ id }: { id?: string }) {
   return (
-    <main className={css.page}>
-      <p>C'mon Yo! · 무안군 공공시설 파일럿</p>
+    <>
       <ProductNav />
-      {id ? <PlaceDetail id={id} /> : <PlaceList />}
-      <p>
-        <AppLink href={placeSourceURL}>출처: 전국도시공원정보표준데이터</AppLink>
-      </p>
-      <AppLink href="/meetups">운동 모임 둘러보기</AppLink>
-    </main>
+      <main id="page-content" tabIndex={-1} className={css.page}>
+        {id ? <PlaceDetail id={id} /> : <PlaceList />}
+        <footer className={css.footer}>
+          <p>무안군 공공시설 · 공개 자료에 기반한 시설 정보입니다.</p>
+          <p>
+            <AppLink href={placeSourceURL}>출처: 전국도시공원정보표준데이터</AppLink>
+          </p>
+          <AppLink href="/meetups">운동 모임 둘러보기</AppLink>
+        </footer>
+      </main>
+    </>
   );
 }
 function PlaceList() {
+  const [search, setSearch] = useState('');
   const query = useQuery({
     queryKey: placesKey,
     staleTime: 60_000,
@@ -104,21 +110,54 @@ function PlaceList() {
   return (
     <>
       <h1>공원과 운동시설</h1>
+      <p className={css.lead}>가까운 공원에서 오늘의 운동을 시작해요.</p>
+      <label className={css.search}>
+        <Icon name="search" />
+        <input
+          type="search"
+          aria-label="시설 이름·주소 검색"
+          placeholder="시설 이름·주소 검색"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+        />
+      </label>
       {query.isError ? <p role="alert">시설을 불러오지 못했습니다. 다시 시도해 주세요.</p> : null}
       {query.isError && query.data ? (
         <p>이전에 불러온 목록입니다. 최신 정보를 확인하지 못했습니다.</p>
       ) : null}
       {query.data?.places.length === 0 ? <p>등록된 시설 정보가 없습니다.</p> : null}
       <ul>
-        {query.data?.places.map((place) => (
-          <li key={place.id}>
-            <h2>
-              <AppLink href={`/places/${place.id}`}>{place.name}</AppLink>
-            </h2>
-            <FacilityInfo place={place} />
-          </li>
-        ))}
+        {query.data?.places
+          .filter((place) => (place.name + ' ' + place.address).includes(search.trim()))
+          .map((place) => (
+            <li key={place.id}>
+              <AppLink href={`/places/${place.id}`} className={css.row} aria-label={place.name}>
+                <span className={css.rowIcon}>
+                  <Icon name="places" />
+                </span>
+                <div className={css.rowContent}>
+                  <h2 className={css.rowTitle}>{place.name}</h2>
+                  <span className={css.metadata}>
+                    {place.kind} · {place.address}
+                  </span>
+                  <span className={css.metadata}>
+                    {place.exerciseFacilities.length
+                      ? place.exerciseFacilities.join(' · ')
+                      : '운동시설 정보 미제공'}
+                  </span>
+                </div>
+                <Icon name="chevron" />
+              </AppLink>
+            </li>
+          ))}
       </ul>
+      {search.trim() &&
+      query.data?.places.length &&
+      !query.data.places.some((place) =>
+        (place.name + ' ' + place.address).includes(search.trim()),
+      ) ? (
+        <p role="status">검색한 이름·주소의 시설이 없습니다.</p>
+      ) : null}
       <p role="status">{query.isFetching ? '시설을 불러오는 중…' : ''}</p>
       <FacilityRefresh
         loading={query.isFetching}
@@ -159,7 +198,9 @@ function PlaceDetail({ id }: { id: string }) {
           <FacilityInfo place={query.data.place} />
           <div className={css.actions}>
             <AppLink href={`/meetups?placeId=${id}`}>이 장소의 모임 보기</AppLink>
-            <AppLink href={`/meetups/new?placeId=${id}`}>이 장소에서 모임 만들기</AppLink>
+            <AppLink className={css.primary} href={`/meetups/new?placeId=${id}`}>
+              이 장소에서 모임 만들기
+            </AppLink>
           </div>
           <Suspense
             fallback={

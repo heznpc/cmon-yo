@@ -19,6 +19,7 @@ struct CmonYoApp: App {
         AccountView().tabItem { Label("내 활동", systemImage: "person") }.tag("account")
       }
       .id(session.privacyEpoch).environment(session)
+      .tint(NeighborhoodStyle.link)
       .task { await session.restore() }
       .onChange(of: scenePhase) { _, phase in
         if phase == .active && !session.restoring { Task { do { try await session.refreshAccount() } catch { session.notice = error.localizedDescription } } }

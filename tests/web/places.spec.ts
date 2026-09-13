@@ -1,6 +1,25 @@
 import { test, expect } from '@playwright/test';
 const id = 'park-46840-00023';
 
+test('facility search narrows real rows, explains no results and preserves navigation', async ({
+  page,
+}) => {
+  await page.goto('/places');
+  const search = page.getByRole('searchbox', { name: '시설 이름·주소 검색' });
+  await search.fill('근린공원 36');
+  await expect(page.getByRole('link', { name: '근린공원 36', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: '남악공원', exact: true })).toHaveCount(0);
+  await search.fill('검색 결과가 없는 이름');
+  await expect(
+    page.getByRole('status').filter({ hasText: '검색한 이름·주소의 시설이 없습니다.' }),
+  ).toBeVisible();
+  await search.fill('근린공원 36');
+  await page.getByRole('link', { name: '근린공원 36', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '근린공원 36', exact: true })).toBeVisible();
+  await page.getByRole('link', { name: '시설 목록으로 돌아가기', exact: true }).click();
+  await expect(page.getByRole('searchbox')).toHaveValue('');
+});
+
 test('HTTP client rejects malformed success data without replacing the last valid detail, then recovers', async ({
   page,
 }) => {
