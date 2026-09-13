@@ -1,0 +1,846 @@
+[
+  {
+    "name": "valid",
+    "valid": true,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "id missing",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "id null",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": null,
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "title missing",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "title null",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": null,
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "sport missing",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "sport null",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": null,
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "startsAt missing",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "startsAt null",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": null,
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "endsAt missing",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "endsAt null",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": null,
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "capacity missing",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "capacity null",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": null,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "place missing",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "place null",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": null
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "place id missing",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "place id null",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": null,
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "place name missing",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "place name null",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": null
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "unknown sport",
+    "valid": true,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "new-sport",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "empty sport",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "wrong sport",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": 1,
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "description missing",
+    "valid": true,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "description null",
+    "valid": true,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": null,
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "description wrong",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": 3,
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "viewer missing",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      }
+    }
+  },
+  {
+    "name": "viewer object",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": {}
+    }
+  },
+  {
+    "name": "invalid id",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "bad",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "wrong title",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": 5,
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "empty title",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "invalid capacity 0",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 0,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "invalid capacity -1",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": -1,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "invalid capacity 1.5",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 1.5,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "invalid capacity True",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": true,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "invalid capacity 6",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": "6",
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "invalid capacity 2147483648",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 2147483648,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "invalid date 2026-09-20",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "invalid date 2026-09-20T01:00:00Z",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "invalid date 2026-02-30T01:00:00.000Z",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-02-30T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "invalid date 2026-09-20T10:00:00.000+09:00",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T10:00:00.000+09:00",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "end before start",
+    "valid": false,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-19T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  },
+  {
+    "name": "extra field",
+    "valid": true,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "[Fixture] 일요일 아침 같이 걷기",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null,
+      "future": true
+    }
+  },
+  {
+    "name": "malicious text",
+    "valid": true,
+    "document": {
+      "meetup": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "title": "</script><script>globalThis.pwned=true</script><img src=x onerror=\"globalThis.pwned=true\"> &    긴 제목 함께 걸어요 함께 걸어요 함께 걸어요 함께 걸어요 함께 걸어요 함께 걸어요 함께 걸어요 함께 걸어요 함께 걸어요 함께 걸어요 함께 걸어요 함께 걸어요 함께 걸어요 함께 걸어요 함께 걸어요 함께 걸어요 함께 걸어요 함께 걸어요 함께 걸어요 함께 걸어요 함께 걸어요 함께 걸어요 함께 걸어요 함께 걸어요 함께 걸어요 함께 걸어요 함께 걸어요 함께 걸어요 함께 걸어요 함께 걸어요 ",
+        "description": "Web과 Native 연결을 확인하는 테스트 모임입니다.",
+        "sport": "walking",
+        "startsAt": "2026-09-20T01:00:00.000Z",
+        "endsAt": "2026-09-20T02:00:00.000Z",
+        "capacity": 6,
+        "place": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "[Fixture] 샘플 동네 운동장"
+        }
+      },
+      "viewerParticipation": null
+    }
+  }
+]

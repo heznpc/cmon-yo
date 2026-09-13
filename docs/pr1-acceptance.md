@@ -8,7 +8,7 @@ DB, 인증, GPS, 외부 시설·날씨 API, 참여 mutation, 댓글 저장, Heal
 
 ## 사전 검토 반영
 
-SQL의 기존 출석 NULL 조합 조건과 unknown fallback을 새로운 누락으로 취급하지 않습니다. Native HTTP 연결은 설계 부재가 아닌 완료 조건 보완입니다. PR3에서 중복 실행 방지·오래된 응답 차단·늦게 도착한 최초 명령의 보장 범위를 각각 정의합니다.
+SQL의 기존 출석 NULL 조합 조건과 unknown fallback을 새로운 누락으로 취급하지 않습니다. Native HTTP 연결은 설계 부재가 아닌 완료 조건 보완입니다. PR3는 모임 생성·참여·취소, 개인 cache와 계정 전환을 포함합니다. PR3에서 중복 실행 방지·오래된 응답 차단·늦게 도착한 최초 명령의 보장 범위를 각각 정의합니다.
 
 ## 수용조건과 증거
 
@@ -29,3 +29,18 @@ SQL의 기존 출석 NULL 조합 조건과 unknown fallback을 새로운 누락�
 ## 판정 범위
 
 PR1 통과는 인증 공유, 실데이터 품질, 제품 수요, 참석 신뢰 효과, 운영 처리량의 증거가 아닙니다. 성능 탐색은 환경과 측정 범위를 남기며, 비교 검증 없이 개선을 주장하지 않습니다.
+
+## Bridge v1 종료 계약
+
+Native 수락 시점은 활성 host가 실제 main-frame origin과 메시지를 검증한 직후입니다. `openMeetup`은 현재 모임 ID만 지원하며 다른 ID는 unsupported입니다. 웹의 pending 정리는 Native 명령 취소가 아닙니다.
+
+| 종료 시점 | Native 이동 | 웹 응답 |
+| --- | --- | --- |
+| 전송 전 웹 종료 | 0회 | closed, 전송하지 않음 |
+| Native 수락 전 host 종료 | 0회 | 살아 있는 문서는 closed 오류 관측 가능, 사라진 문서는 미관측 가능 |
+| Native 수락 후 웹/host 종료 | 수락한 복귀 실행 유지 | 응답을 관측하거나 종료로 미관측 가능. 미관측을 미실행으로 해석하지 않음 |
+| 정상 왕복 | discussion을 닫고 기존 Native 모임으로 복귀, 중복 push 없음 | requestId와 일치하는 accepted 결과. 화면 해제와 응답 관측 순서는 독립적 |
+
+capabilities는 version 1과 openMeetup 지원을 응답합니다. 잘못된 version/type/payload는 error/unsupported, 비허용 frame/origin은 거부하고 이동 0회입니다. 웹은 timeout·closed·transport 실패에서 자동 재전송하지 않습니다. 일반 브라우저에서는 같은 의도를 Web 상세 링크로 연결합니다.
+
+검증은 웹 pending/timeout 정리, 실제 WebKit 발신자 검사와 수락 전후 종료, Simulator 정상 복귀를 나눠 수행합니다. 동일 화면 복귀 보장은 모든 재전송·WebView 재생성의 중복 실행 방지 보장이 아닙니다. 범용 취소 프로토콜·영구 요청 저장소는 PR1에 만들지 않습니다.
