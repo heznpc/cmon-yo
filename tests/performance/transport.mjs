@@ -29,6 +29,11 @@ await until(async () => {
 });
 const setup = await fetch(direct + '/_perf/setup').then((r) => r.json());
 const name = JSON.parse((await request(`/api/v1/places/${place}/info`).promise).text).place.name;
+// Count rendered body tags, not a matching name inside serialized Query data.
+const hasFacilityBody = (html) =>
+  [...html.matchAll(/<h1\b[^>]*>(.*?)<\/h1>/gs)].some((m) => m[1] === name) &&
+  html.includes(`href="/meetups?placeId=${place}"`) &&
+  />이 장소의 모임 보기<\/a>/.test(html);
 try {
   await assert.rejects(
     new Promise((resolve, reject) => {
@@ -45,7 +50,7 @@ try {
     const pending = request('/places/' + place, {
       headers: { 'accept-encoding': encoding },
       onChunk: (text) => {
-        body ||= text.includes(name) && text.includes('이 장소의 모임 보기');
+        body ||= hasFacilityBody(text);
       },
     });
     pending.promise
@@ -89,7 +94,7 @@ try {
         let text = '';
         decoded.on('data', (bytes) => {
           text += decoder.write(bytes);
-          body ||= text.includes(name) && text.includes('이 장소의 모임 보기');
+          body ||= hasFacilityBody(text);
         });
         decoded.on('end', () => {
           ended = true;
@@ -118,13 +123,13 @@ try {
     secondBody = false;
   const first = request('/places/' + place, {
     onChunk: (text) => {
-      firstBody ||= text.includes(name);
+      firstBody ||= hasFacilityBody(text);
     },
   });
   const firstOutcome = first.promise.catch(() => null);
   const second = request('/places/' + place, {
     onChunk: (text) => {
-      secondBody ||= text.includes(name);
+      secondBody ||= hasFacilityBody(text);
     },
   });
   await until(async () => firstBody && secondBody && (await stats()).weatherEvents.joined >= 1);
@@ -143,7 +148,7 @@ try {
   let loneBody = false;
   const lone = request('/places/' + place, {
     onChunk: (text) => {
-      loneBody ||= text.includes(name);
+      loneBody ||= hasFacilityBody(text);
     },
   });
   const loneOutcome = lone.promise.catch(() => null);
