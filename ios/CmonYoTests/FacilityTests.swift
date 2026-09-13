@@ -34,6 +34,11 @@ final class FacilityTests: XCTestCase {
     let list = try await api.list()
     XCTAssertEqual(list.places.count, 21)
     let id = "park-46840-00023"
+    let info = try await api.info(id: id)
+    XCTAssertEqual(info.place.id, id)
+    let forecast = try await api.weather(id: id)
+    XCTAssertEqual(forecast.placeId, id)
+    XCTAssertEqual(forecast.weather.status, .fresh)
     let detail = try await api.detail(id: id)
     XCTAssertEqual(detail.weather.status, .fresh)
     try await state("weather-error")
@@ -48,7 +53,10 @@ final class FacilityTests: XCTestCase {
     catch FacilityError.unavailable { }
     try await state("reset")
     try await state("weather-timeout")
-    let unavailable = try await api.detail(id: id)
+    // Mandatory facility data remains available even when weather times out.
+    let independent = try await api.info(id: id)
+    XCTAssertEqual(independent.place.name, "근린공원 36")
+    let unavailable = try await api.weather(id: id)
     XCTAssertEqual(unavailable.weather.status, .unavailable)
     try await state("changed")
     let recovered = try await api.detail(id: id)

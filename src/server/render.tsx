@@ -3,23 +3,24 @@ import { renderToPipeableStream } from 'react-dom/server';
 import type { ReactNode } from 'react';
 import { PassThrough } from 'node:stream';
 import type { FastifyReply } from 'fastify';
-import { App, type InitialState } from '../app/App';
+import { App, initialURL, prepareInitialRoute, type InitialState } from '../app/App';
 import type { QueryClient } from '@tanstack/react-query';
-export type Assets = { scripts: string[]; css: string[] };
-export function serialize(value: unknown) {
-  return JSON.stringify(value).replace(
-    /[<>&\u2028\u2029]/g,
-    (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`,
-  );
-}
-export function renderPage(
+export type Assets = { scripts: string[]; css: string[]; preloads?: string[] };
+import { serialize } from '../app/serialize';
+export { serialize } from '../app/serialize';
+import { StaticRouter } from 'react-router';
+import { streamBootstrap, type StreamResources } from '../app/stream';
+export async function renderPage(
   reply: FastifyReply,
   state: InitialState,
   client: QueryClient,
   assets: Assets,
   signal: AbortSignal,
   content?: ReactNode,
+  resources?: StreamResources,
 ) {
+  await prepareInitialRoute(state);
+  if (signal.aborted) return;
   const stream = new PassThrough();
   let renderFailed = false;
   const stop = () => {
@@ -35,24 +36,36 @@ export function renderPage(
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width,initial-scale=1" />
         <meta name="referrer" content="no-referrer" />
+        {state.stream ? (
+          <script dangerouslySetInnerHTML={{ __html: streamBootstrap(state.stream) }} />
+        ) : null}
         <title>{`C'mon Yo! · ${'section' in state.route ? (state.route.section === 'account' ? '내 계정' : state.route.section === 'meetings' ? '모임' : '시설') : '모임'}`}</title>
+        {assets.preloads?.map((href) => (
+          <link key={href} rel="modulepreload" href={href} />
+        ))}
         {assets.css.map((href) => (
           <link key={href} rel="stylesheet" href={href} />
         ))}
       </head>
       <body>
-        <div id="root">{content ?? <App state={state} client={client} />}</div>
+        <div id="root">
+          {content ?? (
+            <StaticRouter location={initialURL(state)}>
+              <App state={state} client={client} resources={resources} />
+            </StaticRouter>
+          )}
+        </div>
         <script
           id="initial-state"
           type="application/json"
           dangerouslySetInnerHTML={{ __html: serialize(state) }}
         />
-        {assets.scripts.map((src) => (
-          <script key={src} type="module" src={src} />
-        ))}
       </body>
     </html>,
     {
+      // React emits async module bootstraps after the shell (including the
+      // initial JSON), so hydration can start before deferred HTML finishes.
+      bootstrapModules: assets.scripts,
       onShellReady() {
         if (signal.aborted) return;
         reply
@@ -64,7 +77,7 @@ export function renderPage(
       onShellError() {
         clean();
         stream.destroy();
-        if (!reply.sent && !signal.aborted)
+        if (!reply.sent && !reply.raw.headersSent && !reply.raw.destroyed && !signal.aborted)
           reply.code(500).type('text/html').send(errorPage('화면을 표시하지 못했습니다.'));
       },
       onError() {

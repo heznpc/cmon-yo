@@ -11,12 +11,12 @@ test('HTTP client rejects malformed success data without replacing the last vali
     if (request.url().includes('/api/v1/places')) requests++;
   });
   await page.goto(`/places/${id}`);
-  const retry = page.getByRole('button', { name: '다시 시도', exact: true });
+  const retry = page.getByRole('button', { name: '시설 새로고침', exact: true });
   await expect(retry).toBeEnabled();
   expect(requests).toBe(0);
   // An intercepted HTTP response represents a backend contract regression.
   // The initial and recovered contents still come from the real DB-backed server.
-  await page.route(`**/api/v1/places/${id}`, (route) =>
+  await page.route(`**/api/v1/places/${id}/info`, (route) =>
     route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -33,7 +33,7 @@ test('HTTP client rejects malformed success data without replacing the last vali
   await expect(page.getByRole('heading', { name: '근린공원 36', exact: true })).toBeVisible();
   await expect(page.getByText('INVALID_RESPONSE_MUST_NOT_REPLACE_DETAIL')).toHaveCount(0);
   expect(requests).toBe(1);
-  await page.unroute(`**/api/v1/places/${id}`);
+  await page.unroute(`**/api/v1/places/${id}/info`);
   await retry.click();
   await expect(page.getByRole('alert')).toHaveCount(0);
   await expect(
@@ -88,23 +88,24 @@ test('local HTTP QA: fresh/stale/unavailable, 404, disconnect, retry and small-s
   await page.goto(`${origin}/places/${id}`);
   await expect(page.getByText('최근에 받은 예보입니다.')).toBeVisible();
   await state('weather-error');
-  await page.getByRole('button', { name: '시설·날씨 새로고침' }).click();
+  await page.getByRole('button', { name: '날씨 다시 조회' }).click();
   await expect(page.getByText('날씨 갱신에 실패했습니다. 이전에 받은 예보입니다.')).toBeVisible();
   await state('normal');
-  await page.getByRole('button', { name: '다시 시도' }).click();
+  await page.getByRole('button', { name: '날씨 다시 조회' }).click();
   await expect(page.getByText('최근에 받은 예보입니다.')).toBeVisible();
   await state('not-found');
-  await page.getByRole('button', { name: '시설·날씨 새로고침' }).click();
+  await page.getByRole('button', { name: '시설 새로고침' }).click();
   await expect(page.getByText('시설을 찾을 수 없습니다.')).toBeVisible();
   await expect(page.getByRole('heading', { name: '근린공원 36', exact: true })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: '단기예보' })).toHaveCount(0);
   await state('changed');
-  await page.getByRole('button', { name: '다시 시도' }).click();
+  await page.getByRole('button', { name: '시설 새로고침' }).click();
   await expect(
     page.getByRole('heading', { name: '[QA] HTTP로 갱신된 공원', exact: true }),
   ).toBeVisible();
   await state('disconnect');
-  await page.getByRole('button', { name: '시설·날씨 새로고침' }).click();
+  await page.getByRole('button', { name: '시설 새로고침' }).click();
+  await page.getByRole('button', { name: '날씨 다시 조회' }).click();
   await expect(
     page.getByText('이전에 불러온 정보입니다. 최신 정보를 확인하지 못했습니다.'),
   ).toBeVisible();
@@ -116,10 +117,11 @@ test('local HTTP QA: fresh/stale/unavailable, 404, disconnect, retry and small-s
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await state('reset');
   await state('weather-timeout');
-  await page.getByRole('button', { name: '다시 시도' }).click();
+  await page.getByRole('button', { name: '시설 새로고침' }).click();
+  await page.getByRole('button', { name: '날씨 다시 조회' }).click();
   await expect(page.getByText('날씨를 불러오지 못했습니다. 다시 시도해 주세요.')).toBeVisible();
   await state('normal');
-  await page.getByRole('button', { name: '다시 시도' }).click();
+  await page.getByRole('button', { name: '날씨 다시 조회' }).click();
   await expect(page.getByText('최근에 받은 예보입니다.')).toBeVisible();
   await expect(
     page.getByText('이전에 불러온 정보입니다. 최신 정보를 확인하지 못했습니다.'),

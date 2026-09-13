@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { productionAssets } from './assets';
 import { createApp } from './app';
 import { fixtureService } from './services/meetup';
 import type { Assets } from './render';
@@ -11,7 +12,7 @@ import { authMailer } from './auth/mail';
 import { databaseMeetings } from './services/meetings';
 const production = process.env.NODE_ENV === 'production';
 const fixtureMode = process.env.MEETUP_SOURCE === 'fixture';
-if (process.env.MEETUP_SOURCE && !['fixture','database'].includes(process.env.MEETUP_SOURCE))
+if (process.env.MEETUP_SOURCE && !['fixture', 'database'].includes(process.env.MEETUP_SOURCE))
   throw new Error('MEETUP_SOURCE must be database or fixture.');
 const vite = production
   ? null
@@ -30,9 +31,7 @@ const assets: Assets = {
 };
 if (production) {
   const manifest = JSON.parse(await readFile('dist/client/.vite/manifest.json', 'utf8'));
-  const entry = manifest['src/app/entry-client.tsx'];
-  assets.scripts = ['/' + entry.file];
-  assets.css = (entry.css ?? []).map((file: string) => '/' + file);
+  Object.assign(assets, productionAssets(manifest));
 }
 const pool = process.env.DATABASE_URL ? createPool(process.env.DATABASE_URL) : undefined;
 const auth =

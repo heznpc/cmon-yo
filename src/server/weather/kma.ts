@@ -121,73 +121,161 @@ export function kmaWeather({
   now = Date.now,
   deadlineMs = 2500,
   ttlMs = 300_000,
+  retryMs = 2000,
+  maxEntries = 64,
+  observe = () => {},
 }: {
   key?: string;
   fetcher?: typeof fetch;
   now?: () => number;
   deadlineMs?: number;
   ttlMs?: number;
+  retryMs?: number;
+  maxEntries?: number;
+  observe?: (
+    event:
+      | 'hit'
+      | 'miss'
+      | 'joined'
+      | 'backoff'
+      | 'success'
+      | 'failure'
+      | 'timeout'
+      | 'cancelled'
+      | 'evicted',
+  ) => void;
 } = {}): WeatherService {
-  const cache = new Map<string, WeatherFacts>();
+  type Entry = { facts?: WeatherFacts; retryAt: number };
+  type Flight = { controller: AbortController; promise: Promise<Weather>; consumers: number };
+  const cache = new Map<string, Entry>();
+  const flights = new Map<string, Flight>();
+  const unavailable = (): Weather => ({ status: 'unavailable', facts: null });
+  const valid = (facts?: WeatherFacts) =>
+    facts && now() - Date.parse(facts.fetchedAt) <= 3600_000 && Date.parse(facts.validAt) >= now();
+  const previous = (entry?: Entry): Weather =>
+    valid(entry?.facts) ? { status: 'stale', facts: entry!.facts! } : unavailable();
+  const save = (id: string, entry: Entry) => {
+    cache.delete(id);
+    if (cache.size >= maxEntries) {
+      cache.delete(cache.keys().next().value!);
+      observe('evicted');
+    }
+    cache.set(id, entry);
+  };
   return async (latitude, longitude, signal) => {
     signal.throwIfAborted();
-    if (!key) return { status: 'unavailable', facts: null };
+    if (!key) return unavailable();
     let grid: ReturnType<typeof forecastGrid>;
     try {
       grid = forecastGrid(latitude, longitude);
     } catch {
-      return { status: 'unavailable', facts: null };
+      return unavailable();
     }
-    const time = now();
-    const request = { ...grid, ...forecastTimes(time) };
+    const time = now(),
+      request = { ...grid, ...forecastTimes(time) };
     const cacheKey = `${grid.nx}:${grid.ny}:${request.validAt}`;
+    const flightKey = `${cacheKey}:${request.issuedAt}`;
+    for (const [id, entry] of cache)
+      if (!valid(entry.facts) && entry.retryAt <= time) cache.delete(id);
     const prior = cache.get(cacheKey);
-    if (prior && prior.issuedAt === request.issuedAt && time - Date.parse(prior.fetchedAt) < ttlMs)
-      return { status: 'fresh', facts: prior };
-    const deadline = AbortSignal.any([signal, AbortSignal.timeout(deadlineMs)]);
-    try {
-      const rows: unknown[] = [];
-      let total = 0;
-      for (let page = 1; page <= 3; page++) {
-        const url = new URL(
-          'https://apihub.kma.go.kr/api/typ02/openApi/VilageFcstInfoService_2.0/getVilageFcst',
-        );
-        for (const [name, value] of Object.entries({
-          authKey: key,
-          dataType: 'JSON',
-          pageNo: page,
-          numOfRows: 1000,
-          base_date: request.baseDate,
-          base_time: request.baseTime,
-          ...grid,
-        }))
-          url.searchParams.set(name, String(value));
-        const response = await fetcher(url, { signal: deadline });
-        if (!response.ok) throw new Error('Forecast unavailable');
-        const body = responseSchema.parse(await response.json()).response.body;
-        if (body.pageNo !== page || (page > 1 && body.totalCount !== total))
-          throw new Error('Partial forecast');
-        total = body.totalCount;
-        if (body.items.item.length !== Math.min(1000, total - rows.length))
-          throw new Error('Partial forecast');
-        rows.push(...body.items.item);
-        if (rows.length === total) break;
-      }
-      deadline.throwIfAborted();
-      const facts = normalizeForecast(rows, request, new Date(time).toISOString());
-      if (!cache.has(cacheKey) && cache.size >= 64) cache.delete(cache.keys().next().value!);
-      const current = cache.get(cacheKey);
-      if (!current || current.fetchedAt <= facts.fetchedAt) cache.set(cacheKey, facts);
-      return { status: 'fresh', facts };
-    } catch {
-      signal.throwIfAborted();
-      if (
-        prior &&
-        time - Date.parse(prior.fetchedAt) <= 3600_000 &&
-        Date.parse(prior.validAt) >= now()
-      )
-        return { status: 'stale', facts: prior };
-      return { status: 'unavailable', facts: null };
+    if (
+      prior?.facts &&
+      prior.facts.issuedAt === request.issuedAt &&
+      time - Date.parse(prior.facts.fetchedAt) < ttlMs
+    ) {
+      save(cacheKey, prior);
+      observe('hit');
+      return { status: 'fresh', facts: prior.facts };
     }
+    if (prior && prior.retryAt > time) {
+      observe('backoff');
+      return previous(prior);
+    }
+    let flight = flights.get(flightKey);
+    if (flight) observe('joined');
+    else {
+      observe('miss');
+      if (flights.size >= maxEntries) return previous(prior);
+      const controller = new AbortController();
+      flight = { controller, consumers: 0, promise: Promise.resolve(unavailable()) };
+      const currentFlight = flight;
+      const timer = setTimeout(() => controller.abort(new Error('weather deadline')), deadlineMs);
+      flight.promise = (async (): Promise<Weather> => {
+        try {
+          const rows: unknown[] = [];
+          let total = 0;
+          for (let page = 1; page <= 3; page++) {
+            const url = new URL(
+              'https://apihub.kma.go.kr/api/typ02/openApi/VilageFcstInfoService_2.0/getVilageFcst',
+            );
+            for (const [name, value] of Object.entries({
+              authKey: key,
+              dataType: 'JSON',
+              pageNo: page,
+              numOfRows: 1000,
+              base_date: request.baseDate,
+              base_time: request.baseTime,
+              ...grid,
+            }))
+              url.searchParams.set(name, String(value));
+            const response = await fetcher(url, { signal: controller.signal });
+            if (!response.ok) throw new Error('Forecast unavailable');
+            const body = responseSchema.parse(await response.json()).response.body;
+            if (body.pageNo !== page || (page > 1 && body.totalCount !== total))
+              throw new Error('Partial forecast');
+            total = body.totalCount;
+            if (body.items.item.length !== Math.min(1000, total - rows.length))
+              throw new Error('Partial forecast');
+            rows.push(...body.items.item);
+            if (rows.length === total) break;
+          }
+          controller.signal.throwIfAborted();
+          const facts = normalizeForecast(rows, request, new Date(now()).toISOString());
+          save(cacheKey, { facts, retryAt: 0 });
+          observe('success');
+          return { status: 'fresh', facts };
+        } catch {
+          if (controller.signal.aborted && currentFlight.consumers === 0) {
+            observe('cancelled');
+            return previous(prior);
+          }
+          observe(controller.signal.aborted ? 'timeout' : 'failure');
+          save(cacheKey, {
+            facts: valid(prior?.facts) ? prior?.facts : undefined,
+            retryAt: now() + retryMs,
+          });
+          return previous(prior);
+        } finally {
+          clearTimeout(timer);
+          if (flights.get(flightKey) === currentFlight) flights.delete(flightKey);
+        }
+      })();
+      flights.set(flightKey, flight);
+    }
+    const shared = flight;
+    shared.consumers++;
+    // The upstream belongs to the flight, not the first request's signal.
+    return new Promise<Weather>((resolve, reject) => {
+      let done = false;
+      const finish = (value?: Weather, error?: unknown) => {
+        if (done) return;
+        done = true;
+        signal.removeEventListener('abort', abort);
+        shared.consumers--;
+        if (shared.consumers === 0 && flights.get(flightKey) === shared) {
+          flights.delete(flightKey);
+          shared.controller.abort();
+        }
+        if (error) reject(error);
+        else resolve(value!);
+      };
+      const abort = () => finish(undefined, signal.reason ?? new Error('Cancelled'));
+      signal.addEventListener('abort', abort, { once: true });
+      shared.promise.then(
+        (value) => finish(value),
+        (error) => finish(undefined, error),
+      );
+      if (signal.aborted) abort();
+    });
   };
 }

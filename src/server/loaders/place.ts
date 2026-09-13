@@ -11,7 +11,7 @@ export async function loadPlaces(
   if (id)
     await client.fetchQuery({
       queryKey: placeKey(id),
-      queryFn: () => service.detail(id, signal),
+      queryFn: () => service.info(id, signal),
       staleTime: 60_000,
     });
   else

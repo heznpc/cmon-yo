@@ -8,6 +8,7 @@ import { createAuth } from '../src/server/auth/service';
 import { databaseMeetings, migrateMeetings } from '../src/server/services/meetings';
 import { databasePlaces } from '../src/server/services/place';
 import { importParks } from '../src/server/facilities/import';
+import { productionAssets } from '../src/server/assets';
 import { createApp } from '../src/server/app';
 import { currentAccount } from '../src/server/auth/routes';
 import type { AuthMail } from '../src/server/auth/mail';
@@ -55,9 +56,7 @@ const assets: Assets = {
 };
 if (production) {
   const manifest = JSON.parse(await readFile('dist/client/.vite/manifest.json', 'utf8'));
-  const entry = manifest['src/app/entry-client.tsx'];
-  assets.scripts = ['/' + entry.file];
-  assets.css = entry.css.map((p: string) => '/' + p);
+  Object.assign(assets, productionAssets(manifest));
 }
 const builtRenderer = production
   ? resolve(

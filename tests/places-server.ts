@@ -26,6 +26,7 @@ const makeWeather = () =>
   kmaWeather({
     key: 'local-qa-only',
     ttlMs: 0,
+    retryMs: 0,
     deadlineMs: 500,
     fetcher: (input, init) => fetch('http://127.0.0.1:3113/' + new URL(String(input)).search, init),
   });
@@ -42,6 +43,16 @@ const app = createApp({
   },
   renderer: async () => (await vite.ssrLoadModule('/src/server/render.tsx')).renderPage,
   places: {
+    async info(id, signal) {
+      if (state === 'error')
+        throw new ServiceError(503, 'UNAVAILABLE', '시설을 불러오지 못했습니다.');
+      if (state === 'not-found')
+        throw new ServiceError(404, 'NOT_FOUND', '시설을 찾을 수 없습니다.');
+      const info = await db.info(id, signal);
+      if (state === 'changed') info.place.name = '[QA] HTTP로 갱신된 공원';
+      return info;
+    },
+    weather: db.weather,
     async list(signal) {
       if (state === 'error')
         throw new ServiceError(503, 'UNAVAILABLE', '시설을 불러오지 못했습니다.');

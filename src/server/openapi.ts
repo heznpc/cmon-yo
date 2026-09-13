@@ -1,7 +1,13 @@
 import { z } from 'zod';
 import { apiErrorSchema } from '../contracts/http';
 import { idSchema, meetupDetailSchema } from '../contracts/meetup';
-import { placeIdSchema, placeDetailSchema, placeListSchema } from '../contracts/place';
+import {
+  placeIdSchema,
+  placeDetailSchema,
+  placeListSchema,
+  placeInfoSchema,
+  placeWeatherSchema,
+} from '../contracts/place';
 import { accountSchema, accountUserSchema } from '../contracts/account';
 
 // Describe accepted wire values, before client normalization. In particular, an
@@ -78,6 +84,31 @@ export const openapi = {
         },
       },
     },
+    '/api/v1/places/{id}/info': {
+      get: {
+        operationId: 'getPlaceInfo',
+        summary: 'Required facility content, independent of weather.',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: wireSchema(placeIdSchema) }],
+        responses: {
+          200: response('PlaceInfo', 'Facility body; weather has an independent lifetime.'),
+          ...detailErrors,
+        },
+      },
+    },
+    '/api/v1/places/{id}/weather': {
+      get: {
+        operationId: 'getPlaceWeather',
+        summary: 'Independently retryable forecast for an existing facility.',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: wireSchema(placeIdSchema) }],
+        responses: {
+          200: response(
+            'PlaceWeather',
+            'fresh/stale/unavailable; shared upstream flight, 5-minute bounded cache and 2-second failure backoff.',
+          ),
+          ...detailErrors,
+        },
+      },
+    },
     '/api/v1/places/{id}': {
       get: {
         operationId: 'getPlace',
@@ -120,6 +151,8 @@ export const openapi = {
       },
       PlaceList: wireSchema(placeListSchema),
       PlaceDetail: wireSchema(placeDetailSchema),
+      PlaceInfo: wireSchema(placeInfoSchema),
+      PlaceWeather: wireSchema(placeWeatherSchema),
       ApiError: wireSchema(apiErrorSchema),
     },
   },

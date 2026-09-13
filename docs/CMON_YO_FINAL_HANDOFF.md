@@ -144,7 +144,7 @@ C'mon Yo!는 지역 운동과 모임을 지속적으로 이용할 수 있는 서
 
 | 기능·품질 | 코드·검증 근거 | 현재 동작과 다음 검증 |
 |---|---|---|
-| React·TypeScript·SSR | `src/server/app.ts`, `src/server/render.tsx`, `src/server/loaders/`, `src/app/entry-client.tsx`; `tests/server.test.tsx`, dev/prod Web E2E | 요청별 QueryClient, 안전한 직렬화, 중단·실패, hydration과 초기 중복 조회를 구현·검증했다. loader 완료 후 stream을 시작하므로 데이터별 점진적 표시·성능 개선은 미입증 |
+| React·TypeScript·SSR | `src/server/app.ts`, `src/server/render.tsx`, `src/server/loaders/`, `src/app/entry-client.tsx`; `tests/server.test.tsx`, dev/prod Web E2E | 요청별 QueryClient, 안전한 직렬화, 중단·실패, hydration과 초기 중복 조회를 구현·검증했다. 시설 본문/날씨와 공개 모임/개인 상태를 분리하는 Suspense stream·내부 이동을 추가했다. 로컬 production 전후 측정과 실행 범위는 [성능 수용조건](performance-acceptance.md)에 기록하며 배포 환경은 미검증 |
 | 프론트 ↔ 서버 계약 | `src/api/public.ts`, `src/server/openapi.ts`, `src/contracts/`; `tests/public-api.test.ts`, 실제 DB HTTP 검사 | 실제 모임 조회/명령·개인 참여·내 모임·Native 이메일 인증의 명세가 `meetings-openapi.ts`에 있다. 인증 mutation 전체 명세·독립 서버 배포는 후속 검증 |
 | 사용자 화면·상태 | `src/features/meetup/MeetupPage.tsx`, `src/features/places/PlacesPage.tsx`; 정상→404/연결 실패→복구, 좁은 화면·글자 확대 실행 QA | 기본 조회 UX와 Web 이메일 폼·원래 화면 복귀·탭 간 로그아웃을 연결했다. 실제 모임 입력·실패 복구·개인 SSR·늦은 응답의 계정 격리를 검증했다. 공식 공급자·WebView 경계는 후속 |
 | WebView | `src/app/bridge.ts`, `ios/CmonYo/Web/`, 실제 WebKit 통합과 Simulator 도구 QA | 읽기 전용 왕복과 발신자·종료 경계는 검증했다. 인증 공유·키보드 입력·작성 중 복귀는 후속. XCUITest는 발견 2·실행 0이며 통과 아님 |

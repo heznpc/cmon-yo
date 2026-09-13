@@ -21,6 +21,12 @@ test('published OpenAPI matches actual HTTP reads, empty results and 400/404/503
       return fixture(id, signal);
     },
     places: {
+      info: async (id) => {
+        if (unavailable) throw new Error('internal storage failure');
+        if (id !== place.place.id) throw new ServiceError(404, 'NOT_FOUND', 'missing');
+        return { place: place.place };
+      },
+      weather: async (p) => ({ placeId: p.id, weather: { status: 'unavailable', facts: null } }),
       list: async () => {
         if (unavailable) throw new Error('internal storage failure');
         return { places: empty ? [] : [place.place] };
@@ -40,6 +46,8 @@ test('published OpenAPI matches actual HTTP reads, empty results and 400/404/503
       '/api/v1/meetups/{id}',
       '/api/v1/places',
       '/api/v1/places/{id}',
+      '/api/v1/places/{id}/info',
+      '/api/v1/places/{id}/weather',
     ]);
     const validate = responseContract(spec);
     const uuid = 'AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA';
@@ -55,6 +63,11 @@ test('published OpenAPI matches actual HTTP reads, empty results and 400/404/503
     };
     await check(`/api/v1/meetups/${meetup.meetup.id}`, '/api/v1/meetups/{id}', 200);
     await check('/api/v1/places', '/api/v1/places', 200);
+    for (const unit of ['info', 'weather']) {
+      await check(`/api/v1/places/${place.place.id}/${unit}`, `/api/v1/places/{id}/${unit}`, 200);
+      await check(`/api/v1/places/park-46840-99999/${unit}`, `/api/v1/places/{id}/${unit}`, 404);
+      await check(`/api/v1/places/bad/${unit}`, `/api/v1/places/{id}/${unit}`, 400);
+    }
     const detail = await check(`/api/v1/places/${place.place.id}`, '/api/v1/places/{id}', 200);
     expect(
       validate('/api/v1/places/{id}', 200, {
@@ -78,6 +91,8 @@ test('published OpenAPI matches actual HTTP reads, empty results and 400/404/503
     for (const [path, template] of [
       [`/api/v1/meetups/${meetup.meetup.id}`, '/api/v1/meetups/{id}'],
       ['/api/v1/places', '/api/v1/places'],
+      [`/api/v1/places/${place.place.id}/info`, '/api/v1/places/{id}/info'],
+      [`/api/v1/places/${place.place.id}/weather`, '/api/v1/places/{id}/weather'],
       [`/api/v1/places/${place.place.id}`, '/api/v1/places/{id}'],
     ]) {
       const body = await check(path, template, 503);
@@ -118,6 +133,16 @@ test('web HTTP client validates wire data, retains error metadata, maps detail 4
     body = { places: [place.place] };
     expect(await api.places(signal)).toEqual(body);
 
+    body = { place: place.place };
+    expect(await api.placeInfo(place.place.id, signal)).toEqual(body);
+    await expect(api.placeInfo('park-46840-99999', signal)).rejects.toMatchObject({
+      code: 'INVALID_RESPONSE',
+    });
+    body = { placeId: place.place.id, weather: { status: 'unavailable', facts: null } };
+    expect(await api.weather(place.place.id, signal)).toEqual(body);
+    await expect(api.weather('park-46840-99999', signal)).rejects.toMatchObject({
+      code: 'INVALID_RESPONSE',
+    });
     status = 404;
     body = '<html>gateway error</html>';
     expect(await api.place(place.place.id, signal)).toBeNull();

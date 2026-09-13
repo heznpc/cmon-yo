@@ -3,7 +3,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { accountKey, accountSchema, type Account } from '../../contracts/account';
 import * as css from '../meetup/meetup.css';
 import { form as formStyle } from './account.css';
-import { ProductNav } from '../meetup/MeetingsPage';
+import { markIdentityChanging } from '../../app/navigation';
+import { ProductNav } from '../../app/ProductNav';
 
 export type AccountRoute = {
   section: 'account';
@@ -114,6 +115,7 @@ export function AccountPage({ route }: { route: AccountRoute }) {
   }, [error]);
   async function changeIdentity(destination: string) {
     identityChanging.current = true;
+    markIdentityChanging();
     await client.cancelQueries({ queryKey: ['private'] });
     client.removeQueries({ queryKey: ['private'] });
     // Posting through the listening instance notifies other tabs, not this one.

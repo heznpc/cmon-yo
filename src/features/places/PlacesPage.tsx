@@ -1,16 +1,19 @@
-import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Suspense, useEffect, useState } from 'react';
 import {
   placeKey,
+  weatherKey,
   placesKey,
   placeSourceURL,
   type Weather,
   type Place,
 } from '../../contracts/place';
 import { publicAPI } from '../../api/public';
-import { displayDate } from '../meetup/MeetupPage';
+import { displayDate } from '../../contracts/date';
 import * as css from '../meetup/meetup.css';
-import { ProductNav } from '../meetup/MeetingsPage';
+import { StreamSlot } from '../../app/stream';
+import { AppLink } from '../../app/navigation';
+import { ProductNav } from '../../app/ProductNav';
 
 function FacilityInfo({ place }: { place: Place }) {
   return (
@@ -79,23 +82,19 @@ function WeatherInfo({ weather, refreshFailed }: { weather: Weather; refreshFail
   );
 }
 export function PlacesPage({ id }: { id?: string }) {
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    setReady(true);
-  }, []);
   return (
     <main className={css.page}>
       <p>C'mon Yo! · 무안군 공공시설 파일럿</p>
       <ProductNav />
-      {id ? <PlaceDetail id={id} ready={ready} /> : <PlaceList ready={ready} />}
+      {id ? <PlaceDetail id={id} /> : <PlaceList />}
       <p>
-        <a href={placeSourceURL}>출처: 전국도시공원정보표준데이터</a>
+        <AppLink href={placeSourceURL}>출처: 전국도시공원정보표준데이터</AppLink>
       </p>
-      <a href="/meetups">운동 모임 둘러보기</a>
+      <AppLink href="/meetups">운동 모임 둘러보기</AppLink>
     </main>
   );
 }
-function PlaceList({ ready }: { ready: boolean }) {
+function PlaceList() {
   const query = useQuery({
     queryKey: placesKey,
     staleTime: 60_000,
@@ -114,29 +113,41 @@ function PlaceList({ ready }: { ready: boolean }) {
         {query.data?.places.map((place) => (
           <li key={place.id}>
             <h2>
-              <a href={`/places/${place.id}`}>{place.name}</a>
+              <AppLink href={`/places/${place.id}`}>{place.name}</AppLink>
             </h2>
             <FacilityInfo place={place} />
           </li>
         ))}
       </ul>
       <p role="status">{query.isFetching ? '시설을 불러오는 중…' : ''}</p>
-      <button disabled={!ready || query.isFetching} onClick={() => void query.refetch()}>
-        {query.isError ? '다시 시도' : '시설 새로고침'}
-      </button>
+      <FacilityRefresh
+        loading={query.isFetching}
+        refresh={() => void query.refetch()}
+        label={query.isError ? '다시 시도' : '시설 새로고침'}
+      />
     </>
   );
 }
-function PlaceDetail({ id, ready }: { id: string; ready: boolean }) {
+function PlaceDetail({ id }: { id: string }) {
+  const client = useQueryClient();
   const query = useQuery({
     queryKey: placeKey(id),
     staleTime: 60_000,
     retry: false,
-    queryFn: ({ signal }) => publicAPI.place(id, signal),
+    // The public list already contains the complete facility record. Preserve
+    // its age so an old list cannot extend the detail's freshness indefinitely.
+    initialData: () => {
+      const place = client
+        .getQueryData<{ places: Place[] }>(placesKey)
+        ?.places.find((place) => place.id === id);
+      return place ? { place } : undefined;
+    },
+    initialDataUpdatedAt: () => client.getQueryState(placesKey)?.dataUpdatedAt,
+    queryFn: ({ signal }) => publicAPI.placeInfo(id, signal),
   });
   return (
     <>
-      <a href="/places">시설 목록으로 돌아가기</a>
+      <AppLink href="/places">시설 목록으로 돌아가기</AppLink>
       {query.isError ? <p role="alert">시설을 불러오지 못했습니다. 다시 시도해 주세요.</p> : null}
       {query.data === null ? <p role="alert">시설을 찾을 수 없습니다.</p> : null}
       {query.data && query.isError ? (
@@ -146,17 +157,80 @@ function PlaceDetail({ id, ready }: { id: string; ready: boolean }) {
       {query.data ? (
         <>
           <FacilityInfo place={query.data.place} />
-          <a href={`/meetups?placeId=${id}`}>이 장소의 모임 보기</a>
-          <a href={`/meetups/new?placeId=${id}`}>이 장소에서 모임 만들기</a>
-          <WeatherInfo weather={query.data.weather} refreshFailed={query.isError} />
+          <div className={css.actions}>
+            <AppLink href={`/meetups?placeId=${id}`}>이 장소의 모임 보기</AppLink>
+            <AppLink href={`/meetups/new?placeId=${id}`}>이 장소에서 모임 만들기</AppLink>
+          </div>
+          <Suspense
+            fallback={
+              <section aria-label="날씨">
+                <h2>단기예보</h2>
+                <p role="status">날씨를 불러오는 중…</p>
+              </section>
+            }
+          >
+            <StreamSlot name="weather">
+              {(packet) => <WeatherPanel id={id} failed={packet?.failed} />}
+            </StreamSlot>
+          </Suspense>
         </>
       ) : null}
-      <p role="status">{query.isFetching ? '시설과 날씨를 불러오는 중…' : ''}</p>
-      <button disabled={!ready || query.isFetching} onClick={() => void query.refetch()}>
-        {query.isError || !query.data || query.data.weather.status !== 'fresh'
-          ? '다시 시도'
-          : '시설·날씨 새로고침'}
-      </button>
+      <p role="status">{query.isFetching ? '시설을 불러오는 중…' : ''}</p>
+      <FacilityRefresh
+        loading={query.isFetching}
+        refresh={() => void query.refetch()}
+        label="시설 새로고침"
+      />
     </>
+  );
+}
+
+function WeatherPanel({ id, failed = false }: { id: string; failed?: boolean }) {
+  const query = useQuery({
+    queryKey: weatherKey(id),
+    staleTime: 60_000,
+    retry: false,
+    enabled: !failed,
+    queryFn: ({ signal }) => publicAPI.weather(id, signal),
+  });
+  return (
+    <div aria-label="날씨 상태">
+      {query.data ? (
+        <WeatherInfo weather={query.data.weather} refreshFailed={query.isError} />
+      ) : (
+        <section aria-label="날씨">
+          <h2>단기예보</h2>
+          <p role="status">
+            {query.isFetching
+              ? '날씨를 불러오는 중…'
+              : '날씨를 불러오지 못했습니다. 다시 시도해 주세요.'}
+          </p>
+        </section>
+      )}
+      {query.data && query.isFetching ? <p role="status">날씨를 갱신하는 중…</p> : null}
+      <button disabled={query.isFetching} onClick={() => void query.refetch()}>
+        날씨 다시 조회
+      </button>
+    </div>
+  );
+}
+
+// Hydration readiness belongs to the control. Updating an ancestor while a
+// sibling Suspense boundary is dehydrated would discard its pending HTML.
+function FacilityRefresh({
+  loading,
+  refresh,
+  label,
+}: {
+  loading: boolean;
+  refresh: () => void;
+  label: string;
+}) {
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
+  return (
+    <button disabled={!ready || loading} onClick={refresh}>
+      {label}
+    </button>
   );
 }

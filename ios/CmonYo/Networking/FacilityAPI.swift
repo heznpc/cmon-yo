@@ -74,6 +74,8 @@ struct FacilityWeather: Decodable, Sendable {
   }
 }
 struct FacilityList: Decodable, Sendable { let places: [Facility] }
+struct FacilityInfo: Decodable, Sendable { let place: Facility }
+struct PlaceForecast: Decodable, Sendable { let placeId: String; let weather: FacilityWeather }
 struct FacilityDetail: Decodable, Sendable {
   let place: Facility
   let weather: FacilityWeather
@@ -91,6 +93,18 @@ enum FacilityError: Error, LocalizedError {
 struct FacilityAPI: Sendable {
   let baseURL: URL
   func list() async throws -> FacilityList { try await get("api/v1/places") }
+  func info(id: String) async throws -> FacilityInfo {
+    guard validFacilityID(id) else { throw FacilityError.notFound }
+    let result: FacilityInfo = try await get("api/v1/places/\(id)/info")
+    guard result.place.id == id else { throw FacilityError.invalidResponse }
+    return result
+  }
+  func weather(id: String) async throws -> PlaceForecast {
+    guard validFacilityID(id) else { throw FacilityError.notFound }
+    let result: PlaceForecast = try await get("api/v1/places/\(id)/weather")
+    guard result.placeId == id else { throw FacilityError.invalidResponse }
+    return result
+  }
   func detail(id: String) async throws -> FacilityDetail {
     guard validFacilityID(id) else { throw FacilityError.notFound }
     return try await get("api/v1/places/\(id)")

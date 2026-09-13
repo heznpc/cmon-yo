@@ -44,7 +44,7 @@ struct FacilitiesView: View {
 private struct FacilityDetailView: View {
   let api: FacilityAPI
   let id: String
-  @State private var detail: FacilityDetail?
+  @State private var detail: FacilityInfo?
   @State private var error: String?
   @State private var loading = true
   @State private var attempt = 0
@@ -60,10 +60,10 @@ private struct FacilityDetailView: View {
           NavigationLink("이 장소에서 모임 만들기") { MeetingEditorView(placeId: id) }
           Text(detail.place.exerciseFacilities.isEmpty ? "운동시설 정보 미제공" : detail.place.exerciseFacilities.joined(separator: " · "))
           Text("공공데이터 기준일 \(detail.place.sourceDate). 현재 이용 가능 여부는 현장과 다를 수 있습니다.")
-          ForecastView(weather: detail.weather, refreshFailed: error != nil)
+          WeatherSection(api: api, id: id).id(id)
         }
-        if loading { ProgressView("시설과 날씨를 불러오는 중…") }
-        Button(error != nil || detail?.weather.status != .fresh ? "다시 시도" : "시설·날씨 새로고침") { attempt += 1 }
+        if loading { ProgressView("시설을 불러오는 중…") }
+        Button("시설 새로고침") { attempt += 1 }
           .disabled(loading).frame(minHeight: 44)
         FacilitySource()
       }.padding().frame(maxWidth: .infinity, alignment: .leading).buttonStyle(.bordered).controlSize(.large)
@@ -71,7 +71,7 @@ private struct FacilityDetailView: View {
       .task(id: attempt) {
         loading = true
         do {
-          let response = try await api.detail(id: id)
+          let response = try await api.info(id: id)
           try Task.checkCancellation()
           detail = response
           error = nil
@@ -82,6 +82,34 @@ private struct FacilityDetailView: View {
         }
         loading = false
       }
+  }
+}
+private struct WeatherSection: View {
+  let api: FacilityAPI
+  let id: String
+  @State private var weather: FacilityWeather?
+  @State private var failed = false
+  @State private var loading = true
+  @State private var attempt = 0
+  var body: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      if let weather { ForecastView(weather: weather, refreshFailed: failed) }
+      else {
+        Text("단기예보").font(.headline)
+        if !loading { Text("날씨를 불러오지 못했습니다. 다시 시도해 주세요.") }
+      }
+      if loading { ProgressView("날씨를 불러오는 중…") }
+      Button("날씨 다시 조회") { attempt += 1 }.disabled(loading).frame(minHeight: 44)
+    }.task(id: attempt) {
+      loading = true
+      do {
+        let result = try await api.weather(id: id)
+        try Task.checkCancellation()
+        weather = result.weather; failed = false
+      } catch is CancellationError { return }
+      catch { failed = true }
+      loading = false
+    }
   }
 }
 private struct FacilitySource: View {

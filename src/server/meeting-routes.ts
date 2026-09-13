@@ -1,3 +1,6 @@
+import { randomUUID } from 'node:crypto';
+import { deferState } from './deferred';
+import type { StreamResources } from '../app/stream';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { dehydrate } from '@tanstack/react-query';
 import { idSchema } from '../contracts/meetup';
@@ -51,16 +54,14 @@ export function registerMeetings(
                 'UNAVAILABLE',
                 '모임 요청을 확인하지 못했습니다. 현재 상태를 다시 조회해 주세요.',
               );
-        return p
-          .code(e.status)
-          .send({
-            error: {
-              code: e.code,
-              message: e.message,
-              requestId: r.id,
-              retryable: e.status >= 500,
-            },
-          });
+        return p.code(e.status).send({
+          error: {
+            code: e.code,
+            message: e.message,
+            requestId: r.id,
+            retryable: e.status >= 500,
+          },
+        });
       }
     };
   const idOf = (r: FastifyRequest) => {
@@ -139,7 +140,8 @@ export function registerMeetings(
       p.raw.removeListener('close', cleanup);
     };
     const timer = setTimeout(() => {
-      if (!p.sent) p.code(504).type('text/html').send(errorPage('응답 시간이 초과되었습니다.'));
+      if (!p.sent && !p.raw.headersSent && !p.raw.destroyed)
+        p.code(504).type('text/html').send(errorPage('응답 시간이 초과되었습니다.'));
       else p.raw.destroy();
       cleanup();
     }, deadlineMs);
@@ -156,37 +158,64 @@ export function registerMeetings(
               : 'list';
       const filters = filtersOf(r);
       const id = mode === 'detail' ? idOf(r) : undefined;
-      const current = await account(r, p);
-      const userId = current.user?.id ?? null;
-      client.setQueryData(accountKey(userId), current);
+      const resources: StreamResources = {};
+      let userId: string | null = null;
       if (id) {
-        const [detail, membership] = await Promise.all([
-          service.detail(id),
-          userId ? service.membership(userId, id) : null,
-        ]);
-        client.setQueryData(meetingKey(id), detail);
-        if (membership) client.setQueryData(membershipKey(userId, id), membership);
+        // The public 404 is final before sending a shell. Optional identity reads
+        // do not refresh cookies after headers have already been committed.
+        client.setQueryData(meetingKey(id), await service.detail(id));
+        resources.viewer = deferState(
+          'viewer',
+          (async () => {
+            const current = auth ? await currentAccount(auth, r, p, true) : { user: null };
+            controller.signal.throwIfAborted();
+            const viewerId = current.user?.id ?? null;
+            client.setQueryData(accountKey(viewerId), current);
+            if (viewerId) {
+              const membership = await service.membership(viewerId, id);
+              controller.signal.throwIfAborted();
+              client.setQueryData(membershipKey(viewerId, id), membership);
+            }
+            return viewerId;
+          })(),
+          client,
+          (q) => q.queryKey[0] === 'private',
+        );
       } else if (mode === 'list')
         client.setQueryData(meetingListKey(filters), await service.list(filters));
-      else if (mode === 'mine' && userId)
-        client.setQueryData(
-          myMeetingsKey(userId, filters.page),
-          await service.mine(userId, filters.page),
-        );
+      else {
+        const current = await account(r, p);
+        userId = current.user?.id ?? null;
+        client.setQueryData(accountKey(userId), current);
+        if (mode === 'mine' && userId)
+          client.setQueryData(
+            myMeetingsKey(userId, filters.page),
+            await service.mine(userId, filters.page),
+          );
+      }
       const render = await renderer();
       if (!controller.signal.aborted)
-        render(
+        await render(
           p,
           {
+            url: r.url,
+            stream: resources.viewer
+              ? { id: randomUUID(), slots: ['viewer'], deadlineMs }
+              : undefined,
             route: { section: 'meetings', mode, id, filters, userId },
-            dehydratedState: dehydrate(client),
+            dehydratedState: dehydrate(client, {
+              shouldDehydrateQuery: (q) =>
+                q.state.status === 'success' && (!resources.viewer || q.queryKey[0] !== 'private'),
+            }),
           },
           client,
           assets,
           controller.signal,
+          undefined,
+          resources,
         );
     } catch (error) {
-      if (!p.sent && !controller.signal.aborted)
+      if (!p.sent && !p.raw.headersSent && !p.raw.destroyed && !controller.signal.aborted)
         p.code(error instanceof ServiceError ? error.status : 503)
           .type('text/html')
           .send(

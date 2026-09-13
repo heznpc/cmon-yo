@@ -14,11 +14,13 @@ PR1 기능 기준선은 main에 반영됐습니다. **PR2는 무안군 시설·�
 - `GET /api/v1/openapi.json`은 시설·계정 조회와 실제 모임 목록/상세/생성/변경, membership·내 모임·명령 결과, Native 이메일 인증의 입력·응답·오류·세션 조건을 제공합니다. `MEETUP_SOURCE=fixture`에서는 기존 읽기 전용 계약을 제공합니다. 별도 백엔드 구현자는 이 계약을 소비할 수 있습니다. Zod의 입력 스키마에서 생성해 추가 필드를 허용하며, 알 수 없는 종목과 선택 설명의 클라이언트 정규화는 유지합니다. 실제 날짜·시작/종료 순서 등 JSON Schema로 표현되지 않는 의미 검증은 기존 TS/Swift 계약 검사에 남습니다.
 - 웹 HTTP client는 응답을 `unknown`으로 받아 검증합니다. 404는 해당 상세를 비우고, 실패한 갱신은 이전 정보임을 표시합니다. 오류의 `code/requestId/retryable`을 보존하며 공급자 메시지를 화면에 그대로 표시하지 않습니다. `retryable`이 자동 재시도를 뜻하지 않으며 조회 화면의 `retry: false`를 유지합니다.
 - 현재는 **Fastify가 SSR과 제품 API를 함께 맡는 단일 서버 + 직접 PostgreSQL 연결**입니다. Web 인증은 Better Auth를 같은 PostgreSQL에 연결하며 Supabase 설정은 필요하지 않습니다. 독립 Spring 서버와의 연동을 구현했다고 주장하지 않습니다.
-- SSR과 제품 API는 같은 service를 사용하고, 클라이언트는 공개 HTTP 계약을 소비합니다. 서버를 분리할 필요가 생기면 배포·소유권·장애 경계에 따라 결정합니다. 현재 renderer는 stream을 사용하지만 loader는 데이터를 받은 뒤 렌더링합니다. 데이터별 점진적 표시나 성능 향상은 아직 입증하지 않았습니다.
+- SSR과 제품 API는 같은 service를 사용하고, 클라이언트는 공개 HTTP 계약을 소비합니다. 서버를 분리할 필요가 생기면 배포·소유권·장애 경계에 따라 결정합니다. 시설 본문과 공개 모임 본문을 먼저 판정·SSR하고, 날씨와 개인 참여 상태는 독립 Suspense 영역으로 전송합니다. 내부 이동은 React Router와 Query cache를 재사용합니다. 로컬 production 측정·한계는 [성능 수용조건](docs/performance-acceptance.md)에 기록합니다.
 
 실행한 서버의 명세 확인: `curl -fsS http://127.0.0.1:3000/api/v1/openapi.json`. 명세 생성 코드와 DB/key는 browser bundle에 포함되지 않습니다.
 
 ## 현재 구현과 다음 작업 — 2026-09-13
+
+**성능 변경:** 시설·날씨 분리, 요청별 스트리밍/hydration, 내부 이동·뒤로가기 복원, 날씨 동시 요청 공유와 제한된 cache, 해시 자산 cache·화면 코드 분할을 구현했습니다. [수용조건·전후 측정·Web/Simulator 실행 기록](docs/performance-acceptance.md)을 따릅니다. PR #4의 기반 관계를 유지한 별도 성능 PR이며 HTTPS 배포에서의 stream 전달과 운영 수용량은 미검증입니다.
 
 현재 코드는 **Web·iOS 이메일 로그인과 실제 모임 생성·참여·취소·내 모임을 PostgreSQL에 연결한 상태**입니다. 주최 수정/취소, 동네·종목·날짜·시설별 탐색, 계정별 개인 조회·Native Keychain 복원을 구현했습니다. [이번 수용조건과 실행 증거](docs/meetups-acceptance.md)를 따릅니다. 공식 OAuth·외부 메일·인증된 WebView·게시글 피드는 남아 있으며 PR3A 전체 완료는 아닙니다. [handoff §1.4~1.6](docs/CMON_YO_FINAL_HANDOFF.md#14-사용자-시나리오와-화면-연결--구현-기준선)에 사용자 시나리오·화면/API·외부 설정을, §2.1에 현재 코드 근거를, §16에 구현 순서와 실행 기준을 정리했습니다.
 

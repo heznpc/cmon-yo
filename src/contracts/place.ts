@@ -34,3 +34,9 @@ export type PlaceDetail = z.infer<typeof placeDetailSchema>;
 export const placesKey = ['places', '46840'] as const;
 export const placeKey = (id: string) => ['place', id] as const;
 export const placeSourceURL = 'https://www.data.go.kr/data/15012890/standard.do';
+// Independent units for new clients; the combined detail remains compatible.
+export const placeInfoSchema = z.object({ place: placeSchema });
+export const placeWeatherSchema = z.object({ placeId: placeIdSchema, weather: weatherSchema });
+export type PlaceInfo = z.infer<typeof placeInfoSchema>;
+export type PlaceWeather = z.infer<typeof placeWeatherSchema>;
+export const weatherKey = (id: string) => ['weather', id] as const;

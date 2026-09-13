@@ -1,3 +1,7 @@
+import { randomUUID } from 'node:crypto';
+import { deferState } from './deferred';
+import type { StreamResources } from '../app/stream';
+import { weatherKey, type PlaceInfo, placeKey } from '../contracts/place';
 import { errorPage } from './error-page';
 import Fastify, { type FastifyRequest } from 'fastify';
 import { idSchema } from '../contracts/meetup';
@@ -56,7 +60,13 @@ export function createApp({
     });
   });
   app.addHook('onSend', async (_request, reply) => {
-    reply.header('Cache-Control', 'private, no-store');
+    const hashed = /^\/assets\/[^/?]+-[A-Za-z0-9_-]{8,}\.(js|css)$/.test(_request.url);
+    reply.header(
+      'Cache-Control',
+      hashed && reply.statusCode === 200
+        ? 'public, max-age=31536000, immutable'
+        : 'private, no-store',
+    );
     reply.header('X-Content-Type-Options', 'nosniff');
   });
   registerAuthRoutes(app, auth);
@@ -67,7 +77,7 @@ export function createApp({
     const controller = new AbortController();
     const timer = setTimeout(() => {
       controller.abort();
-      if (!reply.sent)
+      if (!reply.sent && !reply.raw.headersSent && !reply.raw.destroyed)
         reply.code(504).type('text/html').send(errorPage('응답 시간이 초과되었습니다.'));
       else reply.raw.destroy();
     }, deadlineMs);
@@ -92,9 +102,10 @@ export function createApp({
       };
       const render = await renderer();
       if (!controller.signal.aborted)
-        render(
+        await render(
           reply,
           {
+            url: request.url,
             route: {
               section: 'account',
               userId,
@@ -110,7 +121,12 @@ export function createApp({
           controller.signal,
         );
     } catch {
-      if (!controller.signal.aborted && !reply.sent)
+      if (
+        !controller.signal.aborted &&
+        !reply.sent &&
+        !reply.raw.headersSent &&
+        !reply.raw.destroyed
+      )
         reply.code(503).type('text/html').send(errorPage('계정 서비스를 불러오지 못했습니다.'));
       cleanup();
     }
@@ -154,9 +170,23 @@ export function createApp({
           retryable: false,
         },
       });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), deadlineMs);
+    const cleanup = () => {
+      clearTimeout(timeout);
+      controller.abort();
+      reply.raw.off('close', cleanup);
+      reply.raw.off('finish', cleanup);
+    };
+    reply.raw.once('close', cleanup);
+    reply.raw.once('finish', cleanup);
     try {
-      const signal = AbortSignal.timeout(deadlineMs);
-      return id ? await places.detail(id, signal) : await places.list(signal);
+      const signal = controller.signal;
+      if (!id) return await places.list(signal);
+      if (request.routeOptions.url?.endsWith('/info')) return await places.info(id, signal);
+      if (request.routeOptions.url?.endsWith('/weather'))
+        return await places.weather((await places.info(id, signal)).place, signal);
+      return await places.detail(id, signal);
     } catch (error) {
       const status = error instanceof ServiceError ? error.status : 503;
       return reply.code(status).send({
@@ -171,6 +201,8 @@ export function createApp({
   };
   app.get('/api/v1/places', placeAPI);
   app.get('/api/v1/places/:id', placeAPI);
+  app.get('/api/v1/places/:id/info', placeAPI);
+  app.get('/api/v1/places/:id/weather', placeAPI);
   const page = async (request: FastifyRequest, reply: Parameters<Renderer>[0]) => {
     const isPlace = request.routeOptions.url?.startsWith('/places') ?? false;
     const rawId = (request.params as { id?: string }).id;
@@ -195,7 +227,7 @@ export function createApp({
       onCleanup?.();
     };
     const timer = setTimeout(() => {
-      if (!reply.sent)
+      if (!reply.sent && !reply.raw.headersSent && !reply.raw.destroyed)
         reply.code(504).type('text/html').send(errorPage('응답 시간이 초과되었습니다.'));
       else reply.raw.destroy();
       cleanup();
@@ -206,11 +238,29 @@ export function createApp({
       const state = isPlace
         ? await loadPlaces(id.data, places, controller.signal, client)
         : await loadMeetup(id.data!, service, controller.signal, client);
+      const resources: StreamResources = {};
+      if (isPlace && id.data) {
+        const info = client.getQueryData<PlaceInfo>(placeKey(id.data))!;
+        resources.weather = deferState(
+          'weather',
+          places.weather(info.place, controller.signal).then((data) => {
+            controller.signal.throwIfAborted();
+            client.setQueryData(weatherKey(id.data!), data);
+          }),
+          client,
+          (query) => query.queryKey[0] === 'weather',
+        );
+      }
       const render = await renderer();
       if (!controller.signal.aborted)
-        render(
+        await render(
           reply,
           {
+            url: request.url,
+            fixture: !meetings,
+            stream: resources.weather
+              ? { id: randomUUID(), slots: ['weather'], deadlineMs }
+              : undefined,
             route: isPlace
               ? { section: 'places', id: id.data }
               : {
@@ -222,9 +272,16 @@ export function createApp({
           client,
           assets,
           controller.signal,
+          undefined,
+          resources,
         );
     } catch (error) {
-      if (!controller.signal.aborted && !reply.sent)
+      if (
+        !controller.signal.aborted &&
+        !reply.sent &&
+        !reply.raw.headersSent &&
+        !reply.raw.destroyed
+      )
         reply
           .code(error instanceof ServiceError ? error.status : 503)
           .type('text/html')

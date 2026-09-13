@@ -7,6 +7,7 @@ export async function currentAccount(
   auth: AuthService | undefined,
   request: FastifyRequest,
   reply: FastifyReply,
+  readOnly = false,
 ): Promise<Account> {
   if (!auth) throw new Error('Authentication unavailable.');
   const headers = fromNodeHeaders(request.headers);
@@ -14,10 +15,11 @@ export async function currentAccount(
   if (headers.has('authorization')) headers.delete('cookie');
   const session = await auth.api.getSession({
     headers,
+    query: { disableRefresh: readOnly },
     returnHeaders: true,
   });
   const cookies = session.headers.getSetCookie();
-  if (cookies.length && !reply.sent && !headers.has('authorization'))
+  if (!readOnly && cookies.length && !reply.sent && !headers.has('authorization'))
     reply.header('set-cookie', cookies);
   return accountSchema.parse({ user: session.response?.user ?? null });
 }

@@ -1,7 +1,12 @@
 import type { z } from 'zod';
 import { apiErrorSchema } from '../contracts/http';
 import { meetupDetailSchema } from '../contracts/meetup';
-import { placeDetailSchema, placeListSchema } from '../contracts/place';
+import {
+  placeDetailSchema,
+  placeListSchema,
+  placeInfoSchema,
+  placeWeatherSchema,
+} from '../contracts/place';
 
 export class PublicApiError extends Error {
   constructor(
@@ -78,6 +83,27 @@ export function createPublicAPI(fetcher: typeof fetch = fetch) {
         }),
       ),
     places: (signal: AbortSignal) => read('/api/v1/places', placeListSchema, signal, placeMessages),
+    placeInfo: (id: string, signal: AbortSignal) =>
+      detail(
+        read(
+          `/api/v1/places/${encodeURIComponent(id)}/info`,
+          placeInfoSchema.refine((data) => data.place.id === id),
+          signal,
+          placeMessages,
+        ),
+      ),
+    weather: (id: string, signal: AbortSignal) =>
+      detail(
+        read(
+          `/api/v1/places/${encodeURIComponent(id)}/weather`,
+          placeWeatherSchema.refine((data) => data.placeId === id),
+          signal,
+          {
+            unavailable: '날씨를 불러오지 못했습니다. 다시 시도해 주세요.',
+            invalid: '날씨 응답을 읽을 수 없습니다.',
+          },
+        ),
+      ),
     place: (id: string, signal: AbortSignal) =>
       detail(
         read(`/api/v1/places/${encodeURIComponent(id)}`, placeDetailSchema, signal, placeMessages),

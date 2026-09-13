@@ -76,6 +76,7 @@ test('real HTTP adapter: fresh/cache, stale on upstream failure, deadline, cance
     key: 'test-only',
     now: () => clock,
     ttlMs: 1000,
+    retryMs: 0,
     fetcher: ((input, init) =>
       fetch(origin + '/' + new URL(String(input)).search, init)) as typeof fetch,
   };
@@ -121,4 +122,99 @@ test('real HTTP adapter: fresh/cache, stale on upstream failure, deadline, cance
     upstream.server.closeAllConnections();
     await upstream.close();
   }
+});
+
+test('coalesced weather retains other consumers, cancels the last, and backs off failed requests', async () => {
+  let release!: () => void,
+    entered!: () => void,
+    calls = 0,
+    aborts = 0;
+  let mode = 'hold';
+  let clock = Date.parse('2026-09-13T04:20:00Z');
+  let arrival = new Promise<void>((r) => (entered = r));
+  const service = kmaWeather({
+    key: 'synthetic',
+    now: () => clock,
+    ttlMs: 1000,
+    retryMs: 2000,
+    maxEntries: 2,
+    fetcher: async (input, init) => {
+      calls++;
+      entered();
+      if (mode === 'failure') return new Response('{}', { status: 503 });
+      if (mode === 'hold')
+        await new Promise<void>((resolve, reject) => {
+          release = resolve;
+          init!.signal!.addEventListener(
+            'abort',
+            () => {
+              aborts++;
+              reject(new Error('cancelled'));
+            },
+            { once: true },
+          );
+        });
+      return Response.json(forecastResponse(new URL(String(input))));
+    },
+  });
+  const first = new AbortController(),
+    second = new AbortController();
+  const a = service(34.80642405, 126.4842218, first.signal),
+    b = service(34.80642405, 126.4842218, second.signal);
+  await arrival;
+  first.abort();
+  await expect(a).rejects.toThrow();
+  expect(aborts).toBe(0);
+  release();
+  expect((await b).status).toBe('fresh');
+  expect(calls).toBe(1);
+  clock += 2000;
+  mode = 'failure';
+  expect((await service(34.80642405, 126.4842218, second.signal)).status).toBe('stale');
+  expect(calls).toBe(2);
+  mode = 'normal';
+  expect((await service(34.80642405, 126.4842218, second.signal)).status).toBe('stale');
+  expect(calls).toBe(2);
+  clock += 2000;
+  expect((await service(34.80642405, 126.4842218, second.signal)).status).toBe('fresh');
+  expect(calls).toBe(3);
+  clock += 2000;
+  mode = 'hold';
+  arrival = new Promise<void>((r) => (entered = r));
+  const last = new AbortController();
+  const c = service(34.80642405, 126.4842218, last.signal);
+  await arrival;
+  last.abort();
+  await expect(c).rejects.toThrow();
+  await Promise.resolve();
+  expect(aborts).toBe(1);
+  mode = 'normal';
+  expect((await service(34.80642405, 126.4842218, second.signal)).status).toBe('fresh');
+  expect(calls).toBe(5);
+});
+
+test('weather success and failure caches stay bounded and expire by forecast time', async () => {
+  let calls = 0,
+    clock = Date.parse('2026-09-13T04:20:00Z');
+  const events: string[] = [];
+  const weather = kmaWeather({
+    key: 'synthetic',
+    maxEntries: 2,
+    now: () => clock,
+    observe: (e) => events.push(e),
+    fetcher: async (input) => {
+      calls++;
+      return Response.json(forecastResponse(new URL(String(input))));
+    },
+  });
+  const s = new AbortController().signal;
+  await weather(34.8, 126.4, s);
+  await weather(37.5, 127, s);
+  await weather(35.1, 129, s);
+  expect(events).toContain('evicted');
+  await weather(34.8, 126.4, s);
+  expect(calls).toBe(4);
+  clock += 3600000;
+  await weather(34.8, 126.4, s);
+  expect(calls).toBe(5);
 });
