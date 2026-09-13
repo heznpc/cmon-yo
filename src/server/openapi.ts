@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { apiErrorSchema } from '../contracts/http';
 import { idSchema, meetupDetailSchema } from '../contracts/meetup';
 import { placeIdSchema, placeDetailSchema, placeListSchema } from '../contracts/place';
+import { accountSchema, accountUserSchema } from '../contracts/account';
 
 // Describe accepted wire values, before client normalization. In particular, an
 // unknown sport and an omitted description must remain compatible with PR1.
@@ -30,10 +31,10 @@ const detailErrors = {
 export const openapi = {
   openapi: '3.1.1',
   info: {
-    title: "C'mon Yo! public read API",
+    title: "C'mon Yo! HTTP API",
     version: '1.0.0',
     description:
-      'Current PR1/PR2 routes only. Public reads require no authentication. ' +
+      'Public meetup/place reads require no authentication; /me requires a server session. ' +
       'Clients ignore additional response fields and validate known fields at runtime. ' +
       'HTTP errors carry code, message, requestId and retryable; retryable does not trigger an automatic retry. ' +
       'SSR calls the same application services directly, without an HTTP self-call.',
@@ -41,6 +42,21 @@ export const openapi = {
   servers: [{ url: '/' }],
   security: [],
   paths: {
+    '/api/v1/me': {
+      get: {
+        operationId: 'getCurrentAccount',
+        summary: 'Read the signed-in account without session or provider tokens.',
+        security: [{ SessionCookie: [] }, { SecureSessionCookie: [] }],
+        responses: {
+          '200': response('Account', 'Current account. Never shared-cache this response.'),
+          '401': response(
+            'ApiError',
+            'UNAUTHENTICATED: sign in; do not automatically repeat mutations.',
+          ),
+          '503': response('ApiError', 'AUTH_UNAVAILABLE: identity could not be checked.'),
+        },
+      },
+    },
     '/api/v1/meetups/{id}': {
       get: {
         operationId: 'getMeetup',
@@ -79,7 +95,22 @@ export const openapi = {
     },
   },
   components: {
+    securitySchemes: {
+      SessionCookie: {
+        type: 'apiKey',
+        in: 'cookie',
+        name: 'cmon.session_token',
+        description: 'Loopback development only; HttpOnly and SameSite=Lax.',
+      },
+      SecureSessionCookie: {
+        type: 'apiKey',
+        in: 'cookie',
+        name: '__Secure-cmon.session_token',
+        description: 'HTTPS session; HttpOnly, Secure and SameSite=Lax.',
+      },
+    },
     schemas: {
+      Account: wireSchema(accountSchema.extend({ user: accountUserSchema })),
       MeetupDetail: {
         ...wireSchema(meetupDetailSchema),
         description:

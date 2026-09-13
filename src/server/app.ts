@@ -9,6 +9,10 @@ import { databasePlaces, type PlaceService } from './services/place';
 import { kmaWeather } from './weather/kma';
 import { loadPlaces } from './loaders/place';
 import { openapi } from './openapi';
+import { currentAccount, registerAuthRoutes } from './auth/routes';
+import type { AuthService } from './auth/service';
+import { accountKey, accountReturnPath } from '../contracts/account';
+import { dehydrate } from '@tanstack/react-query';
 export type Renderer = typeof renderPage;
 export function createApp({
   service = fixtureService(),
@@ -17,6 +21,7 @@ export function createApp({
   deadlineMs = 5000,
   onCleanup,
   places = databasePlaces(undefined, kmaWeather()),
+  auth,
 }: {
   service?: MeetupService;
   renderer: () => Promise<Renderer>;
@@ -24,11 +29,67 @@ export function createApp({
   deadlineMs?: number;
   onCleanup?: () => void;
   places?: PlaceService;
+  auth?: AuthService;
 }) {
   const app = Fastify({ logger: false });
   app.addHook('onSend', async (_request, reply) => {
     reply.header('Cache-Control', 'private, no-store');
     reply.header('X-Content-Type-Options', 'nosniff');
+  });
+  registerAuthRoutes(app, auth);
+  app.get('/account', async (request, reply) => {
+    const client = createRequestClient();
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      controller.abort();
+      if (!reply.sent)
+        reply.code(504).type('text/html').send(errorPage('응답 시간이 초과되었습니다.'));
+      else reply.raw.destroy();
+    }, deadlineMs);
+    const cleanup = () => {
+      clearTimeout(timer);
+      controller.abort();
+      client.clear();
+      reply.raw.removeListener('close', cleanup);
+      reply.raw.removeListener('finish', cleanup);
+    };
+    reply.raw.once('close', cleanup);
+    reply.raw.once('finish', cleanup);
+    try {
+      const account = await currentAccount(auth, request, reply);
+      const userId = account.user?.id ?? null;
+      client.setQueryData(accountKey(userId), account);
+      const query = request.query as {
+        returnTo?: string;
+        mode?: string;
+        error?: string;
+        passwordChanged?: string;
+      };
+      const render = await renderer();
+      if (!controller.signal.aborted)
+        render(
+          reply,
+          {
+            route: {
+              section: 'account',
+              userId,
+              returnTo: accountReturnPath(query.returnTo),
+              mode: query.mode === 'reset' ? 'reset' : 'login',
+              callbackFailed: Boolean(query.error),
+              passwordChanged: query.passwordChanged === '1',
+            },
+            dehydratedState: dehydrate(client),
+          },
+          client,
+          assets,
+          controller.signal,
+        );
+    } catch {
+      if (!controller.signal.aborted && !reply.sent)
+        reply.code(503).type('text/html').send(errorPage('계정 서비스를 불러오지 못했습니다.'));
+      cleanup();
+    }
+    return reply;
   });
   app.get('/api/v1/openapi.json', async () => openapi);
   app.get('/api/v1/meetups/:id', async (request, reply) => {

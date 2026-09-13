@@ -85,6 +85,7 @@ export function PlacesPage({ id }: { id?: string }) {
   return (
     <main className={css.page}>
       <p>C'mon Yo! · 무안군 공공시설 파일럿</p>
+      <a href="/account">내 계정</a>
       {id ? <PlaceDetail id={id} ready={ready} /> : <PlaceList ready={ready} />}
       <p>
         <a href={placeSourceURL}>출처: 전국도시공원정보표준데이터</a>

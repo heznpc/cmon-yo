@@ -6,10 +6,28 @@ export default defineConfig({
   timeout: 30_000,
   use: { headless: true, viewport: { width: 1280, height: 900 }, trace: 'retain-on-failure' },
   projects: [
-    { name: 'development', use: { baseURL: 'http://127.0.0.1:3000' } },
-    { name: 'production', use: { baseURL: 'http://127.0.0.1:3002' } },
+    {
+      name: 'development',
+      testIgnore: 'account.spec.ts',
+      use: { baseURL: 'http://127.0.0.1:3000' },
+    },
+    {
+      name: 'production',
+      testIgnore: 'account.spec.ts',
+      use: { baseURL: 'http://127.0.0.1:3002' },
+    },
+    {
+      name: 'account-development',
+      testMatch: 'account.spec.ts',
+      use: { baseURL: 'http://127.0.0.1:3114' },
+    },
   ],
   webServer: [
+    {
+      command: 'npx tsx tests/account-server.ts',
+      url: 'http://127.0.0.1:3114/account',
+      reuseExistingServer: true,
+    },
     {
       command: 'npx tsx tests/places-server.ts',
       url: 'http://127.0.0.1:3112/places',

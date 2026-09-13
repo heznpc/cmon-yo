@@ -6,6 +6,8 @@ import type { Assets } from './render';
 import { createPool } from './db';
 import { databasePlaces } from './services/place';
 import { kmaWeather } from './weather/kma';
+import { createAuth, socialProviders } from './auth/service';
+import { authMailer } from './auth/mail';
 const production = process.env.NODE_ENV === 'production';
 const vite = production
   ? null
@@ -17,7 +19,10 @@ const vite = production
     });
 const assets: Assets = {
   scripts: ['/src/app/entry-client.tsx'],
-  css: ['/src/features/meetup/meetup.css.ts.vanilla.css?direct'],
+  css: [
+    '/src/features/meetup/meetup.css.ts.vanilla.css?direct',
+    '/src/features/account/account.css.ts.vanilla.css?direct',
+  ],
 };
 if (production) {
   const manifest = JSON.parse(await readFile('dist/client/.vite/manifest.json', 'utf8'));
@@ -26,7 +31,18 @@ if (production) {
   assets.css = (entry.css ?? []).map((file: string) => '/' + file);
 }
 const pool = process.env.DATABASE_URL ? createPool(process.env.DATABASE_URL) : undefined;
+const auth =
+  pool && process.env.AUTH_SECRET
+    ? createAuth({
+        pool,
+        origin: process.env.AUTH_ORIGIN ?? `http://127.0.0.1:${process.env.PORT ?? 3000}`,
+        secret: process.env.AUTH_SECRET,
+        sendMail: authMailer(process.env),
+        providers: socialProviders(process.env),
+      })
+    : undefined;
 const app = createApp({
+  auth,
   places: databasePlaces(pool, kmaWeather({ key: process.env.KMA_API_KEY })),
   service: fixtureService(process.env.MEETUP_FIXTURE_PATH),
   assets,

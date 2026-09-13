@@ -72,13 +72,17 @@ test('real HTTP adapter: fresh/cache, stale on upstream failure, deadline, cance
   });
   const origin = await upstream.listen({ host: '127.0.0.1', port: 0 });
   let clock = Date.parse('2026-09-13T04:20:00Z');
-  const service = kmaWeather({
+  const options = {
     key: 'test-only',
     now: () => clock,
-    deadlineMs: 80,
     ttlMs: 1000,
-    fetcher: (input, init) => fetch(origin + '/' + new URL(String(input)).search, init),
-  });
+    fetcher: ((input, init) =>
+      fetch(origin + '/' + new URL(String(input)).search, init)) as typeof fetch,
+  };
+  // Successful loopback requests use the product deadline, not an accidental
+  // 80ms machine-performance requirement. The hanging case below still proves
+  // the short deadline is enforced.
+  const service = kmaWeather(options);
   const signal = new AbortController().signal;
   try {
     const fresh = await service(34.80642405, 126.4842218, signal);
@@ -101,7 +105,9 @@ test('real HTTP adapter: fresh/cache, stale on upstream failure, deadline, cance
     expect((await service(37.5667, 126.9784, signal)).status).toBe('unavailable');
     mode = 'hang';
     const start = Date.now();
-    expect((await service(37.5667, 126.9784, signal)).status).toBe('unavailable');
+    expect(
+      (await kmaWeather({ ...options, deadlineMs: 80 })(37.5667, 126.9784, signal)).status,
+    ).toBe('unavailable');
     expect(Date.now() - start).toBeLessThan(1000);
     const controller = new AbortController();
     const pending = service(37.5667, 126.9784, controller.signal);

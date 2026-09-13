@@ -36,6 +36,7 @@ test('published OpenAPI matches actual HTTP reads, empty results and 400/404/503
   try {
     const spec = await (await fetch(`${origin}/api/v1/openapi.json`)).json();
     expect(Object.keys(spec.paths).sort()).toEqual([
+      '/api/v1/me',
       '/api/v1/meetups/{id}',
       '/api/v1/places',
       '/api/v1/places/{id}',

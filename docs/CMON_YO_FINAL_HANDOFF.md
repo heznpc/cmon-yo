@@ -106,7 +106,7 @@ C'mon Yo!는 지역 운동과 모임을 지속적으로 이용할 수 있는 서
 
 ### 1.6 외부 설정과 개발 진행 경계
 
-설정은 서비스를 운영하는 개발자가 준비하며 일반 사용자가 API 키를 입력하는 제품 흐름은 만들지 않는다. 실제 값은 Git에서 제외한 `.env` 또는 배포 secret에, 준비 항목은 [`.env.example`](../.env.example)에 모은다. 준비용 `SETUP_*`를 채웠다고 구현·앱 등록·심사·연결이 완료되지는 않는다.
+설정은 서비스를 운영하는 개발자가 준비하며 일반 사용자가 API 키를 입력하는 제품 흐름은 만들지 않는다. 실제 값은 Git에서 제외한 `.env` 또는 배포 secret에, 준비 항목은 [`.env.example`](../.env.example)에 모은다. 현재 Web 인증은 `AUTH_*`, `EMAIL_*`, 공급자별 `*_CLIENT_ID`/`*_CLIENT_SECRET`을 읽는다. 남은 Native 준비용 `SETUP_*`는 읽지 않으며, 설정값 입력과 앱 등록·심사·실연결 성공은 별개다.
 
 | 기능 | 개발 중 가능한 것 | 실제 연결에 필요한 항목 / 시점 |
 |---|---|---|
@@ -145,14 +145,14 @@ C'mon Yo!는 지역 운동과 모임을 지속적으로 이용할 수 있는 서
 | 기능·품질 | 코드·검증 근거 | 현재 동작과 다음 검증 |
 |---|---|---|
 | React·TypeScript·SSR | `src/server/app.ts`, `src/server/render.tsx`, `src/server/loaders/`, `src/app/entry-client.tsx`; `tests/server.test.tsx`, dev/prod Web E2E | 요청별 QueryClient, 안전한 직렬화, 중단·실패, hydration과 초기 중복 조회를 구현·검증했다. loader 완료 후 stream을 시작하므로 데이터별 점진적 표시·성능 개선은 미입증 |
-| 프론트 ↔ 서버 계약 | `src/api/public.ts`, `src/server/openapi.ts`, `src/contracts/`; `tests/public-api.test.ts`, 실제 DB HTTP 검사 | 공개 조회 3개의 계약과 오류 복구가 있다. 인증 API·mutation 계약·독립 서버 배포는 후속 검증 |
-| 사용자 화면·상태 | `src/features/meetup/MeetupPage.tsx`, `src/features/places/PlacesPage.tsx`; 정상→404/연결 실패→복구, 좁은 화면·글자 확대 실행 QA | 기본 조회 UX는 검증했다. 로그인 폼·작성 보존·참여 중 상태·필터/목록 복귀·개인 cache·계정 전환은 없음 |
+| 프론트 ↔ 서버 계약 | `src/api/public.ts`, `src/server/openapi.ts`, `src/contracts/`; `tests/public-api.test.ts`, 실제 DB HTTP 검사 | 공개 조회 3개와 `/api/v1/me`의 계정 DTO·401/503 계약이 있다. 인증 mutation 전체 명세·독립 서버 배포는 후속 검증 |
+| 사용자 화면·상태 | `src/features/meetup/MeetupPage.tsx`, `src/features/places/PlacesPage.tsx`; 정상→404/연결 실패→복구, 좁은 화면·글자 확대 실행 QA | 기본 조회 UX와 Web 이메일 폼·원래 화면 복귀·탭 간 로그아웃을 연결했다. 작성 보존·참여·필터 복귀·Native 개인 cache·계정 전환의 전체 보장은 후속 |
 | WebView | `src/app/bridge.ts`, `ios/CmonYo/Web/`, 실제 WebKit 통합과 Simulator 도구 QA | 읽기 전용 왕복과 발신자·종료 경계는 검증했다. 인증 공유·키보드 입력·작성 중 복귀는 후속. XCUITest는 발견 2·실행 0이며 통과 아님 |
 | 실제 제품 데이터 | `db/001_places.sql`, `src/server/services/place.ts`; 공공시설 21행 import와 DB 검사 | 시설은 실제 데이터다. `src/server/services/meetup.ts`는 파일 fixture이며 실제 모집·참여·댓글 저장은 없다. 기상청 인증 성공 실응답은 필수 미검증 |
 | 모니터링·개선 | `app.ts`의 `logger: false`, client의 hydration console 기록; §15는 계획 | 오류 테스트와 requestId는 있으나 운영 수집·지표 baseline·측정에 따른 개선은 아직 없다. 테스트 결과와 운영 지표를 구분 |
 | 사용성·개발 검증 | README의 재현→수정→영향 검사 기록, 도구를 이용한 앱 QA | 기술 문제 해결 과정의 자료는 있다. 도구 QA는 사용자 인터뷰가 아니며 사용성/전환 개선은 미입증. 코드 변경의 이유와 재현·수정·재검증 결과를 계속 기록 |
 
-React/Fastify·TanStack Query·Vite·vanilla-extract를 유지한다. 다음 작업은 로그인·모임 참여 화면의 입력, 서버 권한, 개인 상태와 실패 복구를 연결하는 것이다. OpenAPI와 실제 HTTP 검사는 서버 배치가 바뀌어도 유지할 경계다. Supabase는 인증 후보이며 현재 제품 DB는 직접 PostgreSQL 연결이다.
+React/Fastify·TanStack Query·Vite·vanilla-extract를 유지한다. 다음 작업은 로그인·모임 참여 화면의 입력, 서버 권한, 개인 상태와 실패 복구를 연결하는 것이다. OpenAPI와 실제 HTTP 검사는 서버 배치가 바뀌어도 유지할 경계다. 현재 Web 인증은 Better Auth와 직접 PostgreSQL을 사용하며 실행 범위는 README의 계정 기록을 따른다.
 
 범용 컴포넌트·프레임워크를 선행 구축하지 않는다. 생성 폼·필터·댓글 등 실제 화면에서 반복되는 요구가 생기면 필요한 컴포넌트를 추출하고 키보드·포커스·오류 표시를 검증한다. 최종 브랜드는 후속 적용할 수 있다.
 
@@ -209,7 +209,7 @@ SSR loader ─┐
 API route ──┘
 ```
 
-Supabase Auth와 관리형 PostgreSQL은 후속 연결 후보이며, 현재 PR2 구현은 `pg`를 통한 PostgreSQL 직접 연결이다. Supabase 프로젝트·Auth 연동을 완료한 상태가 아니며, 현재 로컬 개발에 Supabase 계정·프로젝트·키는 필요하지 않다. PR3A의 인증 spike에서 실제 요구와 연결 결과를 확인해 채택 여부를 결정한다. 채택하더라도 제품 테이블 접근은 서버의 PostgreSQL adapter로 모은다. runtime role은 최소 권한으로 두고 migration/DDL 권한과 분리한다. 제품 테이블의 Data API 노출을 차단하며, 사용하지 않는 Data API의 비활성화 여부를 실제 설정에서 확인한다. Supabase 공식 문서는 Data API 접근 권한·schema·RLS 경계를 설명한다. [T4]
+현재 제품 DB와 Web 이메일 인증은 `pg`를 통한 직접 PostgreSQL 연결이며 인증 구현체는 Better Auth다. Supabase 프로젝트·Auth를 사용하지 않으므로 해당 계정·키가 개발 선행조건이 아니다. Native/WKWebView의 세션 연결과 공급자별 실연결은 이어서 검증한다. 제품 테이블 접근은 서버 adapter에 모으고 runtime role과 migration/DDL 권한을 분리한다. 운영 DB의 schema·접근 권한은 배포 검증 대상이다.
 
 현재 HTTP 계약은 `GET /api/v1/openapi.json`으로 확인하며, Web은 얇은 HTTP client에서 JSON을 검증하고 TanStack Query로 화면 상태를 관리한다. SSR은 같은 service를 직접 호출하는 기준을 유지한다. 별도 Spring 제품 서버는 아직 없으며, 도입 시 SSR의 원격 API 호출·인증 전달·deadline을 별도로 검증해야 한다. Streaming renderer 사용과 데이터별 점진적 표시·성능 개선 입증을 구분한다.
 

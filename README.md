@@ -20,7 +20,7 @@ PR1 기능 기준선은 main에 반영됐습니다. **PR2는 무안군 시설·�
 
 ## 현재 구현과 다음 작업 — 2026-09-13
 
-현재 코드는 **SSR·HTTP 계약·조회 실패 복구·읽기 전용 WebView를 검증한 공개 조회 단계**입니다. 실제 모임 작성·참여·개인 상태·인증된 입력·게시글 피드는 아직 없습니다. [handoff §1.4~1.6](docs/CMON_YO_FINAL_HANDOFF.md#14-사용자-시나리오와-화면-연결--구현-기준선)에 사용자 시나리오·화면/API·외부 설정을, §2.1에 현재 코드 근거를, §16에 구현 순서와 실행 기준을 정리했습니다.
+현재 코드는 **공개 모임·시설 조회에 Web 이메일 계정 흐름을 연결하는 단계**입니다. 이메일 가입·인증·로그인·복구·로그아웃·탈퇴와 개인 SSR을 구현했으며, PR3A 전체 완료는 아닙니다. Native 인증·인증된 WebView·실제 모임 작성/참여·게시글 피드는 남아 있습니다. [handoff §1.4~1.6](docs/CMON_YO_FINAL_HANDOFF.md#14-사용자-시나리오와-화면-연결--구현-기준선)에 사용자 시나리오·화면/API·외부 설정을, §2.1에 현재 코드 근거를, §16에 구현 순서와 실행 기준을 정리했습니다.
 
 제품의 화면 구조는 **둘러보기 / 모임 / 커뮤니티 / 내 활동**을 기준으로 합니다. 동네·종목별 피드에서 모임 참여와 무관하게 질문·후기를 나누고, 시간·장소·정원이 있는 운동 약속은 모임으로 관리합니다. 지속 동호회 가입·운영은 현재 구현 기준선에 포함하지 않습니다. 시설·날씨에서 관련 모임으로 이동하고, 로그인 후 원래 화면으로 복귀하며, 참여한 약속과 내 글은 내 활동에서 다시 찾습니다. 이 구조는 구현 계획이며 현재 탭이나 최종 브랜드 구현 완료가 아닙니다.
 
@@ -39,7 +39,7 @@ PR1 기능 기준선은 main에 반영됐습니다. **PR2는 무안군 시설·�
 
 정해진 기능은 단계별 재승인을 기다리지 않고 구현·테스트·실행 QA·수정을 이어갑니다. 외부 키가 없는 경로는 로컬 DB·시험 공급자로 먼저 연결하고 실제 설정이 준비되면 공식 응답으로 다시 검증합니다. 기본 배치·가독성·반응형·포커스는 지금 검증하며, 최종 브랜드의 색상·서체·장식은 후속 스타일 PR에서 Web·Native에 일괄 적용합니다. 기능 테스트는 브랜드 CSS 클래스에 결합하지 않습니다.
 
-Web·API·iOS·DB migration을 한 저장소에서 관리하는 모노레포를 유지합니다. React/Fastify·직접 PostgreSQL과 공개 HTTP 계약을 사용하고, 인증 구현체는 이메일·각 공급자·세션·탈퇴 요구를 실제 연결해 확인합니다. Supabase는 후보이며 프로젝트 생성이 현재 선행조건은 아닙니다. PR3 기능은 별도 브랜치/PR에서 진행하며 날씨 설정 대기만으로 독립 구현을 막지 않습니다. 기존 XCUITest·실기기·VoiceOver 후속 미검증은 유지합니다.
+Web·API·iOS·DB migration을 한 저장소에서 관리하는 모노레포를 유지합니다. React/Fastify·직접 PostgreSQL과 HTTP 계약을 사용합니다. Web 인증은 서버 전용 Better Auth를 PostgreSQL에 연결했습니다. 외부 인증 호스팅이나 Supabase 프로젝트는 필요하지 않습니다. Native/WKWebView 세션 연결은 이어서 구현·검증합니다. PR3 기능은 별도 브랜치/PR에서 진행하며 날씨 설정 대기만으로 독립 구현을 막지 않습니다. 기존 XCUITest·실기기·VoiceOver 후속 미검증은 유지합니다.
 
 **계획·설정 검사 — 2026-09-13:** Node 26.3.1의 `node --input-type=module` 검사로 로컬 문서 링크/앵커 8개·코드 블록·단계 참조, `.env.example` 선언 35개·중복 없음·비밀 준비값 비어 있음·현재 런타임 기본값 불변을 확인했습니다. `node scripts/check-conventions.mjs`와 `git diff --check`도 통과했습니다. 문서·미사용 준비값 변경이므로 기능 테스트·앱 QA는 N/A이며 기존 실행 증거와 새 계획을 구분합니다.
 
@@ -47,7 +47,7 @@ Web·API·iOS·DB migration을 한 저장소에서 관리하는 모노레포를 
 
 Node **22.22.3**, npm **10.9.8**. 의존성은 `package-lock.json`에 고정합니다.
 
-API·DB·인증 준비값은 [`.env.example`](.env.example)에 모았습니다. 현재 사용하는 값, Native에 별도 전달하는 값, 아직 앱에서 읽지 않는 인증 준비용 `SETUP_*`를 구분합니다. 실제 값은 Git에서 제외된 `.env`에만 입력합니다.
+API·DB·인증 준비값은 [`.env.example`](.env.example)에 모았습니다. 현재 사용하는 값, Native에 별도 전달하는 값, 현재 Web 인증 런타임 값과 아직 읽지 않는 Native 준비용 `SETUP_*`를 구분합니다. 실제 값은 Git에서 제외된 `.env`에만 입력합니다.
 
 로컬 PostgreSQL은 개발 환경에서 직접 구성할 수 있으므로 외부 DB 서비스 가입이나 사용자 제공 키가 필요하지 않습니다. 개발 DB와 테스트 DB를 분리해 연결하고, 운영 DB 주소·접근 권한은 배포 시 준비합니다. 사용자 키가 없는 동안에는 공개 시설 표본·로컬 DB·시험용 공급자 응답으로 개발을 계속합니다. 현재 PR의 필수 실연결 증거와 후속 기능 구현 진행 여부는 별도로 판단합니다.
 
@@ -62,16 +62,17 @@ npm run with-env -- dev
 
 | 입력할 곳 | 용도·준비 시점 |
 | --- | --- |
-| `.env`의 `DATABASE_URL` | 시설을 저장·조회할 PostgreSQL 연결 문자열 |
-| `.env`의 `TEST_DATABASE_URL` | 실제 DB 통합 검사 전용 연결 문자열. 미입력 시 DB 검사 3개 skip |
+| `.env`의 `DATABASE_URL` | 시설과 계정을 저장·조회할 PostgreSQL 연결 문자열 |
+| `.env`의 `TEST_DATABASE_URL` | 실제 DB 통합 검사 전용 연결 문자열. 미입력 시 DB 검사는 skip되며 계정 브라우저 QA 서버는 실행되지 않음 |
 | `.env`의 `KMA_API_KEY` | [기상청 API허브](https://apihub.kma.go.kr/apiList.do?seqApi=10)의 authKey. 현재 남은 날씨 실연결 검증에 필요 |
-| `.env`의 Google·카카오·네이버 `SETUP_*` | 각 공급자의 client ID/키·secret·callback. Google iOS client ID는 Native SDK 채택 시에만 필요 |
-| `.env`의 Apple 관련 `SETUP_*` | 앱의 Sign in with Apple 설정·Services ID·로그인용 서명 키·callback. 개인 키는 저장소 밖에 보관 |
-| `.env`의 이메일 관련 `SETUP_*` | 직접 가입·인증·복구 메일의 SMTP 등 발송 설정. 로컬 수신함과 실제 발송 성공을 구분 |
-| `.env`의 `SETUP_SUPABASE_*` | **현재 입력 불필요.** Supabase Auth 채택 시에만 프로젝트 URL·publishable key 준비 |
+| `.env`의 `AUTH_SECRET`, `AUTH_ORIGIN` | 로컬/운영 세션 비밀값과 Web origin. 32자 이상의 임의 secret을 비공개로 보관 |
+| `.env`의 Google·카카오·네이버 `*_CLIENT_ID`, `*_CLIENT_SECRET` | 공급자별 두 값을 함께 입력하면 해당 Web 로그인 버튼 활성화. callback은 `/api/auth/callback/<provider>` |
+| `.env`의 `APPLE_CLIENT_ID`, `APPLE_CLIENT_SECRET` | Web Services ID와 로그인용 서명 키로 생성한 JWT. 앱 설정·허용 HTTPS 도메인·만료 갱신은 별도 |
+| `.env`의 `AUTH_MAIL_TRANSPORT`, `EMAIL_*` | 개발은 `local` 파일 수신함, 실제 발송/production은 SMTP. 외부 수신 성공은 별도 확인 |
+| `.env`의 남은 `SETUP_*` | Native 복귀·SDK·Apple 서명 키 준비 메모. 현재 앱이 읽는 값과 구분 |
 | OAuth/인증 공급자의 콘솔 | client ID/secret, 공급자 callback, 앱 복귀 URL 허용 목록, 동의 항목·테스트 사용자. `.env`를 채우는 것만으로 적용되지 않음 |
 
-인증 범위는 이메일 직접 가입·복구와 Google·카카오·네이버, iOS 배포용 Apple 로그인입니다. [Google](https://developers.google.com/identity/protocols/oauth2/web-server), [카카오](https://developers.kakao.com/docs/ko/kakaologin/prerequisite), [네이버](https://developers.naver.com/docs/login/api/api.md), [Apple](https://developer.apple.com/help/account/capabilities/configure-sign-in-with-apple-for-the-web/)의 앱별 키·callback·동의/테스트 설정을 실제 구현과 맞춥니다. 앱 등록, 발급, 필요 시 심사, 성공 응답 확인은 별개입니다. Supabase는 미연결 후보이며 **Supabase 계정·프로젝트·키 준비는 현재 개발의 선행조건이 아닙니다.** 채택 시에만 해당 인증 서비스의 설정을 추가합니다. 이 값들은 개발·운영자가 준비하며 일반 서비스 사용자에게 API 키를 요구하지 않습니다. 시설 공개 파일과 자체 댓글 API에는 별도 외부 키가 없고, GPS·HealthKit은 기기 권한 설정입니다.
+인증 범위는 이메일 직접 가입·복구와 Google·카카오·네이버, iOS 배포용 Apple 로그인입니다. [Google](https://developers.google.com/identity/protocols/oauth2/web-server), [카카오](https://developers.kakao.com/docs/ko/kakaologin/prerequisite), [네이버](https://developers.naver.com/docs/login/api/api.md), [Apple](https://developer.apple.com/help/account/capabilities/configure-sign-in-with-apple-for-the-web/)의 앱별 키·callback·동의/테스트 설정을 실제 구현과 맞춥니다. 앱 등록, 발급, 필요 시 심사, 성공 응답 확인은 별개입니다. **현재 Web 인증은 Better Auth와 직접 PostgreSQL을 사용하며 Supabase 계정·프로젝트·키가 필요하지 않습니다.** 이 값들은 개발·운영자가 준비하며 일반 서비스 사용자에게 API 키를 요구하지 않습니다. 시설 공개 파일과 자체 댓글 API에는 별도 외부 키가 없고, GPS·HealthKit은 기기 권한 설정입니다.
 
 **환경변수 실행 확인 — 2026-09-13:** Node 22.22.3/npm 10.9.8에서 `npm run with-env -- typecheck -- --pretty false`와 `npm run with-env -- build`가 통과했습니다. 빈 credential의 템플릿으로 `npm run with-env -- dev`와 `npm run with-env -- start`를 각각 실행해 모임 API/SSR 200, 개발·운영 asset 경로, DB 미설정 시 시설 API 503, 셸의 PORT 우선 적용을 HTTP 스크립트로 확인했습니다. 환경변수 목록·빈 비밀값·Git 제외·문서 링크도 검사했습니다. UI 변경이 없는 설정 작업으로 화면 QA와 전체 테스트는 반복하지 않았으며, Google 로그인·인증된 날씨 실연결을 검증한 결과가 아닙니다.
 
@@ -94,6 +95,36 @@ PORT=3002 npm start
 ```
 
 API는 `/api/v1/meetups/:id`, 읽기 전용 안내는 `/meetups/:id/discussion`입니다. `HOST` 기본값은 `127.0.0.1`, `PORT`는 `3000`입니다. `MEETUP_FIXTURE_PATH`로 다른 JSON 파일을 읽을 수 있으며 누락·오류를 성공 데이터로 대체하지 않습니다. production은 build manifest의 JS/CSS만 제공합니다. 실행이 끝나면 서버를 Ctrl-C로 종료합니다.
+
+## Web 계정 실행
+
+```sh
+# .env의 DATABASE_URL·AUTH_SECRET·AUTH_ORIGIN과 AUTH_MAIL_TRANSPORT=local 설정 후
+npm run with-env -- auth -- migrate
+npm run with-env -- dev
+# http://127.0.0.1:3000/account
+```
+
+`local` 수신함은 Git에서 제외된 `.cache/auth-mail/`입니다. 메일 인증·복구·탈퇴 링크를 이 파일에서 열어 로컬 흐름을 확인합니다. 파일에는 인증 링크가 있으므로 공개하지 않습니다. production은 SMTP 설정을 요구하며 로컬 파일 수신함으로 외부 발송을 성공 처리하지 않습니다. Google·카카오·네이버·Apple은 런타임 ID/secret이 모두 있을 때만 버튼을 표시합니다. 공급자 callback과 수단 연결/해제의 전체 사용자 흐름은 아직 검증 전입니다.
+
+서버는 Better Auth 1.7.4의 암호 해시·메일 토큰·세션·공급자 구현을 사용하고, 앱은 `/api/v1/me`의 공개 계정 DTO만 SSR에 넣습니다. 세션은 HttpOnly cookie로 전달하며 브라우저 bundle에는 DB·메일·OAuth secret을 넣지 않습니다. 이메일만 같다고 자동으로 계정을 병합하지 않습니다. 이 Web 구현을 Native/WKWebView 인증 공유 완료로 간주하지 않습니다.
+
+**Web 계정 실행 기록 — 2026-09-13:** macOS 27.0, Node 22.22.3/npm 10.9.8, 프로젝트 전용 PostgreSQL 17.11, Chromium에서 확인했습니다. 현재 범위는 Web 이메일 계정이며 PR3A 전체 완료가 아닙니다.
+
+| 검사·실행 | 실제 결과와 범위 |
+| --- | --- |
+| `npm run with-env -- auth -- migrate` | 개발 DB에 인증 schema 적용. 운영 DB에는 실행하지 않음 |
+| `npm run with-env -- check` | lint·typecheck·Vitest **70개 성공, skip 0**, client/server build·server-only bundle 검사 통과 |
+| `tests/auth.test.tsx` | 순수 입력/DB 숫자 경계 1개와 실제 PostgreSQL·HTTP 2개. 메일 인증 전 거부, cookie 갱신, `/me` OpenAPI·401, 로그아웃, 비밀번호 재설정·이전 세션 폐기, 429 후 회복, 확인된 탈퇴·계정/세션 삭제, 두 사용자 동시 SSR 격리·만료 세션 거부 |
+| `AUTH_SECRET= npm run with-env -- test:web` | **23개 성공**: 기존 공개 조회 dev/prod 22개 + 격리된 테스트 DB와 메일 수신함을 사용하는 계정 개발 UI 1개. 계정 테스트 서버는 자체 secret을 생성하므로 외부 키가 필요 없음. 기존 공개 조회 서버만 인증 미설정 모드로 실행하며 계정 테스트를 끄는 옵션이 아님 |
+| `tests/web/account.spec.ts` | 실제 Chromium 자동 조작. 가입 → 인증 전 거부·오류 포커스 → 시험 수신함 링크 → 로그인·원래 모임 복귀 → 새로고침 후 계정 유지 → 다른 탭 로그아웃 반영 → 오프라인 실패·입력 보존·재시도 → 비밀번호 재설정 → 재로그인 → 확인된 탈퇴. 320px/200% 글자에서 넘침 없음, hydration/runtime 예외 없음 |
+| 실제 production 서버 + 추가 Playwright QA | `PORT=3192 AUTH_ORIGIN=http://127.0.0.1:3192 AUTH_MAIL_TRANSPORT=smtp … npm run with-env -- start` 후 Chromium에서 이미 인증된 로컬 시험 계정으로 로그인·원래 시설 복귀·계정·로그아웃·401 확인. JS 없는 개인 SSR, no-store, hydration의 초기 `/me` 중복 요청 0, 360px 화면 확인. SMTP는 로컬 시험 주소로 설정했으며 메일 발송을 실행한 검사가 아님 |
+
+브라우저 QA는 Playwright CLI와 Playwright 자동 조작이며 사람의 수동 QA가 아닙니다. Browser plugin not available로 저장소의 Playwright 경로를 사용했습니다. 개발 UI의 메일 전달은 시험 수신함을 사용했고 실제 외부 이메일 수신·OAuth 동의/성공을 대신하지 않습니다. 화면 증거는 Git에서 제외된 `test-results/`와 로컬 QA 산출물에 보관합니다.
+
+재현·수정한 결함은 외부 Origin의 로그아웃 허용, 인증 callback의 빈 응답/변경된 JSON에 원래 Content-Length 전달, DB int8 문자열에 의한 잘못된 재시도 시간, 갱신 cookie 누락, 자기 탭의 계정 알림이 복귀 navigation을 덮는 문제입니다. 해당 HTTP·브라우저 흐름을 다시 실행했습니다. 최초 전체 검사에서는 기존 날씨 검사의 정상 응답 80ms 제한과 env-runner의 5초 제한에 걸렸습니다. env-runner는 분리 실행에서 통과했고 코드를 바꾸지 않았습니다. 날씨는 정상 응답에 제품 deadline을 사용하고, 멈춘 응답의 80ms 제한·취소 검증은 유지했습니다. 최종 기본 `check`가 전체 통과한 결과를 위에 기록했습니다.
+
+**남은 범위:** 실제 Google·카카오·네이버·Apple 왕복과 SMTP 외부 수신, 로그인 수단 연결/해제·충돌의 UI/계약, Native/WKWebView 동일 사용자, A의 늦은 응답이 B의 화면/cache/뒤로가기에 섞이지 않는 전체 전환 검사, 인증 mutation 전체 명세와 안전한 운영 관측입니다. 이번 Web 세션·탭 검사만으로 이들을 통과 처리하지 않습니다. 기존 기상청 성공 실응답, XCUITest 발견 2·실행 0, 실기기·VoiceOver 후속 미검증도 그대로 유지합니다. 이 설정/검증 대기가 독립 기능 구현을 중단시키지는 않습니다.
 
 ## PR2 시설·날씨 실행
 

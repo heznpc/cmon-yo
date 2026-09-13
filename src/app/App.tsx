@@ -6,8 +6,9 @@ import {
 } from '@tanstack/react-query';
 import { MeetupPage, type Route } from '../features/meetup/MeetupPage';
 import { PlacesPage } from '../features/places/PlacesPage';
+import { AccountPage, type AccountRoute } from '../features/account/AccountPage';
 export type InitialState = {
-  route: Route | { section: 'places'; id?: string };
+  route: Route | { section: 'places'; id?: string } | AccountRoute;
   dehydratedState: DehydratedState;
 };
 export function App({ state, client }: { state: InitialState; client: QueryClient }) {
@@ -15,7 +16,11 @@ export function App({ state, client }: { state: InitialState; client: QueryClien
     <QueryClientProvider client={client}>
       <HydrationBoundary state={state.dehydratedState}>
         {'section' in state.route ? (
-          <PlacesPage id={state.route.id} />
+          state.route.section === 'account' ? (
+            <AccountPage route={state.route} />
+          ) : (
+            <PlacesPage id={state.route.id} />
+          )
         ) : (
           <MeetupPage route={state.route} />
         )}
