@@ -4,16 +4,16 @@
 
 **Swift native + React Web hybrid architecture**. React와 SwiftUI는 각각 제품 화면이며, Fastify API와 React SSR loader는 같은 공개 모임 service를 직접 호출합니다.
 
-**PR1 기능 수용조건 충족 / XCUITest 자동화 미검증**입니다. fixture 기반 Web·API·iOS의 필수 실행 증거는 아래에 기록했습니다. 실제 모집·로그인·참여·댓글 쓰기는 없습니다. 브랜드 미정의 기본 UI이며 최종 WebView 배치를 확정하지 않습니다. 아래의 통과·미검증을 구분합니다.
+**PR1 기능 수용조건 충족 / XCUITest 자동화 미검증**입니다. fixture 기반 Web·API·iOS의 필수 실행 증거는 아래에 기록했습니다. PR1에는 실제 모집·로그인·참여·댓글 쓰기를 포함하지 않았습니다. 현재 Web 계정 진행 상태는 아래 PR3A 기록을 따릅니다. 브랜드 미정의 기본 UI이며 최종 WebView 배치를 확정하지 않습니다. 아래의 통과·미검증을 구분합니다.
 
 PR1 기능 기준선은 main에 반영됐습니다. **PR2는 무안군 시설·날씨 연결을 구현했으며 기상청 인증 실응답 검증이 남아 [draft PR #2](https://github.com/heznpc/cmon-yo/pull/2)**입니다. [PR2 수용조건](docs/pr2-acceptance.md)과 아래 실행 기록을 따릅니다.
 
 ## 현재 구조와 프론트의 API 연결
 
 - 첫 HTML: Fastify SSR loader → application service → PostgreSQL/날씨 adapter → HTML과 직렬화된 Query 상태 → React hydration. 이후 웹 재조회는 `src/api/public.ts` → same-origin HTTP API → 동일 service입니다. Native는 URLSession으로 같은 JSON API를 소비합니다.
-- `GET /api/v1/openapi.json`은 현재 공개 조회 3개(모임 상세·시설 목록·시설 상세)의 경로·입력·응답·오류를 제공합니다. 별도 백엔드 구현자는 이 계약을 소비할 수 있습니다. Zod의 입력 스키마에서 생성해 추가 필드를 허용하며, 알 수 없는 종목과 선택 설명의 클라이언트 정규화는 유지합니다. 실제 날짜·시작/종료 순서 등 JSON Schema로 표현되지 않는 의미 검증은 기존 TS/Swift 계약 검사에 남습니다.
+- `GET /api/v1/openapi.json`은 공개 조회 3개(모임 상세·시설 목록·시설 상세)와 `/api/v1/me` 계정 조회의 경로·응답·오류·세션 조건을 제공합니다. 별도 백엔드 구현자는 이 계약을 소비할 수 있습니다. Zod의 입력 스키마에서 생성해 추가 필드를 허용하며, 알 수 없는 종목과 선택 설명의 클라이언트 정규화는 유지합니다. 실제 날짜·시작/종료 순서 등 JSON Schema로 표현되지 않는 의미 검증은 기존 TS/Swift 계약 검사에 남습니다.
 - 웹 HTTP client는 응답을 `unknown`으로 받아 검증합니다. 404는 해당 상세를 비우고, 실패한 갱신은 이전 정보임을 표시합니다. 오류의 `code/requestId/retryable`을 보존하며 공급자 메시지를 화면에 그대로 표시하지 않습니다. `retryable`이 자동 재시도를 뜻하지 않으며 조회 화면의 `retry: false`를 유지합니다.
-- 현재는 **Fastify가 SSR과 제품 API를 함께 맡는 단일 서버 + 직접 PostgreSQL 연결**입니다. Supabase Auth/관리형 DB는 미연결 후보이며 현재 실행에 Supabase 설정은 필요하지 않습니다. 독립 Spring 서버와의 연동을 구현했다고 주장하지 않습니다.
+- 현재는 **Fastify가 SSR과 제품 API를 함께 맡는 단일 서버 + 직접 PostgreSQL 연결**입니다. Web 인증은 Better Auth를 같은 PostgreSQL에 연결하며 Supabase 설정은 필요하지 않습니다. 독립 Spring 서버와의 연동을 구현했다고 주장하지 않습니다.
 - SSR과 제품 API는 같은 service를 사용하고, 클라이언트는 공개 HTTP 계약을 소비합니다. 서버를 분리할 필요가 생기면 배포·소유권·장애 경계에 따라 결정합니다. 현재 renderer는 stream을 사용하지만 loader는 데이터를 받은 뒤 렌더링합니다. 데이터별 점진적 표시나 성능 향상은 아직 입증하지 않았습니다.
 
 실행한 서버의 명세 확인: `curl -fsS http://127.0.0.1:3000/api/v1/openapi.json`. 명세 생성 코드와 DB/key는 browser bundle에 포함되지 않습니다.
@@ -109,7 +109,7 @@ npm run with-env -- dev
 
 서버는 Better Auth 1.7.4의 암호 해시·메일 토큰·세션·공급자 구현을 사용하고, 앱은 `/api/v1/me`의 공개 계정 DTO만 SSR에 넣습니다. 세션은 HttpOnly cookie로 전달하며 브라우저 bundle에는 DB·메일·OAuth secret을 넣지 않습니다. 이메일만 같다고 자동으로 계정을 병합하지 않습니다. 이 Web 구현을 Native/WKWebView 인증 공유 완료로 간주하지 않습니다.
 
-**Web 계정 실행 기록 — 2026-09-13:** macOS 27.0, Node 22.22.3/npm 10.9.8, 프로젝트 전용 PostgreSQL 17.11, Chromium에서 확인했습니다. 현재 범위는 Web 이메일 계정이며 PR3A 전체 완료가 아닙니다.
+**Web 계정 실행 기록 — 2026-09-13 ([draft PR #4](https://github.com/heznpc/cmon-yo/pull/4)):** macOS 27.0, Node 22.22.3/npm 10.9.8, 프로젝트 전용 PostgreSQL 17.11, Chromium에서 확인했습니다. 현재 범위는 Web 이메일 계정이며 PR3A 전체 완료가 아닙니다.
 
 | 검사·실행 | 실제 결과와 범위 |
 | --- | --- |
@@ -218,7 +218,7 @@ npm run test:ios -- "$CMON_SIMULATOR_ID"
 - Native가 상세·modal 표시와 복귀를 소유하고 WebView가 안내 스크롤을 소유합니다. 안내를 닫으면 기존 상세가 남습니다. 입력·draft는 없고 WebView를 다시 열면 새 문서·스크롤로 시작합니다. Native 상세는 안내 실패에도 남습니다.
 - Bridge는 v1 `capabilities`와 현재 모임의 `openMeetup`만 지원합니다. 실제 main-frame의 scheme/host/port를 검사합니다. 수락 이후 실행과 웹 응답 관측은 독립적이며 timeout/종료에서 자동 재전송하지 않습니다. 자세한 종료 계약은 [PR1 수용조건](docs/pr1-acceptance.md)을 따릅니다.
 
-현재 Web의 기본 스타일은 `src/features/meetup/meetup.css.ts`에서 모임·시설 화면이 함께 사용합니다. 화면 구성은 `MeetupPage.tsx`·`PlacesPage.tsx`, Native 스타일 변경 지점은 `ios/CmonYo/Features/MeetupView.swift`·`FacilitiesView.swift`와 `ios/CmonYo/Web/DiscussionView.swift`입니다. SwiftUI에는 CSS가 직접 적용되지 않으므로 후속 브랜드 PR에서 Web·Native를 함께 맞춥니다. 기능 상태 분기와 API 계약은 유지하고 시각 변경에 영향받는 화면·접근성 검사를 다시 실행합니다. 범용 디자인 시스템은 없습니다.
+현재 Web의 기본 스타일은 `src/features/meetup/meetup.css.ts`에서 모임·시설·계정 화면이 함께 사용하며 계정 입력 배치는 `src/features/account/account.css.ts`에 있습니다. 화면 구성은 `MeetupPage.tsx`·`PlacesPage.tsx`·`AccountPage.tsx`, Native 스타일 변경 지점은 `ios/CmonYo/Features/MeetupView.swift`·`FacilitiesView.swift`와 `ios/CmonYo/Web/DiscussionView.swift`입니다. SwiftUI에는 CSS가 직접 적용되지 않으므로 후속 브랜드 PR에서 Web·Native를 함께 맞춥니다. 기능 상태 분기와 API 계약은 유지하고 시각 변경에 영향받는 화면·접근성 검사를 다시 실행합니다. 범용 디자인 시스템은 없습니다.
 
 ## 2026-09-12 실행 결과
 
