@@ -10,6 +10,11 @@ export default defineConfig({
     { name: 'production', use: { baseURL: 'http://127.0.0.1:3002' } },
   ],
   webServer: [
+    {
+      command: 'npx tsx tests/places-server.ts',
+      url: 'http://127.0.0.1:3112/places',
+      reuseExistingServer: true,
+    },
     { command: 'npm run dev', url: 'http://127.0.0.1:3000', reuseExistingServer: true },
     { command: 'PORT=3002 npm start', url: 'http://127.0.0.1:3002', reuseExistingServer: true },
     {

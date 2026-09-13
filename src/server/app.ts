@@ -4,6 +4,10 @@ import { idSchema } from '../contracts/meetup';
 import { fixtureService, ServiceError, type MeetupService } from './services/meetup';
 import { createRequestClient, loadMeetup } from './loaders/meetup';
 import type { renderPage, Assets } from './render';
+import { placeIdSchema } from '../contracts/place';
+import { databasePlaces, type PlaceService } from './services/place';
+import { kmaWeather } from './weather/kma';
+import { loadPlaces } from './loaders/place';
 export type Renderer = typeof renderPage;
 export function createApp({
   service = fixtureService(),
@@ -11,12 +15,14 @@ export function createApp({
   assets = { scripts: [], css: [] },
   deadlineMs = 5000,
   onCleanup,
+  places = databasePlaces(undefined, kmaWeather()),
 }: {
   service?: MeetupService;
   renderer: () => Promise<Renderer>;
   assets?: Assets;
   deadlineMs?: number;
   onCleanup?: () => void;
+  places?: PlaceService;
 }) {
   const app = Fastify({ logger: false });
   app.addHook('onSend', async (_request, reply) => {
@@ -26,37 +32,66 @@ export function createApp({
   app.get('/api/v1/meetups/:id', async (request, reply) => {
     const id = idSchema.safeParse((request.params as { id: string }).id);
     if (!id.success)
-      return reply
-        .code(400)
-        .send({
-          error: {
-            code: 'INVALID_ID',
-            message: '잘못된 모임 주소입니다.',
-            requestId: request.id,
-            retryable: false,
-          },
-        });
+      return reply.code(400).send({
+        error: {
+          code: 'INVALID_ID',
+          message: '잘못된 모임 주소입니다.',
+          requestId: request.id,
+          retryable: false,
+        },
+      });
     try {
       return await service(id.data, AbortSignal.timeout(deadlineMs));
     } catch (error) {
       const status = error instanceof ServiceError ? error.status : 503;
-      return reply
-        .code(status)
-        .send({
-          error: {
-            code: error instanceof ServiceError ? error.code : 'UNAVAILABLE',
-            message: status === 404 ? '모임을 찾을 수 없습니다.' : '모임을 불러오지 못했습니다.',
-            requestId: request.id,
-            retryable: status >= 500,
-          },
-        });
+      return reply.code(status).send({
+        error: {
+          code: error instanceof ServiceError ? error.code : 'UNAVAILABLE',
+          message: status === 404 ? '모임을 찾을 수 없습니다.' : '모임을 불러오지 못했습니다.',
+          requestId: request.id,
+          retryable: status >= 500,
+        },
+      });
     }
   });
+  const placeAPI = async (request: FastifyRequest, reply: Parameters<Renderer>[0]) => {
+    const id = (request.params as { id?: string }).id;
+    if (id && !placeIdSchema.safeParse(id).success)
+      return reply.code(400).send({
+        error: {
+          code: 'INVALID_ID',
+          message: '잘못된 시설 주소입니다.',
+          requestId: request.id,
+          retryable: false,
+        },
+      });
+    try {
+      const signal = AbortSignal.timeout(deadlineMs);
+      return id ? await places.detail(id, signal) : await places.list(signal);
+    } catch (error) {
+      const status = error instanceof ServiceError ? error.status : 503;
+      return reply.code(status).send({
+        error: {
+          code: status === 404 ? 'NOT_FOUND' : 'UNAVAILABLE',
+          message: status === 404 ? '시설을 찾을 수 없습니다.' : '시설을 불러오지 못했습니다.',
+          requestId: request.id,
+          retryable: status >= 500,
+        },
+      });
+    }
+  };
+  app.get('/api/v1/places', placeAPI);
+  app.get('/api/v1/places/:id', placeAPI);
   const page = async (request: FastifyRequest, reply: Parameters<Renderer>[0]) => {
-    const id = idSchema.safeParse((request.params as { id: string }).id);
+    const isPlace = request.routeOptions.url?.startsWith('/places') ?? false;
+    const rawId = (request.params as { id?: string }).id;
+    const id = isPlace ? placeIdSchema.optional().safeParse(rawId) : idSchema.safeParse(rawId);
 
     if (!id.success)
-      return reply.code(404).type('text/html').send(errorPage('모임을 찾을 수 없습니다.'));
+      return reply
+        .code(404)
+        .type('text/html')
+        .send(errorPage(isPlace ? '시설을 찾을 수 없습니다.' : '모임을 찾을 수 없습니다.'));
     const client = createRequestClient();
     const controller = new AbortController();
     let cleaned = false;
@@ -79,16 +114,20 @@ export function createApp({
     reply.raw.once('close', cleanup);
     reply.raw.once('finish', cleanup);
     try {
-      const state = await loadMeetup(id.data, service, controller.signal, client);
+      const state = isPlace
+        ? await loadPlaces(id.data, places, controller.signal, client)
+        : await loadMeetup(id.data!, service, controller.signal, client);
       const render = await renderer();
       if (!controller.signal.aborted)
         render(
           reply,
           {
-            route: {
-              id: id.data,
-              discussion: request.routeOptions.url?.endsWith('/discussion') ?? false,
-            },
+            route: isPlace
+              ? { section: 'places', id: id.data }
+              : {
+                  id: id.data!,
+                  discussion: request.routeOptions.url?.endsWith('/discussion') ?? false,
+                },
             dehydratedState: state,
           },
           client,
@@ -102,7 +141,11 @@ export function createApp({
           .type('text/html')
           .send(
             errorPage(
-              error instanceof ServiceError ? error.message : '모임을 불러오지 못했습니다.',
+              error instanceof ServiceError
+                ? error.message
+                : isPlace
+                  ? '시설을 불러오지 못했습니다.'
+                  : '모임을 불러오지 못했습니다.',
             ),
           );
       cleanup();
@@ -111,8 +154,8 @@ export function createApp({
   };
   app.get('/meetups/:id', page);
   app.get('/meetups/:id/discussion', page);
-  app.get('/', async (_request, reply) =>
-    reply.redirect('/meetups/11111111-1111-4111-8111-111111111111'),
-  );
+  app.get('/places', page);
+  app.get('/places/:id', page);
+  app.get('/', async (_request, reply) => reply.redirect('/places'));
   return app;
 }

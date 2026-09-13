@@ -6,7 +6,7 @@ final class MeetupUITests: XCTestCase {
     url: String = "http://127.0.0.1:3100", id: String = "11111111-1111-4111-8111-111111111111"
   ) -> XCUIApplication {
     let app = XCUIApplication()
-    app.launchEnvironment = ["CMON_API_URL": url, "CMON_MEETUP_ID": id]
+    app.launchEnvironment = ["CMON_API_URL": url, "CMON_MEETUP_ID": id, "CMON_START_TAB": "meetups"]
     app.launch()
     return app
   }

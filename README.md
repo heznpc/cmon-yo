@@ -6,6 +6,8 @@
 
 **PR1 기능 수용조건 충족 / XCUITest 자동화 미검증**입니다. fixture 기반 Web·API·iOS의 필수 실행 증거는 아래에 기록했습니다. 실제 모집·로그인·참여·댓글 쓰기는 없습니다. 브랜드 미정의 기본 UI이며 최종 WebView 배치를 확정하지 않습니다. 아래의 통과·미검증을 구분합니다.
 
+PR1 기능 기준선은 main에 반영됐습니다. [PR2 수용조건](docs/pr2-acceptance.md)과 아래 실행 기록을 따릅니다.
+
 ## 실행
 
 Node **22.22.3**, npm **10.9.8**. 의존성은 `package-lock.json`에 고정합니다.
@@ -23,6 +25,38 @@ PORT=3002 npm start
 ```
 
 API는 `/api/v1/meetups/:id`, 읽기 전용 안내는 `/meetups/:id/discussion`입니다. `HOST` 기본값은 `127.0.0.1`, `PORT`는 `3000`입니다. `MEETUP_FIXTURE_PATH`로 다른 JSON 파일을 읽을 수 있으며 누락·오류를 성공 데이터로 대체하지 않습니다. production은 build manifest의 JS/CSS만 제공합니다. 실행이 끝나면 서버를 Ctrl-C로 종료합니다.
+
+## PR2 시설·날씨 실행
+
+PostgreSQL 17+와 `DATABASE_URL`이 필요합니다. schema 적용과 원본 import는 서버 실행과 분리합니다. 연결 정보와 `KMA_API_KEY`(API허브 발급 키)는 서버 환경변수로만 전달합니다. `.env` 파일을 자동 로드하지 않습니다.
+
+```sh
+export DATABASE_URL=postgres://cmon@127.0.0.1:55432/cmon_pr2
+npm run facilities -- migrate
+npm run facilities -- dry-run contracts/samples/muan-parks.json
+npm run facilities -- apply contracts/samples/muan-parks.json
+npm run dev
+# http://127.0.0.1:3000/places
+# http://127.0.0.1:3000/places/park-46840-00023
+```
+
+`npm run facilities -- capture /tmp/new-muan-parks.json`은 공식 포털 파일 전체 수집이 성공한 뒤 새 지역 파일을 만듭니다(기존 파일 덮어쓰기 거부). 갱신 시 이 파일을 dry-run 후 apply합니다. source 파일 없이 자동으로 fixture를 넣거나 누락 행을 삭제하지 않습니다. DB 미설정/실패는 503, 등록 행 없음은 빈 목록입니다. API는 `/api/v1/places`, `/api/v1/places/:id`입니다.
+
+Native 기본 탭은 시설입니다. 기존 모임은 “샘플 모임” 탭에 있고 `CMON_START_TAB=meetups`로도 시작할 수 있습니다. `CMON_API_URL` 설정은 두 탭에 적용됩니다. `KMA_API_KEY` 미설정이면 시설은 표시하고 날씨는 조회 불가로 표시합니다.
+
+PR2 검증에서는 `TEST_DATABASE_URL`도 설정합니다. PostgreSQL 검사는 그 DB 안에 실행별 schema를 만들고 해당 schema만 정리합니다. 미설정 시 DB 검사 3개는 skip되므로 전체 검증 통과의 근거로 쓰면 안 됩니다. CI에는 PostgreSQL service와 두 환경변수를 설정했습니다.
+
+```sh
+export TEST_DATABASE_URL=postgres://cmon@127.0.0.1:55432/cmon_pr2_test
+npm run check
+npm run test:web
+# Simulator 통합 XCTest 전: 아래 서버 둘을 별도 터미널에서 실행
+npx tsx tests/ios-server.ts
+npx tsx tests/places-server.ts
+npm run test:ios -- "$CMON_SIMULATOR_ID"
+```
+
+`tests/places-server.ts`는 3112의 실제 DB service와 3113의 **합성 KMA HTTP 응답**을 연결하는 로컬 QA 도구입니다. `PUT /_test/state/{normal,reset,empty,error,not-found,disconnect,changed,weather-error,weather-timeout}`으로 상태를 전환합니다. 제품 서버에 포함하지 않으며 실제 기상청 날씨 표본이 아닙니다. Web E2E가 이 서버를 직접 시작/종료할 수 있습니다. 별도 실행한 QA 서버는 끝나면 Ctrl-C로 종료합니다.
 
 ## 검증 명령
 
@@ -192,6 +226,46 @@ runner 차단 기록 단계의 기록과 기존 실행 증거를 최신 `docs/pr
 실행 QA 로그·화면은 로컬 `/tmp/cmon-refresh-qa/`에 있습니다(`web-before.log`, `web-after.log`, `web-http-qa.log`, `native-qa.log`, `native-build.log`, `native-uitest-build.log`, `web-*-404.png`, `web-*-stale.png`, `native-before-404.png`, `native-after-*.json/png`). 앱 QA는 사람이 직접 터치한 수동 검사나 XCUITest 실행이 아닙니다.
 
 이 갱신 실패 결함은 실행 Web·Native에서 해소했습니다. **PR1 기능 수용조건 충족 / XCUITest 자동화 미검증** 판정을 유지합니다. XCUITest는 이전 발견 **2개·실행 0개**이며, 보완한 `test404ConnectionFailureAndRetryControls`를 포함한 기존 두 메서드의 runner 검증은 지원 환경에서 수행할 후속 항목입니다. 이번 빌드·도구 QA를 XCUITest 성공으로 대체하지 않습니다. 실기기·VoiceOver 전체 흐름도 후속 미검증으로 유지합니다.
+
+## 2026-09-13 PR2 실행 기록
+
+환경: macOS 27.0, Node 22.22.3/npm 10.9.8, PostgreSQL 17.11(Homebrew), Xcode 26.6(17F113), iPhone 17e/iOS 26.3.1 Simulator. DB는 localhost 55432의 이번 작업 전용 cluster이며 시험은 별도 schema를 사용했습니다. Browser plugin not available: 저장소 Playwright/Chromium을 사용했습니다. 앱 조작은 XcodeBuildMCP와 `idb ui` 자동화·접근성 트리·스크린샷 관측이며, 사람의 수동 터치나 XCUITest runner 실행이 아닙니다.
+
+| 실제 명령·흐름 | 결과 / 검증 수준 |
+| --- | --- |
+| `npm run facilities -- capture contracts/samples/muan-parks.json` | 공식 포털 18,202행/2페이지 수집 → 무안군 21행. 실제 capture 실행은 동일 script의 `npx tsx scripts/facilities.ts capture ...`로 실행. 21개 관리번호 고유, 같은 이름 2행, 운동시설 칸 미제공 10행 |
+| `npx tsx scripts/facilities.ts migrate`, `dry-run`, `apply` × 2 | 실제 PostgreSQL: dry-run 삽입 예정 21/시설 저장 0, 첫 apply 삽입 21, 재실행 삽입·변경 0/동일 21 |
+| `TEST_DATABASE_URL=… DATABASE_URL=… npm run check` | lint/typecheck, Vitest **63개 성공**(PostgreSQL 3개 포함), production client/server build·bundle 검사 통과. 마지막 title 수정 후 lint/typecheck/build 재실행 통과 |
+| `npx playwright test --reporter=list` → `--grep 'DB-backed\|hydration has zero'` 재검사 | 최초 18개 통과/2개 실패에서 title 결함 검출. 수정 후 영향 4개(dev/prod 각각 모임 hydration·시설 SSR) 성공. 나머지 16개는 앞선 실행 성공 증거를 유지 |
+| `DB-backed facilities SSR…` | dev/prod 실제 PostgreSQL HTTP/JS 없는 본문·출처·시설 문자열, hydration 초기 API 0회, 키보드 갱신 1회·상세 진입. 키 없는 날씨 unavailable |
+| `local HTTP QA: fresh/stale/unavailable…` | 두 Playwright project에서 같은 3112 개발 QA 서버를 검사. 합성 KMA의 정상→실패/stale→복구, 404/상세 제거, 실제 소켓 종료/이전 정보, timeout/unavailable, empty·SSR 오류/재시도. production 날씨 실응답 검증은 아님 |
+| production 서버 3006 + 로컬 `web-qa.mjs` | 실제 DB 시설 21개/상세/목록 복귀·키 없는 날씨 재시도. 1280×900, 320×740/글자 200%, URL/title·본문·overlay·콘솔·가로 넘침·스크린샷·키보드 조작 확인. runtime/hydration 오류 0 |
+| `xcodegen generate --spec ios/project.yml`; `xcodebuild -project ios/CmonYo.xcodeproj -target CmonYo -sdk iphonesimulator -configuration Debug CONFIGURATION_BUILD_DIR=/tmp/cmon-pr2-build build CODE_SIGNING_ALLOWED=NO` | 실제 Simulator용 앱 빌드 성공. `-target CmonYoUITests`도 빌드 성공. runner 성공으로 표현하지 않음 |
+| `npm run test:ios -- "$CMON_SIMULATOR_ID"` | Simulator 독립 XCTest **9개 성공**. 신규 `FacilityTests.testSharedFacilityWeatherContract`는 공통 JSON decode/거부, `testRealHTTPFacilitiesAndWeatherFailureRecovery`는 실제 URLSession→DB API→합성 날씨 HTTP의 실패/복구. 기존 모임 HTTP·WebKit도 성공 |
+| 실행 Native 앱 3112 QA | 목록→상세, 정상→날씨 실패/stale→복구, 404/상세 제거, 변경 제목→연결 종료/이전 정보, timeout/unavailable→복구, 기존 목록 복귀, empty→목록 오류→재시도 복구를 확인 |
+| 실행 Native 앱 → production 서버 3006 | DB 시설 목록·상세, 인증키 없는 날씨 unavailable을 확인. 샘플 모임 탭→WebView→앱 복귀 버튼→기존 상세 1개 복귀도 확인. 시험용 날씨 응답을 쓰지 않은 제품 서버 경로 |
+
+수용조건별 판단:
+
+| 항목 | 판단 / 근거 |
+| --- | --- |
+| 실제 시설 표본 | 통과 — 실제 capture 파일과 Web·Native 출처/기준일/미제공 표시 |
+| ingest 정합성 | 통과 — 실제 실행 및 `dry-run writes no places…`, `invalid/partial source and mid-transaction DB failure…`의 반복·동시 적용·한 행 변경·rollback |
+| 부분 수집 안전성 | 통과 — `public download rejects a partial page…`, malformed/중복 행/개수 불일치 거부·DB 보존 |
+| service·SSR | 통과 — `actual HTTP API and SSR read DB changes…`의 실제 DB/HTTP·empty·400/404/503·복구, 기존 SSR 정리 회귀 검사 |
+| 날씨 실연결 | **미검증 / 차단** — API허브 인증키가 제공되지 않아 공식 성공 실응답을 확보하지 못함. 공식 가이드/로컬 시험 응답은 대체 통과 아님 |
+| 날씨 실패 계약 | 통과 — `weather.test.ts`의 정규화·발표 지연/날짜 경계·실제 로컬 HTTP·부분 응답·인증 오류·deadline·취소·만료, Web/Native 상태 전환 |
+| Web 실행 | 통과 — 위 dev/prod 검사·별도 production 화면 QA. live 날씨는 별개 미검증 |
+| Native 실행 | 통과 — 앱 빌드·공통 계약·실제 HTTP XCTest·실행 UI를 각각 확인. live 날씨는 별개 미검증 |
+| 경계·회귀 | 통과 — lint/typecheck/build, 63개 검사, 기존 Web/HTTP/WebKit 및 server-only bundle 검사 |
+
+발견·수정: React `<title>`의 여러 children 때문에 문서 제목이 빈 값을 반환했습니다. 제목을 단일 문자열로 바꾸고 실패했던 dev/prod hydration 및 시설 제목 검사를 재실행했습니다. 공급자의 2월 30일 같은 잘못된 날짜를 Date가 다른 날로 보정하지 않도록 달력 유효성 검사를 추가하고 날씨 검사 3개도 재실행했습니다. 초기 테스트의 표본 빈칸 수와 격자 기대값도 실제 집계와 공식 C 예제 실행으로 바로잡았습니다(10행, 표본 공원 nx=52/ny=67). Native QA 스크립트의 좌표 탭/뒤로 버튼 범위 오류는 도구의 요소 탭으로 해당 흐름을 재확인했습니다.
+
+조회 비용은 21행을 대상으로 `EXPLAIN (ANALYZE, BUFFERS)`를 1회 실행했습니다: 반환 21행, shared hit 5, execution 0.072ms. warm cache의 단일 표본이며 cold/warm 비교·운영 처리량·성능 개선 증거가 아닙니다.
+
+로컬 증거는 `/tmp/cmon-pr2-research/`의 `check.log`, `web-tests.log`, `web-recheck.log`, `web-qa.json/log`, `native-build.log`, `native-uitest-build.log`, `native-tests.log`, `native-qa.log`, `native-*.json/png`, `web-*.png`, `query-plan.log`에 있습니다. 시설 capture는 저장소에 남기며 날씨 fixture는 합성임을 구분합니다.
+
+**PR2 완료 미선언 / draft 유지:** 남은 필수 항목은 인증된 기상청 성공 실응답과 실제 값·시각·격자 대조입니다. API허브 키를 서버 환경에 연결해 이 경로를 실행한 뒤 수용조건을 다시 판정합니다. PR1의 XCUITest 발견 2개·실행 0개, 실기기·VoiceOver 전체 흐름 후속 미검증은 그대로 유지하며 이번 작업에서 runtime 설치·초기화·runner 재시도를 하지 않았습니다.
 
 - [기여·브랜치·커밋 규칙](CONTRIBUTING.md)
 - [PR1 수용조건](docs/pr1-acceptance.md)

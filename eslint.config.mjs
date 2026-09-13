@@ -14,7 +14,10 @@ export default ts.config(
     rules: {
       'no-restricted-imports': [
         'error',
-        { patterns: ['**/server/**', 'node:*'], paths: ['fastify', '@fastify/static', 'vite'] },
+        {
+          patterns: ['**/server/**', 'node:*'],
+          paths: ['fastify', '@fastify/static', 'vite', 'pg'],
+        },
       ],
     },
   },

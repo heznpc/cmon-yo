@@ -3,6 +3,9 @@ import { resolve } from 'node:path';
 import { createApp } from './app';
 import { fixtureService } from './services/meetup';
 import type { Assets } from './render';
+import { createPool } from './db';
+import { databasePlaces } from './services/place';
+import { kmaWeather } from './weather/kma';
 const production = process.env.NODE_ENV === 'production';
 const vite = production
   ? null
@@ -22,7 +25,9 @@ if (production) {
   assets.scripts = ['/' + entry.file];
   assets.css = (entry.css ?? []).map((file: string) => '/' + file);
 }
+const pool = process.env.DATABASE_URL ? createPool(process.env.DATABASE_URL) : undefined;
 const app = createApp({
+  places: databasePlaces(pool, kmaWeather({ key: process.env.KMA_API_KEY })),
   service: fixtureService(process.env.MEETUP_FIXTURE_PATH),
   assets,
   renderer: async () =>
@@ -45,5 +50,6 @@ for (const event of ['SIGINT', 'SIGTERM'] as const)
   process.once(event, async () => {
     await app.close();
     await vite?.close();
+    await pool?.end();
     process.exit(0);
   });

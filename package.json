@@ -16,7 +16,8 @@
     "test:web": "playwright test",
     "check": "npm run lint && npm run typecheck && npm test && npm run build",
     "format": "prettier --write src tests *.ts",
-    "test:ios": "bash scripts/test-ios-simulator.sh"
+    "test:ios": "bash scripts/test-ios-simulator.sh",
+    "facilities": "tsx scripts/facilities.ts"
   },
   "dependencies": {
     "@fastify/middie": "9.3.4",
@@ -24,6 +25,7 @@
     "@tanstack/react-query": "5.102.8",
     "@vanilla-extract/css": "1.21.2",
     "fastify": "5.12.4",
+    "pg": "8.23.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "zod": "4.6.2"
@@ -32,6 +34,7 @@
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.63.0",
     "@types/node": "22.20.2",
+    "@types/pg": "8.23.1",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vanilla-extract/vite-plugin": "5.2.6",

@@ -9,6 +9,11 @@ for (const file of files.filter((name) => name.endsWith('.js'))) {
     'node:fs',
     'fastify',
     'contracts/fixtures/meetup.json',
+    'DATABASE_URL',
+    'KMA_API_KEY',
+    'authKey',
+    'pg_advisory',
+    'facility_import_runs',
   ]) {
     if (text.includes(forbidden))
       throw new Error(`Server-only marker ${forbidden} in browser bundle`);

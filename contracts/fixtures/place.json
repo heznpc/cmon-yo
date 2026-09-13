@@ -1,0 +1,28 @@
+{
+  "place": {
+    "id": "park-46840-00023",
+    "name": "근린공원 36",
+    "kind": "근린공원",
+    "address": "전남광주통합특별시 무안군 일로읍 오남로 55",
+    "latitude": 34.80642405,
+    "longitude": 126.4842218,
+    "exerciseFacilities": [
+      "풋살장",
+      "인라인스케이트장",
+      "농구장"
+    ],
+    "sourceDate": "2026-07-28"
+  },
+  "weather": {
+    "status": "fresh",
+    "facts": {
+      "temperatureC": 21,
+      "precipitationProbabilityPercent": null,
+      "precipitationType": "unknown",
+      "windSpeedMetersPerSecond": 2.5,
+      "issuedAt": "2026-09-13T02:00:00.000Z",
+      "validAt": "2026-09-13T05:00:00.000Z",
+      "fetchedAt": "2026-09-13T04:20:00.000Z"
+    }
+  }
+}
