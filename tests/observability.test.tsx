@@ -5,6 +5,31 @@ import { createApp } from '../src/server/app';
 import { renderPage } from '../src/server/render';
 import { observeWeather, type Observation } from '../src/server/observability';
 
+test('server error observation uses the error HTTP status before Fastify applies it to reply', async () => {
+  const events: Observation[] = [];
+  const app = createApp({
+    telemetry: (event) => events.push(event),
+    renderer: async () => renderPage,
+  });
+  app.get('/unexpected-error', async () => {
+    throw new Error('synthetic failure');
+  });
+  app.get('/unavailable-error', async () => {
+    throw Object.assign(new Error('synthetic unavailable'), { statusCode: 503 });
+  });
+  for (const [url, status] of [
+    ['/unexpected-error', 500],
+    ['/unavailable-error', 503],
+  ] as const) {
+    const response = await app.inject(url);
+    expect(response.statusCode).toBe(status);
+    expect(events).toContainEqual(
+      expect.objectContaining({ event: 'server_error', route: url, status }),
+    );
+  }
+  await app.close();
+});
+
 test('request ID connects SSR failures, browser reports and weather events without private payloads', async () => {
   const events: Observation[] = [];
   function Broken(): never {

@@ -17,6 +17,7 @@ export function useCommand<I>({
   execute,
   lookup,
   completed,
+  accepted,
   persistInput = (input) => input,
 }: {
   userId: string | null;
@@ -26,6 +27,7 @@ export function useCommand<I>({
   execute: (input: I, key: string, signal: AbortSignal) => Promise<{ id: string | null }>;
   lookup: string;
   completed: (input: I | null, key: string, id: string, current: () => boolean) => Promise<void>;
+  accepted?: (input: I | null) => void;
   persistInput?: (input: I) => I | null;
 }) {
   const [unknown, setUnknown] = useState<Command<I> | null>(null);
@@ -36,8 +38,8 @@ export function useCommand<I>({
     busy = useRef(false),
     alive = useRef(false);
   const active = useRef<AbortController | null>(null);
-  const latest = useRef({ execute, completed, ready, persistInput });
-  latest.current = { execute, completed, ready, persistInput };
+  const latest = useRef({ execute, completed, accepted, ready, persistInput });
+  latest.current = { execute, completed, accepted, ready, persistInput };
   const validator = useRef(schema);
   const storageScope = 'command:' + scope;
   function report(outcome: ClientEvent['outcome'], key?: string) {
@@ -72,13 +74,30 @@ export function useCommand<I>({
       active.current?.abort();
     };
   }, [userId, storageScope]);
-  function clear() {
-    if (userId) removeRecovery(userId, storageScope);
+  function withRecordLock<T>(work: () => T): Promise<T> {
+    return navigator.locks
+      ? navigator.locks.request('cmon:' + userId + ':' + scope, work)
+      : Promise.resolve().then(work);
+  }
+  async function clear(command: Command<I>, confirmed = false) {
+    if (userId)
+      await withRecordLock(() => {
+        const stored = readRecovery(
+          userId,
+          storageScope,
+          z.object({ key: z.uuid(), input: validator.current.nullable() }),
+        );
+        // A different tab may already have acknowledged this command and
+        // reserved a newer one. Only its matching receipt can remove a record.
+        if (stored?.key !== command.key) return;
+        if (confirmed) latest.current.accepted?.(command.input);
+        removeRecovery(userId, storageScope);
+      });
     record.current = null;
     setUnknown(null);
   }
   async function accept(command: Command<I>, id: string) {
-    clear();
+    await clear(command, true);
     setMessage('저장 결과를 확인했습니다.');
     // A successful command stays successful even if refreshing the view fails.
     try {
@@ -118,9 +137,7 @@ export function useCommand<I>({
       };
       // Reserve the target across tabs before fetch; never replace an unresolved
       // request with a fresh UUID. Web Locks also covers simultaneous clicks.
-      const prior = navigator.locks
-        ? await navigator.locks.request('cmon:' + userId + ':' + scope, reserve)
-        : reserve();
+      const prior = await withRecordLock(reserve);
       if (prior) {
         record.current = prior;
         setUnknown(prior);
@@ -164,7 +181,16 @@ export function useCommand<I>({
         error.status >= 500 ||
         error.code === 'COMMAND_CONFLICT';
       report(uncertain ? 'unknown' : 'rejected', command.key);
-      if (!uncertain) clear();
+      if (!uncertain) {
+        try {
+          await clear(command);
+        } catch {
+          setMessage(
+            '요청은 거절됐지만 기록을 정리하지 못했습니다. 저장 결과를 다시 확인해 주세요.',
+          );
+          return false;
+        }
+      }
       setMessage(
         uncertain ? '응답을 확인하지 못했습니다. 저장 결과를 먼저 확인해 주세요.' : error.message,
       );

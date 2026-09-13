@@ -45,6 +45,11 @@ export function useDraft<T>(userId: string, scope: string, initial: T, schema: z
     hydrated,
     message,
     discard: () => clear('초안을 폐기했습니다.'),
-    saved: () => clear(''),
+    // The command receipt owns persistent cleanup. An old component's callback
+    // must not remove input another tab has written since that receipt.
+    saved: () => {
+      setValue(defaults.current);
+      setMessage('');
+    },
   };
 }

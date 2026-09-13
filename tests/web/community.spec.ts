@@ -364,6 +364,112 @@ test('account transition clears drafts and pending request records across tabs',
   await expect(other.getByRole('button', { name: '저장 결과 확인' })).toHaveCount(0);
 });
 
+test('an older receipt in another tab preserves the newer pending command and draft', async ({
+  page,
+  request,
+  baseURL,
+  context,
+}) => {
+  const user = await account(request, baseURL!, '두 탭 요청 시험');
+  await page.goto('/account?returnTo=%2Fcommunity%2Fnew');
+  await login(page, user);
+  const first = '먼저 저장한 글 ' + randomUUID().slice(0, 6);
+  const second = '새로 보존할 글 ' + randomUUID().slice(0, 6);
+  const keys: string[] = [];
+  await page.route('**/api/v1/community/commands', async (route) => {
+    keys.push(route.request().headers()['idempotency-key']);
+    await route.fetch();
+    await route.abort('failed');
+  });
+  const write = async (title: string) => {
+    await page.getByLabel('제목', { exact: true }).fill(title);
+    await page.getByLabel('본문', { exact: true }).fill('늦은 응답이 새 요청을 지우면 안 됩니다.');
+    await page.getByRole('button', { name: '게시글 저장', exact: true }).click();
+    await expect(page.getByRole('button', { name: '저장 결과 확인', exact: true })).toBeEnabled();
+  };
+  await write(first);
+  const other = await context.newPage();
+  let release = () => {},
+    arrived = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const waiting = new Promise<void>((resolve) => {
+    arrived = resolve;
+  });
+  try {
+    await other.route('**/api/v1/me/community-commands/*', async (route) => {
+      const response = await route.fetch();
+      arrived();
+      await gate;
+      await route.fulfill({ response });
+    });
+    await other.goto('/community/new');
+    await waiting;
+    await page.bringToFront();
+    await page.getByRole('button', { name: '저장 결과 확인', exact: true }).click();
+    await expect(page.getByRole('heading', { name: first, exact: true })).toBeVisible();
+    await page.goto('/community/new');
+    await write(second);
+    expect(keys[0]).not.toBe(keys[1]);
+    release();
+    await expect(other.getByRole('heading', { name: first, exact: true })).toBeVisible();
+    expect(
+      await page.evaluate(
+        (key) => Object.values(localStorage).some((value) => value.includes(key)),
+        keys[1],
+      ),
+    ).toBe(true);
+    expect(
+      await page.evaluate(
+        (title) => Object.values(localStorage).some((value) => value.includes(title)),
+        second,
+      ),
+    ).toBe(true);
+    await page.reload();
+    await expect(page.getByRole('heading', { name: second, exact: true })).toBeVisible();
+    expect(keys).toHaveLength(2);
+  } finally {
+    release();
+    await other.close();
+  }
+});
+
+test('a saved post receipt leaves a different newer draft in another tab intact', async ({
+  page,
+  request,
+  baseURL,
+  context,
+}) => {
+  const user = await account(request, baseURL!, '두 탭 초안 시험');
+  await page.goto('/account?returnTo=%2Fcommunity%2Fnew');
+  await login(page, user);
+  await expect(page.getByLabel('본문', { exact: true })).toBeEnabled();
+  const other = await context.newPage();
+  await other.goto('/community/new');
+  await expect(other.getByLabel('본문', { exact: true })).toBeEnabled();
+  const first = '저장할 글 ' + randomUUID().slice(0, 6);
+  const next = '계속 작성할 다른 초안 ' + randomUUID().slice(0, 6);
+  await page.route('**/api/v1/community/commands', async (route) => {
+    await route.fetch();
+    await route.abort('failed');
+  });
+  await page.getByLabel('제목', { exact: true }).fill(first);
+  await page.getByLabel('본문', { exact: true }).fill('저장한 본문');
+  await page.getByRole('button', { name: '게시글 저장', exact: true }).click();
+  await expect(page.getByRole('button', { name: '저장 결과 확인', exact: true })).toBeEnabled();
+  await other.getByLabel('제목', { exact: true }).fill(next);
+  await other.getByLabel('본문', { exact: true }).fill('다른 탭에서 계속 작성한 본문');
+  await page.getByRole('button', { name: '저장 결과 확인', exact: true }).click();
+  await expect(page.getByRole('heading', { name: first, exact: true })).toBeVisible();
+  await other.reload();
+  await expect(other.getByLabel('제목', { exact: true })).toHaveValue(next);
+  await expect(other.getByLabel('본문', { exact: true })).toHaveValue(
+    '다른 탭에서 계속 작성한 본문',
+  );
+  await other.close();
+});
+
 test('unavailable browser storage explains draft loss and prevents an untracked submission', async ({
   page,
   request,

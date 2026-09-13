@@ -5,12 +5,14 @@ import {
   communityCommandSchema,
   communityResultSchema,
   communityKey,
+  postInputSchema,
   type CommunityCommand,
 } from '../../contracts/community';
 import { meetingRequest } from '../../api/meetings';
 import { useCommand } from '../recovery/useCommand';
-import { removeRecovery } from '../recovery/storage';
-import { postDraftScope } from './postDraft';
+import { readRecovery, removeRecovery } from '../recovery/storage';
+import { postDraftScope, postDraftSchema } from './postDraft';
+import { z } from 'zod';
 import type { CommunityRoute } from './CommunityPage';
 export function useCommunityCommand(
   route: CommunityRoute,
@@ -28,12 +30,6 @@ export function useCommunityCommand(
     resultId: string | null,
     current: () => boolean,
   ) {
-    // Clear accepted input before any asynchronous view refresh. Navigation may
-    // unmount the page while invalidation is pending.
-    if (input.action === 'create' || input.action === 'edit' || input.action === 'delete')
-      removeRecovery(userId!, postDraftScope(input.action === 'create' ? undefined : input.id));
-    if (input.action === 'comment')
-      removeRecovery(userId!, `draft:comment:${input.parent}:${input.id}`);
     const affected: (readonly unknown[])[] = [];
     if (input.action === 'create' || input.action === 'edit' || input.action === 'delete') {
       affected.push(communityKey(userId, 'list'));
@@ -66,6 +62,38 @@ export function useCommunityCommand(
     scope: `community:${mode}:${id ?? ''}`,
     schema: communityCommandSchema,
     lookup: '/api/v1/me/community-commands/',
+    accepted: (input) => {
+      // Runs while the matching command record is locked, before a different
+      // tab can reserve its next command. Keep any newer, different draft.
+      if (!input) return;
+      if (input.action === 'create' || input.action === 'edit') {
+        const scope = postDraftScope(input.action === 'create' ? undefined : input.id);
+        const draft = readRecovery(userId!, scope, postDraftSchema);
+        const parsed = postInputSchema.safeParse(
+          draft
+            ? {
+                title: draft.title,
+                body: draft.body,
+                sport: draft.sport,
+                placeId: draft.placeId || null,
+                meetupId: draft.meetupId || null,
+              }
+            : null,
+        );
+        if (
+          parsed.success &&
+          JSON.stringify(parsed.data) === JSON.stringify(input.input) &&
+          (input.action === 'create' || draft?.version === input.expectedVersion)
+        )
+          removeRecovery(userId!, scope);
+      }
+      if (input.action === 'delete') removeRecovery(userId!, postDraftScope(input.id));
+      if (input.action === 'comment') {
+        const scope = `draft:comment:${input.parent}:${input.id}`;
+        const draft = readRecovery(userId!, scope, z.object({ body: z.string() }));
+        if (draft?.body.trim() === input.body.trim()) removeRecovery(userId!, scope);
+      }
+    },
     execute: (input, key, signal) =>
       meetingRequest('/api/v1/community/commands', communityResultSchema, {
         method: 'POST',

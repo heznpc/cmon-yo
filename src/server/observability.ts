@@ -56,8 +56,9 @@ export function installObservability(
     });
     context.run(request.observe, done);
   });
-  app.addHook('onError', async (request, reply) => {
-    request.observe({ event: 'server_error', status: reply.statusCode });
+  app.addHook('onError', async (request, _reply, error) => {
+    // Fastify has not applied the error status to reply yet at this hook.
+    request.observe({ event: 'server_error', status: error.statusCode ?? 500 });
   });
   app.addHook('onResponse', async (request, reply) => {
     const key = request.headers['idempotency-key'];

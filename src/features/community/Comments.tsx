@@ -110,9 +110,7 @@ export function Comments({
           className={form}
           onSubmit={(e) => {
             e.preventDefault();
-            void mutate({ action: 'comment', parent, id, body }).then((ok) => {
-              if (ok) draft.saved();
-            });
+            void mutate({ action: 'comment', parent, id, body });
           }}
         >
           <label htmlFor={bodyId}>댓글 내용</label>
