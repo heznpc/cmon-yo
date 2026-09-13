@@ -11,6 +11,7 @@ import { createApp } from '../src/server/app';
 import { renderPage } from '../src/server/render';
 import { placeDetailSchema } from '../src/contracts/place';
 import { kmaWeather } from '../src/server/weather/kma';
+import { responseContract } from './helpers/openapi';
 
 test('actual park sample preserves distinct same-name parks and unspecified facilities', () => {
   const places = normalizeSnapshot(snapshot);
@@ -135,7 +136,13 @@ describe.runIf(process.env.TEST_DATABASE_URL)(
       const app = createApp({ places: service, renderer: async () => renderPage });
       const origin = await app.listen({ host: '127.0.0.1', port: 0 });
       try {
+        const validate = responseContract(
+          await (await fetch(`${origin}/api/v1/openapi.json`)).json(),
+        );
         const detail = await (await fetch(`${origin}/api/v1/places/${fixture.place.id}`)).json();
+        expect(validate('/api/v1/places/{id}', 200, detail)).toMatchObject({ valid: true });
+        const list = await (await fetch(`${origin}/api/v1/places`)).json();
+        expect(validate('/api/v1/places', 200, list)).toMatchObject({ valid: true });
         expect(detail).toEqual({
           place: fixture.place,
           weather: { status: 'unavailable', facts: null },

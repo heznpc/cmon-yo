@@ -6,7 +6,17 @@
 
 **PR1 기능 수용조건 충족 / XCUITest 자동화 미검증**입니다. fixture 기반 Web·API·iOS의 필수 실행 증거는 아래에 기록했습니다. 실제 모집·로그인·참여·댓글 쓰기는 없습니다. 브랜드 미정의 기본 UI이며 최종 WebView 배치를 확정하지 않습니다. 아래의 통과·미검증을 구분합니다.
 
-PR1 기능 기준선은 main에 반영됐습니다. [PR2 수용조건](docs/pr2-acceptance.md)과 아래 실행 기록을 따릅니다.
+PR1 기능 기준선은 main에 반영됐습니다. **PR2는 무안군 시설·날씨 연결을 구현했으며 기상청 인증 실응답 검증이 남아 draft**입니다. [PR2 수용조건](docs/pr2-acceptance.md)과 아래 실행 기록을 따릅니다.
+
+## 현재 구조와 프론트의 API 연결
+
+- 첫 HTML: Fastify SSR loader → application service → PostgreSQL/날씨 adapter → HTML과 직렬화된 Query 상태 → React hydration. 이후 웹 재조회는 `src/api/public.ts` → same-origin HTTP API → 동일 service입니다. Native는 URLSession으로 같은 JSON API를 소비합니다.
+- `GET /api/v1/openapi.json`은 현재 공개 조회 3개(모임 상세·시설 목록·시설 상세)의 경로·입력·응답·오류를 제공합니다. 별도 백엔드 구현자는 이 계약을 소비할 수 있습니다. Zod의 입력 스키마에서 생성해 추가 필드를 허용하며, 알 수 없는 종목과 선택 설명의 클라이언트 정규화는 유지합니다. 실제 날짜·시작/종료 순서 등 JSON Schema로 표현되지 않는 의미 검증은 기존 TS/Swift 계약 검사에 남습니다.
+- 웹 HTTP client는 응답을 `unknown`으로 받아 검증합니다. 404는 해당 상세를 비우고, 실패한 갱신은 이전 정보임을 표시합니다. 오류의 `code/requestId/retryable`을 보존하며 공급자 메시지를 화면에 그대로 표시하지 않습니다. `retryable`이 자동 재시도를 뜻하지 않으며 조회 화면의 `retry: false`를 유지합니다.
+- 현재는 **Fastify가 SSR과 제품 API를 함께 맡는 단일 서버 + 직접 PostgreSQL 연결**입니다. Supabase Auth/관리형 DB는 계획이며 미연결입니다. 독립 Spring 서버와의 연동을 구현했다고 주장하지 않습니다.
+- SSR과 제품 API는 같은 service를 사용하고, 클라이언트는 공개 HTTP 계약을 소비합니다. 서버를 분리할 필요가 생기면 배포·소유권·장애 경계에 따라 결정합니다. 현재 renderer는 stream을 사용하지만 loader는 데이터를 받은 뒤 렌더링합니다. 데이터별 점진적 표시나 성능 향상은 아직 입증하지 않았습니다.
+
+실행한 서버의 명세 확인: `curl -fsS http://127.0.0.1:3000/api/v1/openapi.json`. 명세 생성 코드와 DB/key는 browser bundle에 포함되지 않습니다.
 
 ## 실행
 
@@ -266,6 +276,24 @@ runner 차단 기록 단계의 기록과 기존 실행 증거를 최신 `docs/pr
 로컬 증거는 `/tmp/cmon-pr2-research/`의 `check.log`, `web-tests.log`, `web-recheck.log`, `web-qa.json/log`, `native-build.log`, `native-uitest-build.log`, `native-tests.log`, `native-qa.log`, `native-*.json/png`, `web-*.png`, `query-plan.log`에 있습니다. 시설 capture는 저장소에 남기며 날씨 fixture는 합성임을 구분합니다.
 
 **PR2 완료 미선언 / draft 유지:** 남은 필수 항목은 인증된 기상청 성공 실응답과 실제 값·시각·격자 대조입니다. API허브 키를 서버 환경에 연결해 이 경로를 실행한 뒤 수용조건을 다시 판정합니다. PR1의 XCUITest 발견 2개·실행 0개, 실기기·VoiceOver 전체 흐름 후속 미검증은 그대로 유지하며 이번 작업에서 runtime 설치·초기화·runner 재시도를 하지 않았습니다.
+
+## 2026-09-13 프론트 아키텍처 검토·HTTP 계약 보완
+
+Web과 Native가 조회 계약을 확인하고 응답 실패를 일관되게 처리하도록 현재 조회 3개의 OpenAPI와 웹 HTTP client를 연결했습니다. SSR의 service 직접 호출과 기존 WebView 경계는 유지했습니다. 단일 서버 구성과 Supabase 미연결 계획을 위에 명시했습니다. OpenAPI 생성 시 UUID 정규식의 대소문자 허용이 사라지지 않도록 기존 `i` flag를 동등한 명시적 문자 범위로 표현하고 HTTP/명세 대조에 대문자 UUID를 포함했습니다. 기존 TS/Swift 입력 허용 범위를 바꾼 것은 아닙니다.
+
+환경: macOS 27.0, Node 22.22.3/npm 10.9.8, PostgreSQL 17.11. 이번 검사용 임시 DB cluster는 localhost 55433이며 실제 시설 21행을 import했습니다. Browser plugin not available: 저장소 Playwright E2E와 별도 Playwright CLI 세션을 사용했습니다.
+
+| 실행 명령·검사 | 실제 결과·검증 수준 |
+| --- | --- |
+| `DATABASE_URL=… TEST_DATABASE_URL=… npm run check` | lint/typecheck, Vitest **66개 성공**(실제 PostgreSQL 3개 포함), client/server build, 서버 전용 코드·key·OpenAPI generator의 browser bundle 부재 확인 |
+| `published OpenAPI matches actual HTTP reads…` | 실제 HTTP listener → 내려받은 OpenAPI → 독립 Ajv JSON Schema 검증. 공개 조회 3개, empty, 400/404/503, 대문자 UUID, 추가 필드 허용·모순된 날씨 거부. 이 검사의 service 데이터는 fixture이며, `actual HTTP API and SSR read DB changes…`에서 실제 DB 시설 목록·상세도 동일 명세와 대조 |
+| `web HTTP client validates wire data…`, `web HTTP client distinguishes a closed connection…` | 실제 로컬 HTTP 응답으로 클라이언트 정규화, 잘못된 JSON/성공 응답 거부, 오류 metadata와 안전한 표시 메시지, 상세 404/목록 404 구분, 자동 재시도 없음, 소켓 종료, 응답 body 수신 중 취소·이미 취소된 요청 검증 |
+| `DATABASE_URL=… TEST_DATABASE_URL=… npm run test:web -- --reporter=list` | dev/prod Chromium **22개 성공**. JS 없는 SSR·hydration 초기 API 0회·404/연결 실패/변경/복구·bridge 회귀 포함. 신규 잘못된 200 응답은 Playwright HTTP 가로채기이며 초기/복구 내용은 실제 DB 서버에서 조회 |
+| `owned-run --server 'DATABASE_URL=… PORT=3006 npm start' --port 3006 --max-lifetime 600`, Playwright CLI `open/route/click/unroute/resize/eval/screenshot/console/requests` | 실행 production 화면에서 실제 DB 상세 → 잘못된 200 응답 주입 → 이전 정보·안내 표시 → 실제 DB 재조회 성공과 오류 제거. 1280×900 및 320×740/글자 200%, URL/title·본문·overlay 없음·가로 넘침 없음·화면 관측 확인. 요청 2회(주입/복구), 앱/hydration 오류 0. 콘솔의 기존 favicon.ico 404 1건은 별도 기록 |
+
+로컬 증거는 `/tmp/cmon-api-contract-qa.8DkNbs/`의 `check.log`, `web-tests.log`, `owned/` 서버 로그, `.playwright-cli/` DOM·console·화면입니다. QA는 에이전트의 브라우저 자동조작이며 사람의 수동 QA가 아닙니다. Native 코드·wire 형태는 유지했으며 이번에 Simulator/실기기/XCUITest를 재실행하지 않았습니다.
+
+HTTP 계약 전달 수용조건은 통과했습니다. **기상청 인증 성공 실응답은 여전히 필수 미검증이므로 PR2는 draft를 유지합니다.** 독립 Spring 서버 연동, 인증·계정 전환·참여 mutation, 데이터별 점진적 SSR·성능 측정, PR1의 XCUITest/실기기/VoiceOver 후속 검증을 이번 결과로 통과 처리하지 않습니다.
 
 - [기여·브랜치·커밋 규칙](CONTRIBUTING.md)
 - [PR1 수용조건](docs/pr1-acceptance.md)

@@ -1,6 +1,48 @@
 import { test, expect } from '@playwright/test';
 const id = 'park-46840-00023';
 
+test('HTTP client rejects malformed success data without replacing the last valid detail, then recovers', async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  let requests = 0;
+  page.on('request', (request) => {
+    if (request.url().includes('/api/v1/places')) requests++;
+  });
+  await page.goto(`/places/${id}`);
+  const retry = page.getByRole('button', { name: '다시 시도', exact: true });
+  await expect(retry).toBeEnabled();
+  expect(requests).toBe(0);
+  // An intercepted HTTP response represents a backend contract regression.
+  // The initial and recovered contents still come from the real DB-backed server.
+  await page.route(`**/api/v1/places/${id}`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ place: { name: 'INVALID_RESPONSE_MUST_NOT_REPLACE_DETAIL' } }),
+    }),
+  );
+  await retry.click();
+  await expect(page.getByRole('alert')).toHaveText(
+    '시설을 불러오지 못했습니다. 다시 시도해 주세요.',
+  );
+  await expect(
+    page.getByText('이전에 불러온 정보입니다. 최신 정보를 확인하지 못했습니다.'),
+  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: '근린공원 36', exact: true })).toBeVisible();
+  await expect(page.getByText('INVALID_RESPONSE_MUST_NOT_REPLACE_DETAIL')).toHaveCount(0);
+  expect(requests).toBe(1);
+  await page.unroute(`**/api/v1/places/${id}`);
+  await retry.click();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await expect(
+    page.getByText('이전에 불러온 정보입니다. 최신 정보를 확인하지 못했습니다.'),
+  ).toHaveCount(0);
+  expect(requests).toBe(2);
+  expect(errors).toEqual([]);
+});
+
 test('DB-backed facilities SSR without JS and hydration without an initial duplicate request', async ({
   browser,
   page,

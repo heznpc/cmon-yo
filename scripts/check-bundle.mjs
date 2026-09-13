@@ -14,6 +14,7 @@ for (const file of files.filter((name) => name.endsWith('.js'))) {
     'authKey',
     'pg_advisory',
     'facility_import_runs',
+    "C'mon Yo! public read API",
   ]) {
     if (text.includes(forbidden))
       throw new Error(`Server-only marker ${forbidden} in browser bundle`);

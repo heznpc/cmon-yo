@@ -8,6 +8,7 @@ import { placeIdSchema } from '../contracts/place';
 import { databasePlaces, type PlaceService } from './services/place';
 import { kmaWeather } from './weather/kma';
 import { loadPlaces } from './loaders/place';
+import { openapi } from './openapi';
 export type Renderer = typeof renderPage;
 export function createApp({
   service = fixtureService(),
@@ -29,6 +30,7 @@ export function createApp({
     reply.header('Cache-Control', 'private, no-store');
     reply.header('X-Content-Type-Options', 'nosniff');
   });
+  app.get('/api/v1/openapi.json', async () => openapi);
   app.get('/api/v1/meetups/:id', async (request, reply) => {
     const id = idSchema.safeParse((request.params as { id: string }).id);
     if (!id.success)

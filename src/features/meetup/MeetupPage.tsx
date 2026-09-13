@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { meetupDetailSchema, meetupKey, staleTime } from '../../contracts/meetup';
+import { meetupKey, staleTime } from '../../contracts/meetup';
+import { publicAPI } from '../../api/public';
 import { nativeBridge, type BridgeClient } from '../../app/bridge';
 import * as css from './meetup.css';
 export type Route = { id: string; discussion: boolean };
@@ -48,24 +49,7 @@ export function MeetupPage({ route }: { route: Route }) {
     queryKey: meetupKey(route.id),
     staleTime,
     retry: false,
-    queryFn: async ({ signal }) => {
-      let response: Response;
-      try {
-        response = await fetch(`/api/v1/meetups/${route.id}`, { signal });
-      } catch (error) {
-        if (signal.aborted) throw error;
-        throw new Error('연결에 실패했습니다. 다시 시도해 주세요.', { cause: error });
-      }
-      // Replace only this query's previous detail with an explicit absent result.
-      // A later transport failure must not revive data invalidated by this 404.
-      if (response.status === 404) return null;
-      if (!response.ok) throw new Error('연결에 실패했습니다. 다시 시도해 주세요.');
-      try {
-        return meetupDetailSchema.parse(await response.json());
-      } catch {
-        throw new Error('모임 응답을 읽을 수 없습니다.');
-      }
-    },
+    queryFn: ({ signal }) => publicAPI.meetup(route.id, signal),
   });
   const open = async () => {
     if (!bridge) return;

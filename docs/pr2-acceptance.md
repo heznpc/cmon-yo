@@ -28,5 +28,6 @@
 | Web 실행 | dev/prod의 JS 없는 SSR·hydration·조회·오류/재시도, 실제 HTTP QA, 작은 화면/확대/키보드·콘솔·화면 확인 |
 | Native 실행 | 앱 빌드·공통 응답 decode·실제 HTTP 통합·Simulator UI의 목록/상세·실패/복구·복귀. 각 수준 구분 |
 | 경계·회귀 | lint/typecheck/test/build, DB/key browser bundle 부재, 기존 PR1 검사 영향 확인 |
+| HTTP 계약 전달 | 현재 조회 3개의 OpenAPI를 실제 HTTP 응답(400/404/503 포함) 및 DB 결과와 대조. Web client의 응답 검증·취소·오류 메타데이터·404/복구와 hydration 중복 조회 없음 확인. 별도 백엔드 연동으로 과장하지 않음 |
 
 기상청 성공 실응답 등 필수 증거가 남으면 PR2는 draft입니다. 구체적 명령·환경·관측 결과와 판정은 README의 PR2 실행 기록에 남깁니다.

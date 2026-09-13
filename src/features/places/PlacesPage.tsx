@@ -1,23 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import {
-  placeDetailSchema,
-  placeListSchema,
   placeKey,
   placesKey,
   placeSourceURL,
   type Weather,
   type Place,
 } from '../../contracts/place';
+import { publicAPI } from '../../api/public';
 import { displayDate } from '../meetup/MeetupPage';
 import * as css from '../meetup/meetup.css';
 
-async function get(path: string, signal: AbortSignal) {
-  const response = await fetch(path, { signal });
-  if (response.status === 404) return null;
-  if (!response.ok) throw new Error('시설을 불러오지 못했습니다. 다시 시도해 주세요.');
-  return response.json() as Promise<unknown>;
-}
 function FacilityInfo({ place }: { place: Place }) {
   return (
     <>
@@ -105,7 +98,7 @@ function PlaceList({ ready }: { ready: boolean }) {
     queryKey: placesKey,
     staleTime: 60_000,
     retry: false,
-    queryFn: async ({ signal }) => placeListSchema.parse(await get('/api/v1/places', signal)),
+    queryFn: ({ signal }) => publicAPI.places(signal),
   });
   return (
     <>
@@ -137,10 +130,7 @@ function PlaceDetail({ id, ready }: { id: string; ready: boolean }) {
     queryKey: placeKey(id),
     staleTime: 60_000,
     retry: false,
-    queryFn: async ({ signal }) => {
-      const response = await get(`/api/v1/places/${id}`, signal);
-      return response === null ? null : placeDetailSchema.parse(response);
-    },
+    queryFn: ({ signal }) => publicAPI.place(id, signal),
   });
   return (
     <>
