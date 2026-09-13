@@ -20,19 +20,26 @@ PR1 기능 기준선은 main에 반영됐습니다. **PR2는 무안군 시설·�
 
 ## 현재 구현과 다음 작업 — 2026-09-13
 
-현재 코드는 **SSR·HTTP 계약·조회 실패 복구·읽기 전용 WebView를 검증한 공개 조회 단계**입니다. 실제 모임 작성·참여·개인 상태·인증된 입력 흐름과 사용자 피드백·모니터링에 따른 개선은 아직 없습니다. [기존 handoff §2.1과 §16](docs/CMON_YO_FINAL_HANDOFF.md)의 코드 근거와 실행 순서를 갱신했습니다.
+현재 코드는 **SSR·HTTP 계약·조회 실패 복구·읽기 전용 WebView를 검증한 공개 조회 단계**입니다. 실제 모임 작성·참여·개인 상태·인증된 입력·게시글 피드는 아직 없습니다. [handoff §1.4~1.6](docs/CMON_YO_FINAL_HANDOFF.md#14-사용자-시나리오와-화면-연결--구현-기준선)에 사용자 시나리오·화면/API·외부 설정을, §2.1에 현재 코드 근거를, §16에 구현 순서와 실행 기준을 정리했습니다.
 
-1. **PR2**: 기상청 인증 성공 실응답의 값·발표/대상 시각·격자 검증으로 남은 필수 조건을 마무리합니다. 현재 draft를 유지합니다.
-2. **PR3A / [이슈 #3](https://github.com/heznpc/cmon-yo/issues/3)**: Google 로그인·내 계정 화면, Native/WebView 동일 사용자, 개인 cache·계정 전환·늦은 응답 격리. 최소 HTTP/인증 실패 관측을 함께 시작합니다.
-3. **PR3B**: 실제 모임 목록·필터·생성·참여·취소. 입력·진행·실패 복구, 권한·마지막 정원·중복 효과 계약과 관련 cache 갱신을 검증합니다.
-4. **PR4 → PR5**: 모임 댓글과 실제 WebView 입력/복귀 → 사용자 피드백·측정에 따른 개선. 운영 지표·A/B 성과를 실행 없이 주장하지 않습니다.
-5. **PR6 → PR7**: 현장 체크인·수동 확인 → 독립 HealthKit 운동량. 장기 제품 목표는 유지합니다.
+제품의 화면 구조는 **둘러보기 / 모임 / 커뮤니티 / 내 활동**을 기준으로 합니다. 동네·종목별 피드에서 모임 참여와 무관하게 질문·후기를 나누고, 시간·장소·정원이 있는 운동 약속은 모임으로 관리합니다. 지속 동호회 가입·운영은 현재 구현 기준선에 포함하지 않습니다. 시설·날씨에서 관련 모임으로 이동하고, 로그인 후 원래 화면으로 복귀하며, 참여한 약속과 내 글은 내 활동에서 다시 찾습니다. 이 구조는 구현 계획이며 현재 탭이나 최종 브랜드 구현 완료가 아닙니다.
 
-현재 계획상 **PR2의 필수 검증 1개 + 이후 구현 단계 6개(PR3A·PR3B·PR4·PR5·PR6·PR7)**가 남아 있습니다. 세부 작업 수나 완료율을 뜻하지 않습니다. 이후의 동네 인증·Push·리워드는 아직 작업 단위가 확정되지 않았습니다.
+| 단계 | 사용자가 할 수 있게 되는 일 / 검증할 결과 |
+| --- | --- |
+| **PR2** | 실제 공원과 등록 운동시설·날씨 조회. 기상청 인증 성공 응답의 값·발표/대상 시각·격자 대조가 남아 draft 유지 |
+| **PR3A / [이슈 #3](https://github.com/heznpc/cmon-yo/issues/3)** | 이메일 가입·인증·복구, Google·카카오·네이버 및 iOS 배포용 Apple 로그인, 원래 화면 복귀·내 계정·탈퇴. 개인 cache·계정 전환·WebView 동일 사용자·안전한 오류 관측 |
+| **PR3B** | 동네·종목·날짜로 둘러보기 → 시설의 관련 모임 → 생성·주최 수정/취소·참여/취소 → 내 모임. 입력 보존·마지막 정원·응답 미확인·목록 복귀 검증 |
+| **PR4A** | 동네·종목 피드 → 게시글 작성·수정·삭제·댓글 → 내 글·관련 장소/모임. 작성자 권한·신고/차단·초안·본문 안전성·실패 복구 |
+| **PR4B** | 모임 질문·댓글과 인증된 실제 WebView 입력/복귀. 키보드·초안·종료 전후 제출·동일 모임 복귀·계정 경계 검증 |
+| **PR5** | 실제 탐색·참여·작성의 사용자 피드백과 측정으로 불편 개선. 재현 가능한 배포·최소 관측, 같은 조건의 전후 비교. 표본 없는 A/B 성과는 주장하지 않음 |
+| **PR6** | 내 모임에서 현장 체크인·수동 확인 요청·주최자 확인. 권한 거부·위치 오차·요청과 확정의 구분 |
+| **PR7** | 모임과 독립된 iOS HealthKit 운동량. 데이터 없음·권한 변화·계정 전환과 실제 기기 결과 구분 |
 
-React/Fastify와 직접 PostgreSQL 연결을 유지하며, 필요한 공통 UI는 실제 화면 요구에 맞춰 추출합니다. Supabase 인증은 PR3A의 실제 연결 결과로 채택 여부를 정합니다. PR3는 별도 브랜치/PR에서 진행하며 날씨 검증 대기만으로 독립 작업을 막지 않습니다. 기존 XCUITest·실기기·VoiceOver 후속 미검증은 그대로 유지합니다.
+위 번호는 GitHub PR 번호와 다른 개발 단계이며 개별 PR은 검토 가능한 크기로 나눕니다. 단계 수를 남은 작업 수나 완료율로 사용하지 않습니다. 작은 화면·키보드·포커스·오류/재시도·접근성 및 최소 관측은 각 기능 단계에서 확인합니다. 동네 인증·원격 Push·리워드·실시간 채팅·사진 업로드는 후속 범위입니다.
 
-이번 조정은 현재 코드·기존 실행 기록·원격 CI를 대조한 문서/계획 변경입니다. 링크·단계 참조·`git diff --check`를 검사하며 기능 테스트나 앱 QA를 새로 실행한 결과가 아닙니다.
+Web·API·iOS·DB migration을 한 저장소에서 관리하는 모노레포를 유지합니다. React/Fastify·직접 PostgreSQL과 공개 HTTP 계약을 사용하고, 인증 구현체는 이메일·각 공급자·세션·탈퇴 요구를 실제 연결해 확인합니다. Supabase는 후보이며 프로젝트 생성이 현재 선행조건은 아닙니다. PR3 기능은 별도 브랜치/PR에서 진행하며 날씨 설정 대기만으로 독립 구현을 막지 않습니다. 기존 XCUITest·실기기·VoiceOver 후속 미검증은 유지합니다.
+
+**계획·설정 검사 — 2026-09-13:** Node 26.3.1의 `node --input-type=module` 검사로 로컬 문서 링크/앵커 8개·코드 블록·단계 참조, `.env.example` 선언 35개·중복 없음·비밀 준비값 비어 있음·현재 런타임 기본값 불변을 확인했습니다. `node scripts/check-conventions.mjs`와 `git diff --check`도 통과했습니다. 문서·미사용 준비값 변경이므로 기능 테스트·앱 QA는 N/A이며 기존 실행 증거와 새 계획을 구분합니다.
 
 ## 실행
 
@@ -56,11 +63,13 @@ npm run with-env -- dev
 | `.env`의 `DATABASE_URL` | 시설을 저장·조회할 PostgreSQL 연결 문자열 |
 | `.env`의 `TEST_DATABASE_URL` | 실제 DB 통합 검사 전용 연결 문자열. 미입력 시 DB 검사 3개 skip |
 | `.env`의 `KMA_API_KEY` | [기상청 API허브](https://apihub.kma.go.kr/apiList.do?seqApi=10)의 authKey. 현재 남은 날씨 실연결 검증에 필요 |
-| `.env`의 Google 관련 `SETUP_*` | 후속 Google 로그인 실연결에 사용할 Web client ID·secret·callback. iOS client ID는 Native SDK 채택 시에만 필요 |
+| `.env`의 Google·카카오·네이버 `SETUP_*` | 각 공급자의 client ID/키·secret·callback. Google iOS client ID는 Native SDK 채택 시에만 필요 |
+| `.env`의 Apple 관련 `SETUP_*` | 앱의 Sign in with Apple 설정·Services ID·로그인용 서명 키·callback. 개인 키는 저장소 밖에 보관 |
+| `.env`의 이메일 관련 `SETUP_*` | 직접 가입·인증·복구 메일의 SMTP 등 발송 설정. 로컬 수신함과 실제 발송 성공을 구분 |
 | `.env`의 `SETUP_SUPABASE_*` | **현재 입력 불필요.** Supabase Auth 채택 시에만 프로젝트 URL·publishable key 준비 |
 | OAuth/인증 공급자의 콘솔 | client ID/secret, 공급자 callback, 앱 복귀 URL 허용 목록, 동의 항목·테스트 사용자. `.env`를 채우는 것만으로 적용되지 않음 |
 
-첫 로그인 공급자는 Google입니다. 실제 로그인 연결에는 [Google OAuth 앱 등록](https://developers.google.com/identity/protocols/oauth2/web-server)에서 발급하는 client ID·secret과 redirect 설정이 필요합니다. Supabase는 현재 미연결 후보이며 **Supabase 계정·프로젝트·키 준비는 현재 개발의 선행조건이 아닙니다.** Supabase Auth를 채택하는 경우에만 프로젝트 생성, [Google Provider 설정](https://supabase.com/docs/guides/auth/social-login/auth-google), 앱 복귀 URL 등록이 추가됩니다. 인증 구현은 PR3A에서 진행합니다. 시설 공개 파일 수집에는 별도 키가 없고, GPS·HealthKit은 기기 권한 설정입니다.
+인증 범위는 이메일 직접 가입·복구와 Google·카카오·네이버, iOS 배포용 Apple 로그인입니다. [Google](https://developers.google.com/identity/protocols/oauth2/web-server), [카카오](https://developers.kakao.com/docs/ko/kakaologin/prerequisite), [네이버](https://developers.naver.com/docs/login/api/api.md), [Apple](https://developer.apple.com/help/account/capabilities/configure-sign-in-with-apple-for-the-web/)의 앱별 키·callback·동의/테스트 설정을 실제 구현과 맞춥니다. 앱 등록, 발급, 필요 시 심사, 성공 응답 확인은 별개입니다. Supabase는 미연결 후보이며 **Supabase 계정·프로젝트·키 준비는 현재 개발의 선행조건이 아닙니다.** 채택 시에만 해당 인증 서비스의 설정을 추가합니다. 이 값들은 개발·운영자가 준비하며 일반 서비스 사용자에게 API 키를 요구하지 않습니다. 시설 공개 파일과 자체 댓글 API에는 별도 외부 키가 없고, GPS·HealthKit은 기기 권한 설정입니다.
 
 **환경변수 실행 확인 — 2026-09-13:** Node 22.22.3/npm 10.9.8에서 `npm run with-env -- typecheck -- --pretty false`와 `npm run with-env -- build`가 통과했습니다. 빈 credential의 템플릿으로 `npm run with-env -- dev`와 `npm run with-env -- start`를 각각 실행해 모임 API/SSR 200, 개발·운영 asset 경로, DB 미설정 시 시설 API 503, 셸의 PORT 우선 적용을 HTTP 스크립트로 확인했습니다. 환경변수 목록·빈 비밀값·Git 제외·문서 링크도 검사했습니다. UI 변경이 없는 설정 작업으로 화면 QA와 전체 테스트는 반복하지 않았으며, Google 로그인·인증된 날씨 실연결을 검증한 결과가 아닙니다.
 
@@ -125,7 +134,7 @@ curl -fsS -X PUT http://127.0.0.1:3112/_test/state/weather-error
 curl -fsS -X PUT http://127.0.0.1:3112/_test/state/normal
 ```
 
-이 도구의 `local-qa-only` 키는 로컬 시험 서버 전용이며 외부 공급자에서 유효한 키가 아닙니다. OAuth도 PR3A에서 시험용 공급자와 실제 Google 연결을 구분해 검증합니다. 임의 키나 시험 응답으로 Google 로그인·공식 날씨 실연결을 통과 처리하지 않습니다. 현재 시설 표본은 공원 위치와 운동시설 목록을 제공하며 개별 운동기구의 정밀 위치는 제공하지 않습니다.
+이 도구의 `local-qa-only` 키는 로컬 시험 서버 전용이며 외부 공급자에서 유효한 키가 아닙니다. OAuth도 PR3A에서 시험용 공급자와 각 실제 공급자의 연결을 구분해 검증합니다. 임의 키나 시험 응답으로 소셜 로그인·공식 날씨 실연결을 통과 처리하지 않습니다. 현재 시설 표본은 공원 위치와 운동시설 목록을 제공하며 개별 운동기구의 정밀 위치는 제공하지 않습니다.
 
 ## 검증 명령
 
