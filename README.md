@@ -13,7 +13,7 @@ PR1 기능 기준선은 main에 반영됐습니다. **PR2는 무안군 시설·�
 - 첫 HTML: Fastify SSR loader → application service → PostgreSQL/날씨 adapter → HTML과 직렬화된 Query 상태 → React hydration. 이후 웹 재조회는 `src/api/public.ts` → same-origin HTTP API → 동일 service입니다. Native는 URLSession으로 같은 JSON API를 소비합니다.
 - `GET /api/v1/openapi.json`은 현재 공개 조회 3개(모임 상세·시설 목록·시설 상세)의 경로·입력·응답·오류를 제공합니다. 별도 백엔드 구현자는 이 계약을 소비할 수 있습니다. Zod의 입력 스키마에서 생성해 추가 필드를 허용하며, 알 수 없는 종목과 선택 설명의 클라이언트 정규화는 유지합니다. 실제 날짜·시작/종료 순서 등 JSON Schema로 표현되지 않는 의미 검증은 기존 TS/Swift 계약 검사에 남습니다.
 - 웹 HTTP client는 응답을 `unknown`으로 받아 검증합니다. 404는 해당 상세를 비우고, 실패한 갱신은 이전 정보임을 표시합니다. 오류의 `code/requestId/retryable`을 보존하며 공급자 메시지를 화면에 그대로 표시하지 않습니다. `retryable`이 자동 재시도를 뜻하지 않으며 조회 화면의 `retry: false`를 유지합니다.
-- 현재는 **Fastify가 SSR과 제품 API를 함께 맡는 단일 서버 + 직접 PostgreSQL 연결**입니다. Supabase Auth/관리형 DB는 계획이며 미연결입니다. 독립 Spring 서버와의 연동을 구현했다고 주장하지 않습니다.
+- 현재는 **Fastify가 SSR과 제품 API를 함께 맡는 단일 서버 + 직접 PostgreSQL 연결**입니다. Supabase Auth/관리형 DB는 미연결 후보이며 현재 실행에 Supabase 설정은 필요하지 않습니다. 독립 Spring 서버와의 연동을 구현했다고 주장하지 않습니다.
 - SSR과 제품 API는 같은 service를 사용하고, 클라이언트는 공개 HTTP 계약을 소비합니다. 서버를 분리할 필요가 생기면 배포·소유권·장애 경계에 따라 결정합니다. 현재 renderer는 stream을 사용하지만 loader는 데이터를 받은 뒤 렌더링합니다. 데이터별 점진적 표시나 성능 향상은 아직 입증하지 않았습니다.
 
 실행한 서버의 명세 확인: `curl -fsS http://127.0.0.1:3000/api/v1/openapi.json`. 명세 생성 코드와 DB/key는 browser bundle에 포함되지 않습니다.
@@ -51,15 +51,16 @@ npm run with-env -- dev
 
 `with-env`는 Node의 `--env-file`로 `.env`를 읽고 지정한 npm script를 실행합니다. 셸에 이미 설정된 같은 이름의 환경변수가 우선합니다. `npm run with-env -- facilities -- migrate`, `npm run with-env -- check`, `npm run with-env -- test:web`, `npm run with-env -- start`에도 사용할 수 있습니다. `start` 전에 `npm run build`가 필요합니다. 기존 `npm run dev`/`npm start`는 실행 환경의 변수만 사용하므로 CI·배포 방식은 유지됩니다.
 
-| 입력할 곳 | 현재 필요한 값·설정 |
+| 입력할 곳 | 용도·준비 시점 |
 | --- | --- |
 | `.env`의 `DATABASE_URL` | 시설을 저장·조회할 PostgreSQL 연결 문자열 |
 | `.env`의 `TEST_DATABASE_URL` | 실제 DB 통합 검사 전용 연결 문자열. 미입력 시 DB 검사 3개 skip |
 | `.env`의 `KMA_API_KEY` | [기상청 API허브](https://apihub.kma.go.kr/apiList.do?seqApi=10)의 authKey. 현재 남은 날씨 실연결 검증에 필요 |
-| `.env`의 `SETUP_*` | Google 로그인 연결을 위한 값 취합용. Web client ID·secret·callback, Supabase URL·publishable key(채택 시), iOS client ID(Native SDK 채택 시) |
+| `.env`의 Google 관련 `SETUP_*` | 후속 Google 로그인 실연결에 사용할 Web client ID·secret·callback. iOS client ID는 Native SDK 채택 시에만 필요 |
+| `.env`의 `SETUP_SUPABASE_*` | **현재 입력 불필요.** Supabase Auth 채택 시에만 프로젝트 URL·publishable key 준비 |
 | OAuth/인증 공급자의 콘솔 | client ID/secret, 공급자 callback, 앱 복귀 URL 허용 목록, 동의 항목·테스트 사용자. `.env`를 채우는 것만으로 적용되지 않음 |
 
-첫 로그인 공급자는 Google입니다. [Google 연결 설정](https://supabase.com/docs/guides/auth/social-login/auth-google)에 따라 Web client ID·secret을 준비합니다. Supabase를 선택하면 [프로젝트 URL·publishable key](https://supabase.com/docs/guides/getting-started/api-keys)를 준비하고, Google→Supabase callback과 로그인 후 Web/iOS 복귀 주소를 구분합니다. [Redirect 설정](https://supabase.com/docs/guides/auth/redirect-urls)은 PR3A에서 실제 인증 방식과 함께 확정합니다. 시설 공개 파일 수집에는 별도 키가 없고, GPS·HealthKit은 기기 권한 설정입니다.
+첫 로그인 공급자는 Google입니다. 실제 로그인 연결에는 [Google OAuth 앱 등록](https://developers.google.com/identity/protocols/oauth2/web-server)에서 발급하는 client ID·secret과 redirect 설정이 필요합니다. Supabase는 현재 미연결 후보이며 **Supabase 계정·프로젝트·키 준비는 현재 개발의 선행조건이 아닙니다.** Supabase Auth를 채택하는 경우에만 프로젝트 생성, [Google Provider 설정](https://supabase.com/docs/guides/auth/social-login/auth-google), 앱 복귀 URL 등록이 추가됩니다. 인증 구현은 PR3A에서 진행합니다. 시설 공개 파일 수집에는 별도 키가 없고, GPS·HealthKit은 기기 권한 설정입니다.
 
 **환경변수 실행 확인 — 2026-09-13:** Node 22.22.3/npm 10.9.8에서 `npm run with-env -- typecheck -- --pretty false`와 `npm run with-env -- build`가 통과했습니다. 빈 credential의 템플릿으로 `npm run with-env -- dev`와 `npm run with-env -- start`를 각각 실행해 모임 API/SSR 200, 개발·운영 asset 경로, DB 미설정 시 시설 API 503, 셸의 PORT 우선 적용을 HTTP 스크립트로 확인했습니다. 환경변수 목록·빈 비밀값·Git 제외·문서 링크도 검사했습니다. UI 변경이 없는 설정 작업으로 화면 QA와 전체 테스트는 반복하지 않았으며, Google 로그인·인증된 날씨 실연결을 검증한 결과가 아닙니다.
 

@@ -160,7 +160,7 @@ SSR loader ─┐
 API route ──┘
 ```
 
-Supabase Auth와 관리형 PostgreSQL은 후속 연결 계획이며, 현재 PR2 구현은 `pg`를 통한 PostgreSQL 직접 연결이다. Supabase 프로젝트·Auth 연동을 완료한 상태가 아니다. PR3A의 인증 spike에서 실제 요구와 연결 결과를 확인해 채택 여부를 결정한다. 채택하더라도 제품 테이블 접근은 서버의 PostgreSQL adapter로 모은다. runtime role은 최소 권한으로 두고 migration/DDL 권한과 분리한다. 제품 테이블의 Data API 노출을 차단하며, 사용하지 않는 Data API의 비활성화 여부를 실제 설정에서 확인한다. Supabase 공식 문서는 Data API 접근 권한·schema·RLS 경계를 설명한다. [T4]
+Supabase Auth와 관리형 PostgreSQL은 후속 연결 후보이며, 현재 PR2 구현은 `pg`를 통한 PostgreSQL 직접 연결이다. Supabase 프로젝트·Auth 연동을 완료한 상태가 아니며, 현재 로컬 개발에 Supabase 계정·프로젝트·키는 필요하지 않다. PR3A의 인증 spike에서 실제 요구와 연결 결과를 확인해 채택 여부를 결정한다. 채택하더라도 제품 테이블 접근은 서버의 PostgreSQL adapter로 모은다. runtime role은 최소 권한으로 두고 migration/DDL 권한과 분리한다. 제품 테이블의 Data API 노출을 차단하며, 사용하지 않는 Data API의 비활성화 여부를 실제 설정에서 확인한다. Supabase 공식 문서는 Data API 접근 권한·schema·RLS 경계를 설명한다. [T4]
 
 현재 HTTP 계약은 `GET /api/v1/openapi.json`으로 확인하며, Web은 얇은 HTTP client에서 JSON을 검증하고 TanStack Query로 화면 상태를 관리한다. SSR은 같은 service를 직접 호출하는 기준을 유지한다. 별도 Spring 제품 서버는 아직 없으며, 도입 시 SSR의 원격 API 호출·인증 전달·deadline을 별도로 검증해야 한다. Streaming renderer 사용과 데이터별 점진적 표시·성능 개선 입증을 구분한다.
 
