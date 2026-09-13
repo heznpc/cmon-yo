@@ -1,18 +1,22 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { createPool, migrate } from '../src/server/db';
-import { collectParks } from '../src/server/facilities/source';
+import { collectParks, facilityRegionCodes } from '../src/server/facilities/source';
 import { importParks } from '../src/server/facilities/import';
 
 const [command, path] = process.argv.slice(2);
 try {
   if (command === 'capture' && path) {
-    const snapshot = await collectParks();
+    const snapshot = await collectParks(
+      fetch,
+      facilityRegionCodes(process.env.FACILITY_REGION_CODES),
+    );
     await writeFile(path, JSON.stringify(snapshot, null, 2) + '\n', { flag: 'wx' });
     console.log(
       JSON.stringify({
         status: 'captured',
         received: snapshot.collection.received,
-        pilot: snapshot.expectedCount,
+        selected: snapshot.expectedCount,
+        regionCodes: snapshot.regionCodes,
         capturedAt: snapshot.capturedAt,
       }),
     );

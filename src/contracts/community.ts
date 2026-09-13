@@ -1,13 +1,13 @@
 import { z } from 'zod';
 import { idSchema } from './meetup';
 import { sportSchema } from './meetings';
-import { placeIdSchema } from './place';
+import { placeIdSchema, regionCodeSchema } from './place';
 export const postInputSchema = z
   .object({
     title: z.string().trim().min(1).max(120),
     body: z.string().trim().min(1).max(5000),
     sport: sportSchema,
-    regionCode: z.literal('46840').default('46840'),
+    regionCode: regionCodeSchema.nullable().default(null),
     placeId: placeIdSchema.nullable().default(null),
     meetupId: idSchema.nullable().default(null),
   })
@@ -33,6 +33,7 @@ export const communityCursorSchema = z
     /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z~[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
   );
 export const communityFiltersSchema = z.object({
+  regionCode: regionCodeSchema.optional(),
   sport: sportSchema.optional(),
   cursor: communityCursorSchema.optional(),
   mine: z.enum(['1']).optional(),
@@ -52,7 +53,7 @@ const version = z.number().int().positive();
 export const profileSchema = z.object({
   userId: idSchema,
   name: z.string().trim().min(1).max(60),
-  regionCode: z.literal('46840').nullable(),
+  regionCode: regionCodeSchema.nullable(),
   version: z.number().int().min(0),
 });
 export const communityCommandSchema = z.discriminatedUnion('action', [
@@ -60,7 +61,7 @@ export const communityCommandSchema = z.discriminatedUnion('action', [
     .object({
       action: z.literal('profile'),
       name: z.string().trim().min(1).max(60),
-      regionCode: z.literal('46840').nullable(),
+      regionCode: regionCodeSchema.nullable(),
       expectedVersion: z.number().int().min(0),
     })
     .strict(),

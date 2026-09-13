@@ -1,3 +1,4 @@
+import { RegionSelect } from '../places/RegionSelect';
 import { myMeetingsSchema, myMeetingsKey } from '../../contracts/meetings';
 import { useState, useRef, useEffect, lazy, Suspense } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
@@ -257,10 +258,20 @@ function CommunityContent({ route, ready }: { route: CommunityRoute; ready: bool
                 e.preventDefault();
                 const d = new FormData(e.currentTarget);
                 nav(
-                  loc.pathname + '?' + new URLSearchParams({ sport: String(d.get('sport') ?? '') }),
+                  loc.pathname +
+                    '?' +
+                    new URLSearchParams({
+                      sport: String(d.get('sport') ?? ''),
+                      regionCode: String(d.get('regionCode') ?? ''),
+                    }),
                 );
               }}
             >
+              <RegionSelect
+                key={f.regionCode ?? ''}
+                name="regionCode"
+                defaultValue={f.regionCode ?? ''}
+              />
               <label>
                 종목
                 <select name="sport" defaultValue={f.sport ?? ''}>
@@ -274,7 +285,7 @@ function CommunityContent({ route, ready }: { route: CommunityRoute; ready: bool
               </label>
               <button>조회</button>
             </form>
-            <p>무안군 · 질문과 후기를 나누세요.</p>
+            <p>동네의 운동 질문과 후기를 나누세요.</p>
             {list.data?.posts.length === 0 ? <p>아직 게시글이 없습니다.</p> : null}
             <ul>
               {list.data?.posts.map((p) => (
@@ -285,7 +296,13 @@ function CommunityContent({ route, ready }: { route: CommunityRoute; ready: bool
               ))}
             </ul>
             {f.page > 0 || f.cursor ? (
-              <Link to={loc.pathname + '?' + new URLSearchParams({ sport: f.sport ?? '' })}>
+              <Link
+                to={
+                  loc.pathname +
+                  '?' +
+                  new URLSearchParams({ sport: f.sport ?? '', regionCode: f.regionCode ?? '' })
+                }
+              >
                 첫 페이지
               </Link>
             ) : null}
@@ -752,7 +769,7 @@ function ProfileEditor({
         void mutate({
           action: 'profile',
           name,
-          regionCode: region === '46840' ? '46840' : null,
+          regionCode: region || null,
           expectedVersion: profile.version,
         });
       }}
@@ -767,14 +784,14 @@ function ProfileEditor({
           onChange={(e) => setName(e.target.value)}
         />
       </label>
-      <label>
-        선택 동네
-        <select disabled={disabled} value={region} onChange={(e) => setRegion(e.target.value)}>
-          <option value="">선택하지 않음</option>
-          <option value="46840">무안군</option>
-        </select>
-      </label>
-      <p>현재 시설·모임 제공 지역은 무안군입니다. 동네 선택은 거주 인증이 아닙니다.</p>
+      <RegionSelect
+        label="선택 동네"
+        emptyLabel="선택하지 않음"
+        disabled={disabled}
+        value={region}
+        onChange={(e) => setRegion(e.target.value)}
+      />
+      <p>동네 선택은 거주 인증이 아닙니다.</p>
       <button disabled={disabled}>프로필 저장</button>
     </form>
   );

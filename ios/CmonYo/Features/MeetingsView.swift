@@ -7,6 +7,7 @@ struct MeetingListView: View {
   @Environment(AccountSession.self) private var session
   var mine = false
   var placeId: String?
+  @State private var region = ""
   @State private var sport = ""
   @State private var dateEnabled = false
   @State private var day = Date()
@@ -24,7 +25,7 @@ struct MeetingListView: View {
       } else {
         if !mine {
           Section("조회 조건") {
-            Picker("동네", selection: .constant("46840")) { Text("무안군").tag("46840") }
+            RegionPicker(api: FacilityAPI(baseURL: session.baseURL), selection: $region)
             Picker("종목", selection: $sport) { Text("전체").tag(""); Text("걷기").tag("walking"); Text("달리기").tag("running"); Text("자전거").tag("cycling") }
             Toggle("날짜 지정", isOn: $dateEnabled)
             if dateEnabled { DatePicker("날짜 · 한국 시간", selection: $day, displayedComponents: .date).environment(\.timeZone, TimeZone(identifier: "Asia/Seoul")!) }
@@ -59,6 +60,7 @@ struct MeetingListView: View {
     loading = true; error = nil
     var parts = URLComponents(); var items = [URLQueryItem(name: "page", value: String(page))]
     if !mine {
+      if !region.isEmpty { items.append(.init(name: "regionCode", value: region)) }
       if !sport.isEmpty { items.append(.init(name: "sport", value: sport)) }
       if let placeId { items.append(.init(name: "placeId", value: placeId)) }
       if dateEnabled { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; f.locale = Locale(identifier: "en_US_POSIX"); f.timeZone = TimeZone(identifier: "Asia/Seoul"); items.append(.init(name: "date", value: f.string(from: day))) }
@@ -167,7 +169,6 @@ struct MeetingEditorView: View {
   @State private var draft = MeetingDraft()
   @State private var start = Date().addingTimeInterval(86400)
   @State private var end = Date().addingTimeInterval(90000)
-  @State private var places: [Facility] = []
   @State private var error: String?
   @State private var initialized = false
   @State private var login: AccountView.LoginRoute?
@@ -184,14 +185,13 @@ struct MeetingEditorView: View {
           TextField("제목", text: $draft.title).accessibilityIdentifier("meeting-draft-title")
           TextField("설명", text: $draft.description, axis: .vertical).lineLimit(3...6)
           Picker("종목", selection: $draft.sport) { Text("걷기").tag("walking"); Text("달리기").tag("running"); Text("자전거").tag("cycling") }
-          Picker("장소", selection: $draft.placeId) { Text("시설 선택").tag(""); ForEach(places) { Text($0.name).tag($0.id) } }
+          FacilityPicker(api: FacilityAPI(baseURL: session.baseURL), selection: $draft.placeId)
           DatePicker("시작 · 한국 시간", selection: $start).environment(\.timeZone, TimeZone(identifier: "Asia/Seoul")!)
           DatePicker("종료 · 한국 시간", selection: $end).environment(\.timeZone, TimeZone(identifier: "Asia/Seoul")!)
           Stepper("정원 · 주최자 포함 \(draft.capacity)명", value: $draft.capacity, in: 2...100)
-          Button(initial == nil ? "모임 생성" : "수정 저장") { submit() }.disabled(places.isEmpty)
+          Button(initial == nil ? "모임 생성" : "수정 저장") { submit() }.disabled(draft.placeId.isEmpty)
         }.disabled(command.pending || command.uncertain)
         if let error { Text(error) }
-        if places.isEmpty { Button("시설 다시 조회") { Task { await loadPlaces() } } }
         CommandFeedback(command: command, confirmed: saved)
       }
     }.navigationTitle(initial == nil ? "모임 만들기" : "모임 수정")
@@ -201,13 +201,8 @@ struct MeetingEditorView: View {
           else { draft.placeId = placeId ?? "" }
           initialized = true
         }
-        await loadPlaces()
       }
       .sheet(item: $login) { _ in AccountLoginView() }
-  }
-  private func loadPlaces() async {
-    do { places = try await FacilityAPI(baseURL: session.baseURL).list().places; error = nil }
-    catch { self.error = "시설을 불러오지 못했습니다. 작성한 입력은 유지됩니다." }
   }
   private func submit() {
     draft.title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)

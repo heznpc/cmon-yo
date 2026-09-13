@@ -1,9 +1,13 @@
+import { useSearchParams } from 'react-router';
+import { RegionSelect } from './RegionSelect';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Suspense, useEffect, useState } from 'react';
 import {
   placeKey,
   weatherKey,
   placesKey,
+  placeListKey,
+  placeFiltersSchema,
   placeSourceURL,
   type Weather,
   type Place,
@@ -84,7 +88,7 @@ function WeatherInfo({ weather, refreshFailed }: { weather: Weather; refreshFail
 export function PlacesPage({ id }: { id?: string }) {
   return (
     <main className={css.page}>
-      <p>C'mon Yo! · 무안군 공공시설 파일럿</p>
+      <p>C'mon Yo! · 공원과 운동시설</p>
       <ProductNav />
       {id ? <PlaceDetail id={id} /> : <PlaceList />}
       <p>
@@ -95,15 +99,35 @@ export function PlacesPage({ id }: { id?: string }) {
   );
 }
 function PlaceList() {
+  const [params, setParams] = useSearchParams();
+  const parsedFilters = placeFiltersSchema.safeParse(
+    Object.fromEntries([...params].filter(([, value]) => value !== '')),
+  );
+  const filters = parsedFilters.success ? parsedFilters.data : { page: 0 };
   const query = useQuery({
-    queryKey: placesKey,
+    enabled: parsedFilters.success,
+    queryKey: placeListKey(filters),
     staleTime: 60_000,
     retry: false,
-    queryFn: ({ signal }) => publicAPI.places(signal),
+    queryFn: ({ signal }) => publicAPI.places(signal, filters),
   });
   return (
     <>
       <h1>공원과 운동시설</h1>
+      {!parsedFilters.success ? <p role="alert">조회 조건을 확인해 주세요.</p> : null}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          setParams({ regionCode: String(new FormData(e.currentTarget).get('regionCode') ?? '') });
+        }}
+      >
+        <RegionSelect
+          key={filters.regionCode ?? ''}
+          name="regionCode"
+          defaultValue={filters.regionCode ?? ''}
+        />
+        <button>시설 조건 적용</button>
+      </form>
       {query.isError ? <p role="alert">시설을 불러오지 못했습니다. 다시 시도해 주세요.</p> : null}
       {query.isError && query.data ? (
         <p>이전에 불러온 목록입니다. 최신 정보를 확인하지 못했습니다.</p>
@@ -120,6 +144,32 @@ function PlaceList() {
         ))}
       </ul>
       <p role="status">{query.isFetching ? '시설을 불러오는 중…' : ''}</p>
+      {filters.page > 0 ? (
+        <AppLink
+          href={
+            '/places?' +
+            new URLSearchParams({
+              regionCode: filters.regionCode ?? '',
+              page: String(filters.page - 1),
+            })
+          }
+        >
+          이전 시설 페이지
+        </AppLink>
+      ) : null}
+      {query.data?.nextPage != null ? (
+        <AppLink
+          href={
+            '/places?' +
+            new URLSearchParams({
+              regionCode: filters.regionCode ?? '',
+              page: String(query.data.nextPage),
+            })
+          }
+        >
+          다음 시설 페이지
+        </AppLink>
+      ) : null}
       <FacilityRefresh
         loading={query.isFetching}
         refresh={() => void query.refetch()}

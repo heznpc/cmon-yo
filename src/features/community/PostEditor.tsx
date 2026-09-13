@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
-import { placeListSchema, placesKey } from '../../contracts/place';
+import { RegionSelect } from '../places/RegionSelect';
+import { PlacePicker } from '../places/PlacePicker';
 import { meetingListSchema, meetingListKey } from '../../contracts/meetings';
 import { postInputSchema, type Post } from '../../contracts/community';
 import { meetingRequest } from '../../api/meetings';
@@ -19,6 +20,7 @@ export function PostEditor({
   const [title, setTitle] = useState(post?.title ?? ''),
     [body, setBody] = useState(post?.body ?? ''),
     [sport, setSport] = useState(post?.sport ?? 'walking'),
+    [regionCode, setRegionCode] = useState(post?.regionCode ?? ''),
     [placeId, setPlaceId] = useState(post?.placeId ?? ''),
     [meetupId, setMeetupId] = useState(post?.meetupId ?? ''),
     [preview, setPreview] = useState(false),
@@ -26,15 +28,14 @@ export function PostEditor({
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => setHydrated(true), []);
   const locked = disabled || !hydrated;
-  const places = useQuery({
-    queryKey: placesKey,
-    queryFn: ({ signal }) => meetingRequest('/api/v1/places', placeListSchema, { signal }),
-    staleTime: 30000,
-    retry: false,
-  });
   const meetings = useQuery({
-    queryKey: meetingListKey({ regionCode: '46840', page: 0 }),
-    queryFn: ({ signal }) => meetingRequest('/api/v1/meetups', meetingListSchema, { signal }),
+    queryKey: meetingListKey({ regionCode: regionCode || undefined, page: 0 }),
+    queryFn: ({ signal }) =>
+      meetingRequest(
+        '/api/v1/meetups' + (regionCode ? '?regionCode=' + regionCode : ''),
+        meetingListSchema,
+        { signal },
+      ),
     staleTime: 30000,
     retry: false,
   });
@@ -47,6 +48,7 @@ export function PostEditor({
           title,
           body,
           sport,
+          regionCode: regionCode || null,
           placeId: placeId || null,
           meetupId: meetupId || null,
         });
@@ -81,6 +83,13 @@ export function PostEditor({
           ))}
         </select>
       </label>
+      <RegionSelect
+        label="게시글 동네"
+        emptyLabel="지정하지 않음"
+        value={regionCode}
+        disabled={locked}
+        onChange={(e) => setRegionCode(e.target.value)}
+      />
       <label>
         본문
         <textarea
@@ -94,17 +103,13 @@ export function PostEditor({
       </label>
       <details>
         <summary>관련 시설·모임 (선택)</summary>
-        <label>
-          관련 시설
-          <select disabled={locked} value={placeId} onChange={(e) => setPlaceId(e.target.value)}>
-            <option value="">연결하지 않음</option>
-            {places.data?.places.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <PlacePicker
+          label="관련 시설"
+          optional
+          disabled={locked}
+          value={placeId}
+          onChange={setPlaceId}
+        />
         <label>
           관련 모임
           <select disabled={locked} value={meetupId} onChange={(e) => setMeetupId(e.target.value)}>
@@ -120,13 +125,12 @@ export function PostEditor({
           </select>
         </label>
       </details>
-      {places.error || meetings.error ? (
+      {meetings.error ? (
         <p role="alert">
           관련 장소·모임을 불러오지 못했습니다.{' '}
           <button
             type="button"
             onClick={() => {
-              void places.refetch();
               void meetings.refetch();
             }}
           >

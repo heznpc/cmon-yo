@@ -29,7 +29,7 @@ struct Facility: Decodable, Identifiable, Sendable {
   }
 }
 func validFacilityID(_ id: String) -> Bool {
-  id.range(of: "^park-46840-\\d{5}$", options: .regularExpression) != nil
+  id.range(of: "^park-[0-9]{5}-[0-9]{5}$", options: .regularExpression) != nil
 }
 struct ForecastFacts: Decodable, Sendable {
   let temperatureC: Double?
@@ -73,7 +73,10 @@ struct FacilityWeather: Decodable, Sendable {
     guard (status == .unavailable) == (facts == nil) else { throw ContractError.invalid }
   }
 }
-struct FacilityList: Decodable, Sendable { let places: [Facility] }
+struct FacilityList: Decodable, Sendable { let places: [Facility]; let nextPage: Int? }
+struct FacilityRegion: Decodable, Identifiable, Sendable { let code: String; let name: String; var id: String { code } }
+struct FacilityRegions: Decodable, Sendable { let regions: [FacilityRegion] }
+func validRegionCode(_ code: String) -> Bool { code.range(of: "^[0-9]{5}$", options: .regularExpression) != nil }
 struct FacilityInfo: Decodable, Sendable { let place: Facility }
 struct PlaceForecast: Decodable, Sendable { let placeId: String; let weather: FacilityWeather }
 struct FacilityDetail: Decodable, Sendable {
@@ -92,7 +95,17 @@ enum FacilityError: Error, LocalizedError {
 }
 struct FacilityAPI: Sendable {
   let baseURL: URL
-  func list() async throws -> FacilityList { try await get("api/v1/places") }
+  func list(regionCode: String = "", page: Int = 0) async throws -> FacilityList {
+    guard (regionCode.isEmpty || validRegionCode(regionCode)), (0...10000).contains(page) else { throw FacilityError.invalidResponse }
+    var query = [URLQueryItem(name: "page", value: String(page))]
+    if !regionCode.isEmpty { query.append(.init(name: "regionCode", value: regionCode)) }
+    return try await get("api/v1/places", query: query)
+  }
+  func regions() async throws -> FacilityRegions {
+    let value: FacilityRegions = try await get("api/v1/regions")
+    guard value.regions.allSatisfy({ validRegionCode($0.code) && !$0.name.isEmpty }), Set(value.regions.map(\.code)).count == value.regions.count else { throw FacilityError.invalidResponse }
+    return value
+  }
   func info(id: String) async throws -> FacilityInfo {
     guard validFacilityID(id) else { throw FacilityError.notFound }
     let result: FacilityInfo = try await get("api/v1/places/\(id)/info")
@@ -109,8 +122,10 @@ struct FacilityAPI: Sendable {
     guard validFacilityID(id) else { throw FacilityError.notFound }
     return try await get("api/v1/places/\(id)")
   }
-  private func get<T: Decodable>(_ path: String) async throws -> T {
-    var request = URLRequest(url: baseURL.appending(path: path), cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 6)
+  private func get<T: Decodable>(_ path: String, query: [URLQueryItem] = []) async throws -> T {
+    var url = URLComponents(url: baseURL.appending(path: path), resolvingAgainstBaseURL: false)!
+    if !query.isEmpty { url.queryItems = query }
+    var request = URLRequest(url: url.url!, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 6)
     request.setValue("application/json", forHTTPHeaderField: "Accept")
     let data: Data
     let response: URLResponse

@@ -3,6 +3,8 @@ import { apiErrorSchema } from '../contracts/http';
 import { meetupDetailSchema } from '../contracts/meetup';
 import {
   placeDetailSchema,
+  regionListSchema,
+  type PlaceFilters,
   placeListSchema,
   placeInfoSchema,
   placeWeatherSchema,
@@ -82,7 +84,19 @@ export function createPublicAPI(fetcher: typeof fetch = fetch) {
           invalid: '모임 응답을 읽을 수 없습니다.',
         }),
       ),
-    places: (signal: AbortSignal) => read('/api/v1/places', placeListSchema, signal, placeMessages),
+    regions: (signal: AbortSignal) =>
+      read('/api/v1/regions', regionListSchema, signal, placeMessages),
+    places: (signal: AbortSignal, filters: PlaceFilters = { page: 0 }) => {
+      const params = new URLSearchParams();
+      if (filters.regionCode) params.set('regionCode', filters.regionCode);
+      if (filters.page) params.set('page', String(filters.page));
+      return read(
+        '/api/v1/places' + (params.size ? '?' + params : ''),
+        placeListSchema,
+        signal,
+        placeMessages,
+      );
+    },
     placeInfo: (id: string, signal: AbortSignal) =>
       detail(
         read(

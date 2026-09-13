@@ -2,6 +2,9 @@ import SwiftUI
 
 struct FacilitiesView: View {
   let api: FacilityAPI
+  @State private var region = ""
+  @State private var page = 0
+  @State private var nextPage: Int?
   @State private var places: [Facility]?
   @State private var error: String?
   @State private var loading = true
@@ -10,7 +13,8 @@ struct FacilitiesView: View {
     NavigationStack {
       ScrollView {
         VStack(alignment: .leading, spacing: 20) {
-          Text("무안군 공공시설 파일럿").font(.headline)
+          RegionPicker(api: api, selection: $region)
+            .onChange(of: region) { _, _ in page = 0; places = nil; error = nil; nextPage = nil }
           if let error { Text(error).accessibilityIdentifier("facility-error") }
           if error != nil && places != nil { Text("이전에 불러온 목록입니다. 최신 정보를 확인하지 못했습니다.") }
           if places?.isEmpty == true { Text("등록된 시설 정보가 없습니다.") }
@@ -24,15 +28,17 @@ struct FacilitiesView: View {
           }
           if loading { ProgressView("시설을 불러오는 중…") }
           Button(error == nil ? "시설 새로고침" : "다시 시도") { attempt += 1 }.disabled(loading).frame(minHeight: 44)
+          if page > 0 { Button("이전 시설 페이지") { page -= 1; places = nil; error = nil }.disabled(loading) }
+          if let nextPage { Button("다음 시설 페이지") { page = nextPage; places = nil; error = nil }.disabled(loading) }
           FacilitySource()
         }.padding().buttonStyle(.bordered).controlSize(.large)
       }.navigationTitle("공원과 운동시설")
-        .task(id: attempt) {
+        .task(id: "\(region):\(page):\(attempt)") {
           loading = true
           do {
-            let response = try await api.list()
+            let response = try await api.list(regionCode: region, page: page)
             try Task.checkCancellation()
-            places = response.places
+            places = response.places; nextPage = response.nextPage
             error = nil
           } catch is CancellationError { return }
           catch { self.error = error.localizedDescription }

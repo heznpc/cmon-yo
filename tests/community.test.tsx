@@ -120,6 +120,52 @@ describe.runIf(process.env.TEST_DATABASE_URL)('community HTTP and SSR with real 
   };
   const command = (body: unknown, who = users[0], key = randomUUID(), extra = {}) =>
     call('/api/v1/community/commands', 'POST', body, who, key, extra);
+  test('a profile and post can select another region, change it and clear the selection', async () => {
+    await pool.query('ALTER TABLE posts DROP CONSTRAINT posts_region_code_check');
+    await pool.query(
+      "ALTER TABLE posts ADD CONSTRAINT posts_region_code_check CHECK(region_code='46840')",
+    );
+    await pool.query('ALTER TABLE user_profiles DROP CONSTRAINT user_profiles_region_code_check');
+    await pool.query(
+      "ALTER TABLE user_profiles ADD CONSTRAINT user_profiles_region_code_check CHECK(region_code='46840')",
+    );
+    await migrateMeetings(pool);
+    const who = users[1];
+    const profile = await (await call('/api/v1/me/profile', 'GET', undefined, who)).json();
+    const saved = await command(
+      {
+        action: 'profile',
+        name: profile.name,
+        regionCode: '11680',
+        expectedVersion: profile.version,
+      },
+      who,
+    );
+    expect(saved.status, await saved.clone().text()).toBe(200);
+    expect(
+      (await (await call('/api/v1/me/profile', 'GET', undefined, who)).json()).regionCode,
+    ).toBe('11680');
+    const created = await command(
+      { action: 'create', input: { ...input, regionCode: '11680' } },
+      who,
+    );
+    expect(created.status, await created.clone().text()).toBe(200);
+    const { id } = await created.json();
+    const list = await (await call('/api/v1/posts?regionCode=11680')).json();
+    expect(list.posts.some((p: { id: string }) => p.id === id)).toBe(true);
+    const excluded = await (await call('/api/v1/posts?regionCode=46840')).json();
+    expect(excluded.posts.some((p: { id: string }) => p.id === id)).toBe(false);
+    expect(
+      (
+        await command(
+          { action: 'edit', id, expectedVersion: 1, input: { ...input, regionCode: null } },
+          who,
+        )
+      ).status,
+    ).toBe(200);
+    expect((await (await call('/api/v1/posts/' + id)).json()).regionCode).toBeNull();
+    expect((await command({ action: 'delete', id, expectedVersion: 2 }, who)).status).toBe(200);
+  });
   test('posts, comments, authorization, version, replay, reporting, blocking and SSR isolation', async () => {
     const key = randomUUID(),
       payload = { action: 'create', input };

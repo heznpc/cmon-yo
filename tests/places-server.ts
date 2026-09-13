@@ -43,6 +43,7 @@ const app = createApp({
   },
   renderer: async () => (await vite.ssrLoadModule('/src/server/render.tsx')).renderPage,
   places: {
+    regions: db.regions,
     async info(id, signal) {
       if (state === 'error')
         throw new ServiceError(503, 'UNAVAILABLE', '시설을 불러오지 못했습니다.');

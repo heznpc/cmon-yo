@@ -3,6 +3,8 @@ import { apiErrorSchema } from '../contracts/http';
 import { idSchema, meetupDetailSchema } from '../contracts/meetup';
 import {
   placeIdSchema,
+  regionCodeSchema,
+  regionListSchema,
   placeDetailSchema,
   placeListSchema,
   placeInfoSchema,
@@ -74,12 +76,31 @@ export const openapi = {
         },
       },
     },
+    '/api/v1/regions': {
+      get: {
+        operationId: 'listRegions',
+        summary: 'Regions present in the imported facility database.',
+        responses: {
+          '200': response('RegionList', 'Available regional codes and labels.'),
+          '503': unavailable,
+        },
+      },
+    },
     '/api/v1/places': {
       get: {
         operationId: 'listPlaces',
-        summary: 'Read imported Muan parks; an empty list is a successful response.',
+        parameters: [
+          { name: 'regionCode', in: 'query', schema: wireSchema(regionCodeSchema) },
+          {
+            name: 'page',
+            in: 'query',
+            schema: { type: 'integer', minimum: 0, maximum: 10000, default: 0 },
+          },
+        ],
+        summary: 'Read imported parks, optionally filtered by region, in pages of 100.',
         responses: {
-          '200': response('PlaceList', 'Imported public facilities.'),
+          '200': response('PlaceList', 'Imported public facilities; nextPage is null at the end.'),
+          '400': response('ApiError', 'INVALID_FILTER: malformed region or page.'),
           '503': unavailable,
         },
       },
@@ -149,6 +170,7 @@ export const openapi = {
           'remain in runtime validators and the shared TS/Swift fixture matrix; JSON Schema alone ' +
           'does not enforce them. Clients normalize omitted description to null and unknown sport to unknown.',
       },
+      RegionList: wireSchema(regionListSchema),
       PlaceList: wireSchema(placeListSchema),
       PlaceDetail: wireSchema(placeDetailSchema),
       PlaceInfo: wireSchema(placeInfoSchema),

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { idSchema } from './meetup';
-import { placeIdSchema } from './place';
+import { placeIdSchema, regionCodeSchema } from './place';
 
 const utc = z.iso.datetime({ precision: 3 }).refine((v) => new Date(v).toISOString() === v);
 export const sportSchema = z.enum(['walking', 'running', 'cycling']);
@@ -23,7 +23,7 @@ export const meetingSchema = z.object({
   description: z.string(),
   sport: sportSchema,
   place: z.object({ id: placeIdSchema, name: z.string() }),
-  regionCode: z.literal('46840'),
+  regionCode: regionCodeSchema,
   startsAt: utc,
   endsAt: utc,
   capacity: z.number().int().min(2).max(100),
@@ -37,7 +37,7 @@ export const meetingDetailSchema = z.object({
   viewerParticipation: z.null(),
 });
 export const meetingFiltersSchema = z.object({
-  regionCode: z.literal('46840').default('46840'),
+  regionCode: regionCodeSchema.optional(),
   sport: sportSchema.optional(),
   date: z.iso.date().optional(),
   placeId: placeIdSchema.optional(),

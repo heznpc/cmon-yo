@@ -142,6 +142,44 @@ describe.runIf(process.env.TEST_DATABASE_URL)(
     });
     const get = async (id: string) =>
       meetingDetailSchema.parse(await (await call(`/api/v1/meetups/${id}`)).json()).meetup;
+    test('meetup region follows its stored facility on create/edit and filtering is optional', async () => {
+      const count = (await pool.query('SELECT count(*)::int AS n FROM meetups')).rows[0].n;
+      await pool.query('ALTER TABLE meetups DROP CONSTRAINT meetups_region_code_check');
+      await pool.query(
+        "ALTER TABLE meetups ADD CONSTRAINT meetups_region_code_check CHECK(region_code='46840')",
+      );
+      await migrateMeetings(pool);
+      expect((await pool.query('SELECT count(*)::int AS n FROM meetups')).rows[0].n).toBe(count);
+      const original = (
+        await pool.query("SELECT document FROM places WHERE document->>'id'=$1", [placeId])
+      ).rows[0].document;
+      const other = { ...original, id: 'park-11680-00001', name: '[시험] 두 번째 지역' };
+      await pool.query('INSERT INTO places(source,source_key,document) VALUES($1,$2,$3)', [
+        'data.go.kr/15012890',
+        '11680-00001',
+        other,
+      ]);
+      const draft = { ...input(), placeId: other.id };
+      const created = await call('/api/v1/meetups', 'POST', draft, users[0], randomUUID());
+      expect(created.status, await created.clone().text()).toBe(200);
+      const { id } = await created.json();
+      expect((await get(id)).regionCode).toBe('11680');
+      const listed = await (await call('/api/v1/meetups')).json();
+      expect(listed.meetups.some((m: { id: string }) => m.id === id)).toBe(true);
+      const excluded = await (await call('/api/v1/meetups?regionCode=46840')).json();
+      expect(excluded.meetups.some((m: { id: string }) => m.id === id)).toBe(false);
+      const included = await (await call('/api/v1/meetups?regionCode=11680')).json();
+      expect(included.meetups.some((m: { id: string }) => m.id === id)).toBe(true);
+      const changed = await call(
+        '/api/v1/meetups/' + id,
+        'PATCH',
+        { action: 'edit', expectedVersion: 1, input: { ...draft, placeId } },
+        users[0],
+        randomUUID(),
+      );
+      expect(changed.status, await changed.clone().text()).toBe(200);
+      expect((await get(id)).regionCode).toBe('46840');
+    });
     test('idempotent create, final-seat race, stale intents, edit/cancel permissions, lost responses and personal SSR', async () => {
       const draft = input();
       const key = randomUUID();

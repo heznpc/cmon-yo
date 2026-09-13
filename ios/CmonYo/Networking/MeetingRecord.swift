@@ -23,8 +23,8 @@ struct MeetingRecord: Decodable, Identifiable, Sendable {
   var stateLabel: String { status == "cancelled" ? "모임 취소" : start <= Date() ? "시작됨" : participantCount >= capacity ? "정원 마감" : "모집 중" }
   var sportLabel: String { ["walking": "걷기", "running": "달리기", "cycling": "자전거"][sport] ?? "알 수 없는 종목" }
   func validate() throws {
-    guard validID(id), place.id.range(of: "^park-46840-[0-9]{5}$", options: .regularExpression) != nil,
-      regionCode == "46840", !title.isEmpty, version > 0, (2...100).contains(capacity),
+    guard validID(id), validFacilityID(place.id),
+      validRegionCode(regionCode), regionCode == String(place.id.dropFirst(5).prefix(5)), !title.isEmpty, version > 0, (2...100).contains(capacity),
       (0...capacity).contains(participantCount), ["open", "cancelled"].contains(status),
       Self.date(startsAt) != nil, Self.date(endsAt) != nil, end > start,
       [nil, "host", "participant"].contains(role), [nil, "joined", "cancelled"].contains(participationStatus) else { throw ProductError(status: 0, code: "RESPONSE") }

@@ -14,22 +14,22 @@ export default defineConfig({
     },
     {
       name: 'meetings-development',
-      testMatch: ['meetings.spec.ts', 'community.spec.ts'],
+      testMatch: ['meetings.spec.ts', 'community.spec.ts', 'regions.spec.ts'],
       use: { baseURL: 'http://127.0.0.1:3115' },
     },
     {
       name: 'meetings-production',
-      testMatch: ['meetings.spec.ts', 'community.spec.ts'],
+      testMatch: ['meetings.spec.ts', 'community.spec.ts', 'regions.spec.ts'],
       use: { baseURL: 'http://127.0.0.1:3116' },
     },
     {
       name: 'development',
-      testIgnore: ['account.spec.ts', 'meetings.spec.ts', 'community.spec.ts'],
+      testIgnore: ['account.spec.ts', 'meetings.spec.ts', 'community.spec.ts', 'regions.spec.ts'],
       use: { baseURL: 'http://127.0.0.1:3000' },
     },
     {
       name: 'production',
-      testIgnore: ['account.spec.ts', 'meetings.spec.ts', 'community.spec.ts'],
+      testIgnore: ['account.spec.ts', 'meetings.spec.ts', 'community.spec.ts', 'regions.spec.ts'],
       use: { baseURL: 'http://127.0.0.1:3002' },
     },
     {

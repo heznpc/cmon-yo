@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS meetups (
   sport text NOT NULL CHECK (sport IN ('walking','running','cycling')),
   place_id text NOT NULL,
   place_name text NOT NULL,
-  region_code text NOT NULL CHECK (region_code = '46840'),
+  region_code text NOT NULL CHECK (region_code ~ '^[0-9]{5}$'),
   starts_at timestamptz NOT NULL,
   ends_at timestamptz NOT NULL CHECK (ends_at > starts_at),
   capacity integer NOT NULL CHECK (capacity BETWEEN 2 AND 100),
@@ -42,3 +42,7 @@ BEGIN
 END $$;
 CREATE OR REPLACE TRIGGER account_meetup_cleanup BEFORE DELETE ON auth_user
   FOR EACH ROW EXECUTE FUNCTION cancel_deleted_account_meetups();
+
+-- Keep existing rows while allowing any standard regional code.
+ALTER TABLE meetups DROP CONSTRAINT IF EXISTS meetups_region_code_check;
+ALTER TABLE meetups ADD CONSTRAINT meetups_region_code_check CHECK (region_code ~ '^[0-9]{5}$');

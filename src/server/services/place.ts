@@ -1,6 +1,8 @@
 import type pg from 'pg';
 import {
   placeDetailSchema,
+  regionListSchema,
+  type PlaceFilters,
   placeListSchema,
   placeSchema,
   type PlaceDetail,
@@ -13,7 +15,11 @@ import type { WeatherService } from '../weather/kma';
 import { ServiceError } from './meetup';
 
 export type PlaceService = {
-  list(signal: AbortSignal): Promise<{ places: Place[] }>;
+  list(
+    signal: AbortSignal,
+    filters?: PlaceFilters,
+  ): Promise<{ places: Place[]; nextPage?: number | null }>;
+  regions(signal: AbortSignal): Promise<{ regions: { code: string; name: string }[] }>;
   detail(id: string, signal: AbortSignal): Promise<PlaceDetail>;
   info(id: string, signal: AbortSignal): Promise<PlaceInfo>;
   weather(place: Place, signal: AbortSignal): Promise<PlaceWeather>;
@@ -40,14 +46,36 @@ export function databasePlaces(pool: pg.Pool | undefined, weather: WeatherServic
   return {
     info,
     weather: forecast,
-    async list(signal) {
+    async regions(signal) {
       signal.throwIfAborted();
-      const result = await database().query(
-        'SELECT document FROM places WHERE source = $1 ORDER BY source_key DESC LIMIT 100',
+      const { rows } = await database().query(
+        `SELECT left(source_key, 5) AS code, min(document->>'regionName') AS name, min(document->>'address') AS address
+         FROM places WHERE source=$1 GROUP BY left(source_key, 5) ORDER BY code`,
         [source],
       );
       signal.throwIfAborted();
-      return placeListSchema.parse({ places: result.rows.map((r) => r.document) });
+      return regionListSchema.parse({
+        regions: rows.map((row) => {
+          const parts = String(row.address ?? '')
+            .trim()
+            .split(/\s+/);
+          const label = parts.slice(0, parts[2]?.endsWith('구') ? 3 : 2).join(' ');
+          return { code: row.code, name: row.name || label || row.code };
+        }),
+      });
+    },
+    async list(signal, filters = { page: 0 }) {
+      signal.throwIfAborted();
+      const result = await database().query(
+        `SELECT document FROM places WHERE source = $1 AND ($2::text IS NULL OR left(source_key,5)=$2)
+         ORDER BY source_key DESC LIMIT 101 OFFSET $3`,
+        [source, filters.regionCode ?? null, filters.page * 100],
+      );
+      signal.throwIfAborted();
+      return placeListSchema.parse({
+        places: result.rows.slice(0, 100).map((r) => r.document),
+        nextPage: result.rows.length > 100 ? filters.page + 1 : null,
+      });
     },
     async detail(id, signal) {
       const { place } = await info(id, signal);

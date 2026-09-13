@@ -21,6 +21,7 @@ test('published OpenAPI matches actual HTTP reads, empty results and 400/404/503
       return fixture(id, signal);
     },
     places: {
+      regions: async () => ({ regions: [{ code: '46840', name: '무안군' }] }),
       info: async (id) => {
         if (unavailable) throw new Error('internal storage failure');
         if (id !== place.place.id) throw new ServiceError(404, 'NOT_FOUND', 'missing');
@@ -48,6 +49,7 @@ test('published OpenAPI matches actual HTTP reads, empty results and 400/404/503
       '/api/v1/places/{id}',
       '/api/v1/places/{id}/info',
       '/api/v1/places/{id}/weather',
+      '/api/v1/regions',
     ]);
     const validate = responseContract(spec);
     const uuid = 'AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA';
@@ -62,6 +64,8 @@ test('published OpenAPI matches actual HTTP reads, empty results and 400/404/503
       return body;
     };
     await check(`/api/v1/meetups/${meetup.meetup.id}`, '/api/v1/meetups/{id}', 200);
+    await check('/api/v1/regions', '/api/v1/regions', 200);
+    await check('/api/v1/places?regionCode=bad', '/api/v1/places', 400);
     await check('/api/v1/places', '/api/v1/places', 200);
     for (const unit of ['info', 'weather']) {
       await check(`/api/v1/places/${place.place.id}/${unit}`, `/api/v1/places/{id}/${unit}`, 200);

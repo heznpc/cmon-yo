@@ -1,9 +1,8 @@
 import { useState, type FormEvent } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { meetingInputSchema, type Meeting, type MeetingInput } from '../../contracts/meetings';
-import { placesKey } from '../../contracts/place';
-import { publicAPI } from '../../api/public';
+import { PlacePicker } from '../places/PlacePicker';
 import { form } from '../account/account.css';
 import { useMeetingCommand } from './useMeetingCommand';
 const sports = { walking: '걷기', running: '달리기', cycling: '자전거' };
@@ -28,12 +27,6 @@ export function MeetingEditor({
     client = useQueryClient();
   const [baseVersion] = useState(initial?.version);
   const [selectedPlace, setSelectedPlace] = useState(initial?.place.id ?? placeId ?? '');
-  const places = useQuery({
-    queryKey: placesKey,
-    staleTime: 60_000,
-    retry: false,
-    queryFn: ({ signal }) => publicAPI.places(signal),
-  });
   const command = useMeetingCommand(userId, async (id) => {
     await Promise.all([
       client.invalidateQueries({ queryKey: ['meetings', 'list'] }),
@@ -87,22 +80,12 @@ export function MeetingEditor({
               ))}
             </select>
           </label>
-          <label>
-            장소
-            <select
-              name="placeId"
-              required
-              value={selectedPlace}
-              onChange={(event) => setSelectedPlace(event.target.value)}
-            >
-              <option value="">시설 선택</option>
-              {places.data?.places.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <PlacePicker
+            name="placeId"
+            value={selectedPlace}
+            onChange={setSelectedPlace}
+            disabled={!ready || command.pending || !!command.unknown}
+          />
           <p>입력 시간은 이 기기의 현지 시간이며 상세에는 한국 시간으로 표시됩니다.</p>
           <label>
             시작 날짜
@@ -151,15 +134,9 @@ export function MeetingEditor({
               defaultValue={initial?.capacity ?? 6}
             />
           </label>
-          <button disabled={!places.data}>{initial ? '수정 저장' : '모임 생성'}</button>
+          <button disabled={!selectedPlace}>{initial ? '수정 저장' : '모임 생성'}</button>
         </fieldset>
       </form>
-      {places.isError ? (
-        <>
-          <p role="alert">시설 목록을 불러오지 못했습니다. 작성한 입력은 유지됩니다.</p>
-          <button onClick={() => void places.refetch()}>시설 다시 조회</button>
-        </>
-      ) : null}
       {command.feedback}
     </section>
   );
