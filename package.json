@@ -7,6 +7,7 @@
     "node": ">=22.12.0"
   },
   "scripts": {
+    "with-env": "node --env-file=.env --run",
     "dev": "tsx watch src/server/main.ts",
     "start": "NODE_ENV=production node dist/server/main.js",
     "build": "vite build && vite build --ssr src/server/main.ts --outDir dist/server && node scripts/check-bundle.mjs",

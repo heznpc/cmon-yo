@@ -887,7 +887,7 @@ PR1의 SSR 본문 테스트는 progressive data streaming이나 성능 개선의
 
 ### PR3A — 인증과 계정 격리
 
-최소 로그인·내 계정 화면으로 실제 provider 연결과 WebView 동일 identity spike를 수행한다. 결과로 인증 방식을 채택·수정·기각한다. Browser·Native의 로그인·갱신·만료·로그아웃·재시작, OpenAPI의 identity/오류 계약, 서버 인가를 검증한다.
+첫 로그인 공급자는 Google이다. 최소 로그인·내 계정 화면으로 실제 provider 연결과 WebView 동일 identity spike를 수행한다. 결과로 인증 방식을 채택·수정·기각한다. Browser·Native의 로그인·갱신·만료·로그아웃·재시작, OpenAPI의 identity/오류 계약, 서버 인가를 검증한다.
 
 개인 cache·진행 중 요청·계정 전환을 이 단계에 포함한다. A의 응답을 지연시킨 채 B로 전환한 뒤 늦게 도착시켜 화면·cache·뒤로가기에 섞이지 않음을 확인한다. 개인 SSR도 요청별로 격리하며 공개 시설 cache를 일괄 삭제하지 않는다. 로그인 입력·오류·포커스와 실제 Native/WKWebView subject 일치를 실행한다. 세션 연결 성공만으로 cache 안전성까지 통과 처리하지 않는다.
 

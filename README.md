@@ -23,10 +23,12 @@ PR1 기능 기준선은 main에 반영됐습니다. **PR2는 무안군 시설·�
 현재 코드는 **SSR·HTTP 계약·조회 실패 복구·읽기 전용 WebView를 검증한 공개 조회 단계**입니다. 실제 모임 작성·참여·개인 상태·인증된 입력 흐름과 사용자 피드백·모니터링에 따른 개선은 아직 없습니다. [기존 handoff §2.1과 §16](docs/CMON_YO_FINAL_HANDOFF.md)의 코드 근거와 실행 순서를 갱신했습니다.
 
 1. **PR2**: 기상청 인증 성공 실응답의 값·발표/대상 시각·격자 검증으로 남은 필수 조건을 마무리합니다. 현재 draft를 유지합니다.
-2. **PR3A / [이슈 #3](https://github.com/heznpc/cmon-yo/issues/3)**: 실제 로그인·내 계정 화면, Native/WebView 동일 사용자, 개인 cache·계정 전환·늦은 응답 격리. 최소 HTTP/인증 실패 관측을 함께 시작합니다.
+2. **PR3A / [이슈 #3](https://github.com/heznpc/cmon-yo/issues/3)**: Google 로그인·내 계정 화면, Native/WebView 동일 사용자, 개인 cache·계정 전환·늦은 응답 격리. 최소 HTTP/인증 실패 관측을 함께 시작합니다.
 3. **PR3B**: 실제 모임 목록·필터·생성·참여·취소. 입력·진행·실패 복구, 권한·마지막 정원·중복 효과 계약과 관련 cache 갱신을 검증합니다.
 4. **PR4 → PR5**: 모임 댓글과 실제 WebView 입력/복귀 → 사용자 피드백·측정에 따른 개선. 운영 지표·A/B 성과를 실행 없이 주장하지 않습니다.
 5. **PR6 → PR7**: 현장 체크인·수동 확인 → 독립 HealthKit 운동량. 장기 제품 목표는 유지합니다.
+
+현재 계획상 **PR2의 필수 검증 1개 + 이후 구현 단계 6개(PR3A·PR3B·PR4·PR5·PR6·PR7)**가 남아 있습니다. 세부 작업 수나 완료율을 뜻하지 않습니다. 이후의 동네 인증·Push·리워드는 아직 작업 단위가 확정되지 않았습니다.
 
 React/Fastify와 직접 PostgreSQL 연결을 유지하며, 필요한 공통 UI는 실제 화면 요구에 맞춰 추출합니다. Supabase 인증은 PR3A의 실제 연결 결과로 채택 여부를 정합니다. PR3는 별도 브랜치/PR에서 진행하며 날씨 검증 대기만으로 독립 작업을 막지 않습니다. 기존 XCUITest·실기기·VoiceOver 후속 미검증은 그대로 유지합니다.
 
@@ -35,6 +37,31 @@ React/Fastify와 직접 PostgreSQL 연결을 유지하며, 필요한 공통 UI�
 ## 실행
 
 Node **22.22.3**, npm **10.9.8**. 의존성은 `package-lock.json`에 고정합니다.
+
+API·DB·인증 준비값은 [`.env.example`](.env.example)에 모았습니다. 현재 사용하는 값, Native에 별도 전달하는 값, 아직 앱에서 읽지 않는 인증 준비용 `SETUP_*`를 구분합니다. 실제 값은 Git에서 제외된 `.env`에만 입력합니다.
+
+```sh
+# .env가 이미 있으면 덮어쓰지 않습니다.
+test -e .env || (umask 077; cp .env.example .env)
+npm ci
+npm run with-env -- dev
+```
+
+`with-env`는 Node의 `--env-file`로 `.env`를 읽고 지정한 npm script를 실행합니다. 셸에 이미 설정된 같은 이름의 환경변수가 우선합니다. `npm run with-env -- facilities -- migrate`, `npm run with-env -- check`, `npm run with-env -- test:web`, `npm run with-env -- start`에도 사용할 수 있습니다. `start` 전에 `npm run build`가 필요합니다. 기존 `npm run dev`/`npm start`는 실행 환경의 변수만 사용하므로 CI·배포 방식은 유지됩니다.
+
+| 입력할 곳 | 현재 필요한 값·설정 |
+| --- | --- |
+| `.env`의 `DATABASE_URL` | 시설을 저장·조회할 PostgreSQL 연결 문자열 |
+| `.env`의 `TEST_DATABASE_URL` | 실제 DB 통합 검사 전용 연결 문자열. 미입력 시 DB 검사 3개 skip |
+| `.env`의 `KMA_API_KEY` | [기상청 API허브](https://apihub.kma.go.kr/apiList.do?seqApi=10)의 authKey. 현재 남은 날씨 실연결 검증에 필요 |
+| `.env`의 `SETUP_*` | Google 로그인 연결을 위한 값 취합용. Web client ID·secret·callback, Supabase URL·publishable key(채택 시), iOS client ID(Native SDK 채택 시) |
+| OAuth/인증 공급자의 콘솔 | client ID/secret, 공급자 callback, 앱 복귀 URL 허용 목록, 동의 항목·테스트 사용자. `.env`를 채우는 것만으로 적용되지 않음 |
+
+첫 로그인 공급자는 Google입니다. [Google 연결 설정](https://supabase.com/docs/guides/auth/social-login/auth-google)에 따라 Web client ID·secret을 준비합니다. Supabase를 선택하면 [프로젝트 URL·publishable key](https://supabase.com/docs/guides/getting-started/api-keys)를 준비하고, Google→Supabase callback과 로그인 후 Web/iOS 복귀 주소를 구분합니다. [Redirect 설정](https://supabase.com/docs/guides/auth/redirect-urls)은 PR3A에서 실제 인증 방식과 함께 확정합니다. 시설 공개 파일 수집에는 별도 키가 없고, GPS·HealthKit은 기기 권한 설정입니다.
+
+**환경변수 실행 확인 — 2026-09-13:** Node 22.22.3/npm 10.9.8에서 `npm run with-env -- typecheck -- --pretty false`와 `npm run with-env -- build`가 통과했습니다. 빈 credential의 템플릿으로 `npm run with-env -- dev`와 `npm run with-env -- start`를 각각 실행해 모임 API/SSR 200, 개발·운영 asset 경로, DB 미설정 시 시설 API 503, 셸의 PORT 우선 적용을 HTTP 스크립트로 확인했습니다. 환경변수 목록·빈 비밀값·Git 제외·문서 링크도 검사했습니다. UI 변경이 없는 설정 작업으로 화면 QA와 전체 테스트는 반복하지 않았으며, Google 로그인·인증된 날씨 실연결을 검증한 결과가 아닙니다.
+
+fixture 모임만 확인하려면 DB나 인증 설정 없이 아래 명령으로 실행할 수 있습니다.
 
 ```sh
 npm ci
@@ -52,7 +79,7 @@ API는 `/api/v1/meetups/:id`, 읽기 전용 안내는 `/meetups/:id/discussion`�
 
 ## PR2 시설·날씨 실행
 
-PostgreSQL 17+와 `DATABASE_URL`이 필요합니다. schema 적용과 원본 import는 서버 실행과 분리합니다. 연결 정보와 `KMA_API_KEY`(API허브 발급 키)는 서버 환경변수로만 전달합니다. `.env` 파일을 자동 로드하지 않습니다.
+PostgreSQL 17+와 `DATABASE_URL`이 필요합니다. schema 적용과 원본 import는 서버 실행과 분리합니다. 연결 정보와 `KMA_API_KEY`(API허브 발급 키)는 서버 환경변수로만 전달합니다. `.env`를 사용하려면 위의 `npm run with-env -- …`를 사용합니다. 아래는 같은 값을 셸 환경변수로 전달하는 예입니다.
 
 ```sh
 export DATABASE_URL=postgres://cmon@127.0.0.1:55432/cmon_pr2
