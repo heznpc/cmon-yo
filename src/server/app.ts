@@ -38,6 +38,7 @@ export function createApp({
   meetings,
   community,
   attendance,
+  trustProxy = false,
 }: {
   service?: MeetupService;
   renderer: () => Promise<Renderer>;
@@ -56,8 +57,9 @@ export function createApp({
   meetings?: MeetingService;
   community?: CommunityService;
   attendance?: AttendanceService;
+  trustProxy?: false | string[];
 }) {
-  const app = Fastify({ logger: false });
+  const app = Fastify({ logger: false, trustProxy });
   app.addHook('onResponse', async (request, reply) => {
     observe?.({
       route: request.routeOptions.url ?? 'unmatched',

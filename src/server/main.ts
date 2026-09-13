@@ -12,6 +12,7 @@ import { createAuth, socialProviders } from './auth/service';
 import { authMailer } from './auth/mail';
 import { databaseMeetings } from './services/meetings';
 import { databaseCommunity } from './services/community';
+import { proxyTrust } from './proxy';
 const production = process.env.NODE_ENV === 'production';
 const fixtureMode = process.env.MEETUP_SOURCE === 'fixture';
 if (process.env.MEETUP_SOURCE && !['fixture', 'database'].includes(process.env.MEETUP_SOURCE))
@@ -47,6 +48,7 @@ const auth =
       })
     : undefined;
 const app = createApp({
+  trustProxy: proxyTrust(process.env.TRUST_PROXY),
   attendance: pool && !fixtureMode ? databaseAttendance(pool) : undefined,
   community: pool && !fixtureMode ? databaseCommunity(pool) : undefined,
   observe: (event) => console.log(JSON.stringify({ event: 'http', ...event })),

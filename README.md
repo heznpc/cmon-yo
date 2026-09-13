@@ -22,6 +22,8 @@ PR1 기능 기준선은 main에 반영됐습니다. **PR2는 무안군 시설·�
 
 **Web 후속 구현:** 커뮤니티·게시글/모임 댓글·신고/차단·내 활동·프로필·현장 확인을 실제 DB에 연결했습니다. [Web 수용조건과 실행 기록](docs/web-activity-acceptance.md)을 따릅니다. 현재 우선순위는 Web이며 Native 후속 화면은 별도입니다.
 
+**HTTPS 준비·추가 부하 검사:** [Caddy 실행과 검증](deploy/README.md), [TLS 전송·지속 부하 결과](docs/performance-acceptance.md#https-프록시지속-부하-추가-실행--2026-09-14)를 추가했습니다. 로컬 TLS 전송과 운영 배포·수용량을 구분합니다.
+
 **성능 변경:** 시설·날씨 분리, 요청별 스트리밍/hydration, 내부 이동·뒤로가기 복원, 날씨 동시 요청 공유와 제한된 cache, 해시 자산 cache·화면 코드 분할을 구현했습니다. [수용조건·전후 측정·Web/Simulator 실행 기록](docs/performance-acceptance.md)을 따릅니다. PR #4의 기반 관계를 유지한 별도 성능 PR이며 HTTPS 배포에서의 stream 전달과 운영 수용량은 미검증입니다.
 
 현재 코드는 **Web·iOS 이메일 로그인과 실제 모임 생성·참여·취소·내 모임을 PostgreSQL에 연결한 상태**입니다. 주최 수정/취소, 동네·종목·날짜·시설별 탐색, 계정별 개인 조회·Native Keychain 복원을 구현했습니다. [이번 수용조건과 실행 증거](docs/meetups-acceptance.md)를 따릅니다. 공식 OAuth·외부 메일·인증된 WebView와 Native 소통 화면은 남아 있으며 PR3A 전체 완료는 아닙니다. [handoff §1.4~1.6](docs/CMON_YO_FINAL_HANDOFF.md#14-사용자-시나리오와-화면-연결--구현-기준선)에 사용자 시나리오·화면/API·외부 설정을, §2.1에 현재 코드 근거를, §16에 구현 순서와 실행 기준을 정리했습니다.

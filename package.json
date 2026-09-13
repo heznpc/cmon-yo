@@ -25,7 +25,8 @@
     "perf:server": "vite build --ssr tests/performance/server.ts --outDir .cache/performance/harness && NODE_ENV=production node .cache/performance/harness/server.js",
     "perf:measure": "node tests/performance/measure.mjs",
     "community": "tsx scripts/community.ts",
-    "qa:meetings": "tsx tests/meetings-server.ts"
+    "qa:meetings": "tsx tests/meetings-server.ts",
+    "qa:https": "bash scripts/qa-https.sh"
   },
   "dependencies": {
     "@fastify/middie": "9.3.4",

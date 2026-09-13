@@ -14,9 +14,12 @@ import { databaseMeetings, migrateMeetings } from '../../src/server/services/mee
 import { importParks } from '../../src/server/facilities/import';
 import { kmaWeather } from '../../src/server/weather/kma';
 import { forecastResponse } from '../fixtures/kma';
+import { databaseCommunity } from '../../src/server/services/community';
+import { databaseAttendance } from '../../src/server/services/attendance';
+import { monitorEventLoopDelay } from 'node:perf_hooks';
 if (!process.env.TEST_DATABASE_URL) throw new Error('TEST_DATABASE_URL required');
 const port = Number(process.env.PERF_PORT ?? 3120),
-  origin = `http://127.0.0.1:${port}`;
+  origin = process.env.PERF_PUBLIC_ORIGIN ?? `http://127.0.0.1:${port}`;
 const schema = `perf_${randomUUID().replaceAll('-', '')}`;
 const admin = createPool(process.env.TEST_DATABASE_URL);
 await admin.query(`CREATE SCHEMA ${schema}`);
@@ -75,6 +78,16 @@ let mode = 'normal',
   calls = 0,
   upstreamFailures = 0,
   upstreamClosed = 0;
+if (process.env.PERF_DATASET === 'load') {
+  await pool.query(
+    `INSERT INTO posts(id,author_id,title,body,sport,region_code,place_id) SELECT gen_random_uuid(),$1,'[부하 시험] 이야기 ' || g,repeat('시험 본문 ',200),'walking','46840','park-46840-00023' FROM generate_series(1,2000) g`,
+    [users[0]!.id],
+  );
+  await pool.query(
+    `INSERT INTO comments(id,author_id,post_id,body) SELECT gen_random_uuid(),$1,(SELECT id FROM posts LIMIT 1),repeat('시험 댓글 ',50) FROM generate_series(1,8000)`,
+    [users[1]!.id],
+  );
+}
 let held: (() => void)[] = [];
 let holdMembership = false;
 let heldViewers: (() => void)[] = [];
@@ -130,6 +143,10 @@ let cpu = process.cpuUsage(),
   start = performance.now();
 let requests: { route: string; status: number; durationMs: number }[] = [];
 let sampling = false;
+let cleanups = 0;
+let requestCount = 0;
+const eventLoop = monitorEventLoopDelay({ resolution: 20 });
+eventLoop.enable();
 const sampler = setInterval(async () => {
   peakRss = Math.max(peakRss, process.memoryUsage().rss);
   maxPoolWaiting = Math.max(maxPoolWaiting, pool.waitingCount);
@@ -149,8 +166,15 @@ const sampler = setInterval(async () => {
   }
 }, 50);
 const app = createApp({
+  deadlineMs: Number(process.env.PERF_SSR_DEADLINE_MS ?? 5000),
+  trustProxy: process.env.PERF_PUBLIC_ORIGIN ? ['127.0.0.1', '::1'] : false,
+  onCleanup: () => {
+    cleanups++;
+  },
   auth,
   places,
+  community: databaseCommunity(pool),
+  attendance: databaseAttendance(pool),
   meetings: {
     ...meetings,
     async membership(...args) {
@@ -161,11 +185,24 @@ const app = createApp({
   renderer: async () => renderPage,
   assets: productionAssets(manifest),
   observe: (e) => {
-    if (!e.route.startsWith('/_perf')) requests.push(e);
+    if (!e.route.startsWith('/_perf')) {
+      requestCount++;
+      if (requests.length < 5000) requests.push(e);
+    }
   },
 });
-app.get('/_perf/setup', async () => ({ users, ids, places: 21, meetings: 40 }));
+app.get('/_perf/setup', async () => ({
+  users,
+  ids,
+  places: 21,
+  meetings: 40,
+  posts: process.env.PERF_DATASET === 'load' ? 2000 : 0,
+  comments: process.env.PERF_DATASET === 'load' ? 8000 : 0,
+}));
 app.get('/_perf/stats', async () => ({
+  cleanups,
+  requestCount,
+  eventLoopP95Ms: eventLoop.percentile(95) / 1e6,
   calls,
   weatherEvents,
   heldViewers: heldViewers.length,
@@ -211,6 +248,8 @@ app.post('/_perf/control', async (r) => {
     pending.forEach((f) => f());
   }
   if (input.metrics) {
+    requestCount = 0;
+    eventLoop.reset();
     calls = 0;
     weatherEvents = {};
     upstreamFailures = 0;

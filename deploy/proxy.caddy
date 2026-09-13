@@ -1,0 +1,14 @@
+(cmon_app) {
+	@internal path /_perf/* /_test/*
+	respond @internal 404
+	encode gzip
+	reverse_proxy {$CMON_UPSTREAM:127.0.0.1:3000} {
+		# Positive flush interval keeps downstream disconnect cancellation.
+		# Unknown-length SSR responses also flush as streaming responses.
+		flush_interval 10ms
+		transport http {
+			dial_timeout 2s
+			response_header_timeout 10s
+		}
+	}
+}

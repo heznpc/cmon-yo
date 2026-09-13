@@ -1,0 +1,9 @@
+{
+	admin off
+}
+
+import proxy.caddy
+
+{$CMON_DOMAIN} {
+	import cmon_app
+}

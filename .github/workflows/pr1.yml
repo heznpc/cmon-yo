@@ -34,3 +34,14 @@ jobs:
       - run: npm run facilities -- apply contracts/samples/muan-parks.json
       - run: npx playwright install --with-deps chromium
       - run: npm run test:web
+      - name: Verify HTTPS streaming through Caddy
+        shell: bash
+        run: |
+          mkdir -p /tmp/cmon-caddy
+          cd /tmp/cmon-caddy
+          curl --fail --location --retry 3 -O https://github.com/caddyserver/caddy/releases/download/v2.11.4/caddy_2.11.4_linux_amd64.tar.gz
+          curl --fail --location --retry 3 -O https://github.com/caddyserver/caddy/releases/download/v2.11.4/caddy_2.11.4_checksums.txt
+          sha512sum --ignore-missing --check caddy_2.11.4_checksums.txt
+          tar -xzf caddy_2.11.4_linux_amd64.tar.gz caddy
+          cd "$GITHUB_WORKSPACE"
+          CADDY_BIN=/tmp/cmon-caddy/caddy npm run qa:https
