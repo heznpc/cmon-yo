@@ -309,6 +309,22 @@ Web과 Native가 조회 계약을 확인하고 응답 실패를 일관되게 처
 
 HTTP 계약 전달 수용조건은 통과했습니다. **기상청 인증 성공 실응답은 여전히 필수 미검증이므로 PR2는 draft를 유지합니다.** 독립 Spring 서버 연동, 인증·계정 전환·참여 mutation, 데이터별 점진적 SSR·성능 측정, PR1의 XCUITest/실기기/VoiceOver 후속 검증을 이번 결과로 통과 처리하지 않습니다.
 
+## 2026-09-13 의존성 설치·DB 초기화부터 실행 재검증
+
+Node 22.22.3/npm 10.9.8, macOS 27.0, PostgreSQL 17.11에서 의존성 설치와 별도 로컬 DB 초기화부터 실행했습니다. 제품 코드·계약·테스트를 변경하지 않은 상태의 재현 검사입니다.
+
+| 명령·경로 | 실제 결과 |
+| --- | --- |
+| `npm ci` | lockfile 기준 설치 성공, audit 취약점 0건 |
+| `DATABASE_URL=… TEST_DATABASE_URL=… npm run check` | lint/typecheck, Vitest 66개(실제 DB 3개 포함), client/server build·browser bundle 경계 통과 |
+| `npm run facilities -- migrate`, `npm run facilities -- apply contracts/samples/muan-parks.json` | 별도 DB에 schema 적용, 실제 표본 21행 삽입 |
+| `DATABASE_URL=… TEST_DATABASE_URL=… npm run test:web -- --reporter=list` | dev/prod Chromium 22개 성공. SSR·hydration·404·연결 실패·재시도·bridge·시설 상태 회귀 포함 |
+| `DATABASE_URL=… PORT=3006 NODE_ENV=production node dist/server/main.js` + Playwright | 실제 DB 시설 목록→상세→연결 실패 주입→이전 정보 표시→실제 HTTP 재조회 복구→목록 복귀 성공 |
+
+Browser plugin not available: 저장소 Playwright와 별도 Playwright 스크립트의 에이전트 자동조작을 사용했습니다. 1280×900, 320×740/글자 200%에서 URL/title·본문·화면·가로 넘침 없음·오류 overlay 없음·앱/hydration 오류 0개를 확인했습니다. 콘솔의 `ERR_CONNECTION_FAILED` 1건은 의도적으로 주입한 조회 실패입니다. 오류 표시를 포함한 상세와 복구 후 작은 화면을 스크린샷으로 확인했습니다.
+
+로컬 증거 파일은 `check.log`, `web-tests.log`, `smoke.json`, `production-detail.png`, `production-failure.png`, `production-recovered-mobile.png`입니다. 기상청 키 없이 실행한 날씨 조회 불가 상태이며 공식 성공 실응답 증거가 아닙니다. Native 코드·wire 형태는 동일하고 iOS 검증은 이번에 재실행하지 않았습니다. XCUITest 발견 2개·실행 0개, 실기기·VoiceOver 후속 미검증을 유지합니다.
+
 - [기여·브랜치·커밋 규칙](CONTRIBUTING.md)
 - [PR1 수용조건](docs/pr1-acceptance.md)
 - [제품·아키텍처 인계 문서](docs/CMON_YO_FINAL_HANDOFF.md)

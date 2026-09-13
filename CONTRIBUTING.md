@@ -6,8 +6,9 @@
 - 브랜치: `feat/<topic>`, `fix/<topic>`, `chore/<topic>`, `docs/<topic>`, `refactor/<topic>`, `test/<topic>`.
 - 원격 브랜치에 도구 이름 접두어를 사용하지 않습니다. 워크트리와 브랜치를 임의로 삭제하지 않습니다.
 - 커밋과 PR 제목: `type(scope): description`. scope는 선택 사항이며 제목은 구체적인 변경을 설명합니다.
+- 이 저장소의 새 커밋은 type·scope를 영어로 유지하고 제목의 설명과 본문은 한국어로 작성합니다. 코드 식별자·제품명·명령은 원래 표기를 유지합니다.
 - type: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`.
-- 예: `feat(meetups): connect native detail to the HTTP API`.
+- 예: `feat(meetups): Native 상세 화면을 HTTP API에 연결`.
 - 저자는 `heznpc`, 이메일은 `222764483+heznpc@users.noreply.github.com`만 사용합니다. 개인 이메일이나 공동 저자 trailer를 넣지 않습니다.
 - merge 방식은 squash를 기본으로 합니다. force push, hard reset, 미병합 브랜치 삭제는 사전 승인 없이 하지 않습니다.
 
