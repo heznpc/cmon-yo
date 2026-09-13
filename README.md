@@ -4,14 +4,14 @@
 
 **Swift native + React Web hybrid architecture**. React와 SwiftUI는 각각 제품 화면이며, Fastify API와 React SSR loader는 같은 공개 모임 service를 직접 호출합니다.
 
-**PR1 기능 수용조건 충족 / XCUITest 자동화 미검증**입니다. fixture 기반 Web·API·iOS의 필수 실행 증거는 아래에 기록했습니다. PR1에는 실제 모집·로그인·참여·댓글 쓰기를 포함하지 않았습니다. 현재 Web 계정 진행 상태는 아래 PR3A 기록을 따릅니다. 브랜드 미정의 기본 UI이며 최종 WebView 배치를 확정하지 않습니다. 아래의 통과·미검증을 구분합니다.
+**PR1 기능 수용조건 충족 / XCUITest 자동화 미검증**입니다. fixture 기반 Web·API·iOS의 필수 실행 증거는 아래에 기록했습니다. PR1에는 실제 모집·로그인·참여·댓글 쓰기를 포함하지 않았습니다. 현재 이메일 계정과 실제 모임의 진행 상태는 아래 최신 기록을 따릅니다. 브랜드 미정의 기본 UI이며 최종 WebView 배치를 확정하지 않습니다. 아래의 통과·미검증을 구분합니다.
 
 PR1 기능 기준선은 main에 반영됐습니다. **PR2는 무안군 시설·날씨 연결을 구현했으며 기상청 인증 실응답 검증이 남아 [draft PR #2](https://github.com/heznpc/cmon-yo/pull/2)**입니다. [PR2 수용조건](docs/pr2-acceptance.md)과 아래 실행 기록을 따릅니다.
 
 ## 현재 구조와 프론트의 API 연결
 
 - 첫 HTML: Fastify SSR loader → application service → PostgreSQL/날씨 adapter → HTML과 직렬화된 Query 상태 → React hydration. 이후 웹 재조회는 `src/api/public.ts` → same-origin HTTP API → 동일 service입니다. Native는 URLSession으로 같은 JSON API를 소비합니다.
-- `GET /api/v1/openapi.json`은 공개 조회 3개(모임 상세·시설 목록·시설 상세)와 `/api/v1/me` 계정 조회의 경로·응답·오류·세션 조건을 제공합니다. 별도 백엔드 구현자는 이 계약을 소비할 수 있습니다. Zod의 입력 스키마에서 생성해 추가 필드를 허용하며, 알 수 없는 종목과 선택 설명의 클라이언트 정규화는 유지합니다. 실제 날짜·시작/종료 순서 등 JSON Schema로 표현되지 않는 의미 검증은 기존 TS/Swift 계약 검사에 남습니다.
+- `GET /api/v1/openapi.json`은 시설·계정 조회와 실제 모임 목록/상세/생성/변경, membership·내 모임·명령 결과, Native 이메일 인증의 입력·응답·오류·세션 조건을 제공합니다. `MEETUP_SOURCE=fixture`에서는 기존 읽기 전용 계약을 제공합니다. 별도 백엔드 구현자는 이 계약을 소비할 수 있습니다. Zod의 입력 스키마에서 생성해 추가 필드를 허용하며, 알 수 없는 종목과 선택 설명의 클라이언트 정규화는 유지합니다. 실제 날짜·시작/종료 순서 등 JSON Schema로 표현되지 않는 의미 검증은 기존 TS/Swift 계약 검사에 남습니다.
 - 웹 HTTP client는 응답을 `unknown`으로 받아 검증합니다. 404는 해당 상세를 비우고, 실패한 갱신은 이전 정보임을 표시합니다. 오류의 `code/requestId/retryable`을 보존하며 공급자 메시지를 화면에 그대로 표시하지 않습니다. `retryable`이 자동 재시도를 뜻하지 않으며 조회 화면의 `retry: false`를 유지합니다.
 - 현재는 **Fastify가 SSR과 제품 API를 함께 맡는 단일 서버 + 직접 PostgreSQL 연결**입니다. Web 인증은 Better Auth를 같은 PostgreSQL에 연결하며 Supabase 설정은 필요하지 않습니다. 독립 Spring 서버와의 연동을 구현했다고 주장하지 않습니다.
 - SSR과 제품 API는 같은 service를 사용하고, 클라이언트는 공개 HTTP 계약을 소비합니다. 서버를 분리할 필요가 생기면 배포·소유권·장애 경계에 따라 결정합니다. 현재 renderer는 stream을 사용하지만 loader는 데이터를 받은 뒤 렌더링합니다. 데이터별 점진적 표시나 성능 향상은 아직 입증하지 않았습니다.
@@ -20,7 +20,7 @@ PR1 기능 기준선은 main에 반영됐습니다. **PR2는 무안군 시설·�
 
 ## 현재 구현과 다음 작업 — 2026-09-13
 
-현재 코드는 **공개 모임·시설 조회에 Web 이메일 계정 흐름을 연결하는 단계**입니다. 이메일 가입·인증·로그인·복구·로그아웃·탈퇴와 개인 SSR을 구현했으며, PR3A 전체 완료는 아닙니다. Native 인증·인증된 WebView·실제 모임 작성/참여·게시글 피드는 남아 있습니다. [handoff §1.4~1.6](docs/CMON_YO_FINAL_HANDOFF.md#14-사용자-시나리오와-화면-연결--구현-기준선)에 사용자 시나리오·화면/API·외부 설정을, §2.1에 현재 코드 근거를, §16에 구현 순서와 실행 기준을 정리했습니다.
+현재 코드는 **Web·iOS 이메일 로그인과 실제 모임 생성·참여·취소·내 모임을 PostgreSQL에 연결한 상태**입니다. 주최 수정/취소, 동네·종목·날짜·시설별 탐색, 계정별 개인 조회·Native Keychain 복원을 구현했습니다. [이번 수용조건과 실행 증거](docs/meetups-acceptance.md)를 따릅니다. 공식 OAuth·외부 메일·인증된 WebView·게시글 피드는 남아 있으며 PR3A 전체 완료는 아닙니다. [handoff §1.4~1.6](docs/CMON_YO_FINAL_HANDOFF.md#14-사용자-시나리오와-화면-연결--구현-기준선)에 사용자 시나리오·화면/API·외부 설정을, §2.1에 현재 코드 근거를, §16에 구현 순서와 실행 기준을 정리했습니다.
 
 제품의 화면 구조는 **둘러보기 / 모임 / 커뮤니티 / 내 활동**을 기준으로 합니다. 동네·종목별 피드에서 모임 참여와 무관하게 질문·후기를 나누고, 시간·장소·정원이 있는 운동 약속은 모임으로 관리합니다. 지속 동호회 가입·운영은 현재 구현 기준선에 포함하지 않습니다. 시설·날씨에서 관련 모임으로 이동하고, 로그인 후 원래 화면으로 복귀하며, 참여한 약속과 내 글은 내 활동에서 다시 찾습니다. 이 구조는 구현 계획이며 현재 탭이나 최종 브랜드 구현 완료가 아닙니다.
 
@@ -39,7 +39,7 @@ PR1 기능 기준선은 main에 반영됐습니다. **PR2는 무안군 시설·�
 
 정해진 기능은 단계별 재승인을 기다리지 않고 구현·테스트·실행 QA·수정을 이어갑니다. 외부 키가 없는 경로는 로컬 DB·시험 공급자로 먼저 연결하고 실제 설정이 준비되면 공식 응답으로 다시 검증합니다. 기본 배치·가독성·반응형·포커스는 지금 검증하며, 최종 브랜드의 색상·서체·장식은 후속 스타일 PR에서 Web·Native에 일괄 적용합니다. 기능 테스트는 브랜드 CSS 클래스에 결합하지 않습니다.
 
-Web·API·iOS·DB migration을 한 저장소에서 관리하는 모노레포를 유지합니다. React/Fastify·직접 PostgreSQL과 HTTP 계약을 사용합니다. Web 인증은 서버 전용 Better Auth를 PostgreSQL에 연결했습니다. 외부 인증 호스팅이나 Supabase 프로젝트는 필요하지 않습니다. Native/WKWebView 세션 연결은 이어서 구현·검증합니다. PR3 기능은 별도 브랜치/PR에서 진행하며 날씨 설정 대기만으로 독립 구현을 막지 않습니다. 기존 XCUITest·실기기·VoiceOver 후속 미검증은 유지합니다.
+Web·API·iOS·DB migration을 한 저장소에서 관리하는 모노레포를 유지합니다. React/Fastify·직접 PostgreSQL과 HTTP 계약을 사용합니다. Web 인증은 서버 전용 Better Auth를 PostgreSQL에 연결했습니다. 외부 인증 호스팅이나 Supabase 프로젝트는 필요하지 않습니다. Native 이메일 세션·Keychain은 연결했고 인증된 WKWebView는 후속입니다. PR3 기능은 별도 브랜치/PR에서 진행하며 날씨 설정 대기만으로 독립 구현을 막지 않습니다. 기존 XCUITest·실기기·VoiceOver 후속 미검증은 유지합니다.
 
 **계획·설정 검사 — 2026-09-13:** Node 26.3.1의 `node --input-type=module` 검사로 로컬 문서 링크/앵커 8개·코드 블록·단계 참조, `.env.example` 선언 35개·중복 없음·비밀 준비값 비어 있음·현재 런타임 기본값 불변을 확인했습니다. `node scripts/check-conventions.mjs`와 `git diff --check`도 통과했습니다. 문서·미사용 준비값 변경이므로 기능 테스트·앱 QA는 N/A이며 기존 실행 증거와 새 계획을 구분합니다.
 
@@ -84,19 +84,45 @@ fixture 모임만 확인하려면 DB나 인증 설정 없이 아래 명령으로
 
 ```sh
 npm ci
-npm run dev
+MEETUP_SOURCE=fixture npm run dev
 # http://127.0.0.1:3000/meetups/11111111-1111-4111-8111-111111111111
 ```
 
 ```sh
 npm run build
-PORT=3002 npm start
+MEETUP_SOURCE=fixture PORT=3002 npm start
 # http://127.0.0.1:3002/meetups/11111111-1111-4111-8111-111111111111
 ```
 
 API는 `/api/v1/meetups/:id`, 읽기 전용 안내는 `/meetups/:id/discussion`입니다. `HOST` 기본값은 `127.0.0.1`, `PORT`는 `3000`입니다. `MEETUP_FIXTURE_PATH`로 다른 JSON 파일을 읽을 수 있으며 누락·오류를 성공 데이터로 대체하지 않습니다. production은 build manifest의 JS/CSS만 제공합니다. 실행이 끝나면 서버를 Ctrl-C로 종료합니다.
 
-## Web 계정 실행
+## 실제 모임·Native 로그인 실행 — 최신
+
+```sh
+npm run with-env -- auth -- migrate
+npm run with-env -- facilities -- migrate
+npm run with-env -- meetups -- migrate
+npm run with-env -- facilities -- apply contracts/samples/muan-parks.json
+npm run with-env -- dev
+# /meetups → 생성/참여 → /account/meetups
+```
+
+실제 DB 모임이 기본이며 `MEETUP_SOURCE=database`입니다. 이전 `.env`의 `MEETUP_FIXTURE_PATH`는 `MEETUP_SOURCE=fixture`를 명시한 읽기 전용 시험에서만 사용합니다. 빈 DB를 샘플 모집으로 채우지 않습니다. 새 모임의 정원은 주최자를 포함하며 시작 전 수정/참여/취소, 취소 내역 보존과 탈퇴 영향을 [수용조건](docs/meetups-acceptance.md)에 기록했습니다.
+
+```sh
+bash scripts/build-ios-simulator.sh /tmp/cmon-yo-simulator-build
+xcrun simctl install "$CMON_SIMULATOR_ID" /tmp/cmon-yo-simulator-build/CmonYo.app
+SIMCTL_CHILD_CMON_API_URL=http://127.0.0.1:3000 \
+  xcrun simctl launch "$CMON_SIMULATOR_ID" app.heznpc.cmonyo
+```
+
+Simulator도 Keychain을 사용하므로 새 스크립트의 Xcode ad-hoc 서명 빌드를 사용합니다. 기존 서명 없는 target 빌드만으로는 로그인 저장이 거부됩니다. Native의 기본 탭은 둘러보기/모임/내 활동이며 `CMON_MEETUP_ID`를 명시한 회귀 실행만 기존 샘플 상세를 사용합니다. Native 가입·재전송·복구 메일은 같은 로컬 메일 수신함을 확인합니다. 계정 설정·탈퇴는 Web에서 별도로 로그인합니다.
+
+**실행 결과:** `check` 73개, Chromium dev/prod 포함 25개, Simulator 독립 XCTest 10개 통과. 별도의 실제 production main에서도 로그인·모임 생성/주최 취소·내 모임·JS 없는 SSR·로그아웃을 확인했습니다. 설치 앱의 Keychain 재실행 복원·두 계정 전환·생성·참여/취소·내 모임·실패/재조회 복구를 확인했습니다. Browser plugin not available로 Playwright, Native는 XcodeBuildMCP/simctl/idb를 사용한 자동 조작이며 XCUITest가 아닙니다. 세부 환경·결함 수정·보장 범위·미검증은 [실행 증거](docs/meetups-acceptance.md)를 따릅니다.
+
+전체 PR #4는 draft이며 merge하지 않습니다. 공식 OAuth·SMTP 수신·인증된 WebView·실기기·VoiceOver·성능, 기존 기상청 실응답과 XCUITest는 별도 미검증입니다. 기본 UI를 사용하고 최종 브랜드는 후속 적용합니다.
+
+## Web 계정 실행 — 최초 이메일 구현 기록
 
 ```sh
 # .env의 DATABASE_URL·AUTH_SECRET·AUTH_ORIGIN과 AUTH_MAIL_TRANSPORT=local 설정 후
@@ -109,7 +135,7 @@ npm run with-env -- dev
 
 서버는 Better Auth 1.7.4의 암호 해시·메일 토큰·세션·공급자 구현을 사용하고, 앱은 `/api/v1/me`의 공개 계정 DTO만 SSR에 넣습니다. 세션은 HttpOnly cookie로 전달하며 브라우저 bundle에는 DB·메일·OAuth secret을 넣지 않습니다. 이메일만 같다고 자동으로 계정을 병합하지 않습니다. 이 Web 구현을 Native/WKWebView 인증 공유 완료로 간주하지 않습니다.
 
-**Web 계정 실행 기록 — 2026-09-13 ([draft PR #4](https://github.com/heznpc/cmon-yo/pull/4)):** macOS 27.0, Node 22.22.3/npm 10.9.8, 프로젝트 전용 PostgreSQL 17.11, Chromium에서 확인했습니다. 현재 범위는 Web 이메일 계정이며 PR3A 전체 완료가 아닙니다.
+**최초 Web 계정 실행 기록 — 2026-09-13 ([draft PR #4](https://github.com/heznpc/cmon-yo/pull/4)):** macOS 27.0, Node 22.22.3/npm 10.9.8, 프로젝트 전용 PostgreSQL 17.11, Chromium에서 확인했습니다. 이 기록 당시 범위는 Web 이메일 계정이며 최신 Native·모임 결과는 위 기록을 따릅니다.
 
 | 검사·실행 | 실제 결과와 범위 |
 | --- | --- |
@@ -124,7 +150,7 @@ npm run with-env -- dev
 
 재현·수정한 결함은 외부 Origin의 로그아웃 허용, 인증 callback의 빈 응답/변경된 JSON에 원래 Content-Length 전달, DB int8 문자열에 의한 잘못된 재시도 시간, 갱신 cookie 누락, 자기 탭의 계정 알림이 복귀 navigation을 덮는 문제입니다. 해당 HTTP·브라우저 흐름을 다시 실행했습니다. 최초 전체 검사에서는 기존 날씨 검사의 정상 응답 80ms 제한과 env-runner의 5초 제한에 걸렸습니다. env-runner는 분리 실행에서 통과했고 코드를 바꾸지 않았습니다. 날씨는 정상 응답에 제품 deadline을 사용하고, 멈춘 응답의 80ms 제한·취소 검증은 유지했습니다. 최종 기본 `check`가 전체 통과한 결과를 위에 기록했습니다.
 
-**남은 범위:** 실제 Google·카카오·네이버·Apple 왕복과 SMTP 외부 수신, 로그인 수단 연결/해제·충돌의 UI/계약, Native/WKWebView 동일 사용자, A의 늦은 응답이 B의 화면/cache/뒤로가기에 섞이지 않는 전체 전환 검사, 인증 mutation 전체 명세와 안전한 운영 관측입니다. 이번 Web 세션·탭 검사만으로 이들을 통과 처리하지 않습니다. 기존 기상청 성공 실응답, XCUITest 발견 2·실행 0, 실기기·VoiceOver 후속 미검증도 그대로 유지합니다. 이 설정/검증 대기가 독립 기능 구현을 중단시키지는 않습니다.
+**최초 Web 이메일 기록 당시 남은 범위(최신 상태는 위 모임·Native 기록):** 실제 Google·카카오·네이버·Apple 왕복과 SMTP 외부 수신, 로그인 수단 연결/해제·충돌의 UI/계약, Native/WKWebView 동일 사용자, A의 늦은 응답이 B의 화면/cache/뒤로가기에 섞이지 않는 전체 전환 검사, 인증 mutation 전체 명세와 안전한 운영 관측입니다. 이번 Web 세션·탭 검사만으로 이들을 통과 처리하지 않습니다. 기존 기상청 성공 실응답, XCUITest 발견 2·실행 0, 실기기·VoiceOver 후속 미검증도 그대로 유지합니다. 이 설정/검증 대기가 독립 기능 구현을 중단시키지는 않습니다.
 
 ## PR2 시설·날씨 실행
 
@@ -142,7 +168,7 @@ npm run dev
 
 `npm run facilities -- capture /tmp/new-muan-parks.json`은 공식 포털 파일 전체 수집이 성공한 뒤 새 지역 파일을 만듭니다(기존 파일 덮어쓰기 거부). 갱신 시 이 파일을 dry-run 후 apply합니다. source 파일 없이 자동으로 fixture를 넣거나 누락 행을 삭제하지 않습니다. DB 미설정/실패는 503, 등록 행 없음은 빈 목록입니다. API는 `/api/v1/places`, `/api/v1/places/:id`입니다.
 
-Native 기본 탭은 시설입니다. 기존 모임은 “샘플 모임” 탭에 있고 `CMON_START_TAB=meetups`로도 시작할 수 있습니다. `CMON_API_URL` 설정은 두 탭에 적용됩니다. `KMA_API_KEY` 미설정이면 시설은 표시하고 날씨는 조회 불가로 표시합니다.
+Native 기본 탭은 둘러보기입니다. `CMON_START_TAB=meetups`로 실제 모임 탭에서 시작할 수 있습니다. `CMON_API_URL` 설정은 모든 탭에 적용됩니다. `KMA_API_KEY` 미설정이면 시설은 표시하고 날씨는 조회 불가로 표시합니다.
 
 PR2 검증에서는 `TEST_DATABASE_URL`도 설정합니다. PostgreSQL 검사는 그 DB 안에 실행별 schema를 만들고 해당 schema만 정리합니다. 미설정 시 DB 검사 3개는 skip되므로 전체 검증 통과의 근거로 쓰면 안 됩니다. CI에는 PostgreSQL service와 두 환경변수를 설정했습니다.
 
@@ -198,7 +224,7 @@ SIMCTL_CHILD_CMON_API_URL=http://127.0.0.1:3000 \
   xcrun simctl launch "$CMON_SIMULATOR_ID" app.heznpc.cmonyo
 ```
 
-Native는 `CMON_API_URL`(기본 `http://127.0.0.1:3000`)과 `CMON_MEETUP_ID`(기본 fixture ID)를 실행 환경에서 받습니다. 테스트 앱은 서명 없이 Simulator에만 설치하며 실기기·배포 검증은 별개입니다.
+위 서명 없는 빌드는 PR1 공개 조회의 과거 실행 명령입니다. 현재 로그인 QA는 위의 `scripts/build-ios-simulator.sh` 서명 빌드를 사용합니다. Native는 `CMON_API_URL`(기본 `http://127.0.0.1:3000`)을 받으며 `CMON_MEETUP_ID`를 명시한 경우에만 해당 샘플 상세를 표시합니다. 실기기·배포 검증은 별개입니다.
 
 계약·HTTP·WebKit XCTest는 같은 소스를 독립 Simulator 테스트 번들로 컴파일하는 우회 실행도 제공합니다(Apple Silicon). 서버와 별도 터미널에서 실행하고 끝나면 서버를 종료합니다.
 
@@ -218,7 +244,7 @@ npm run test:ios -- "$CMON_SIMULATOR_ID"
 - Native가 상세·modal 표시와 복귀를 소유하고 WebView가 안내 스크롤을 소유합니다. 안내를 닫으면 기존 상세가 남습니다. 입력·draft는 없고 WebView를 다시 열면 새 문서·스크롤로 시작합니다. Native 상세는 안내 실패에도 남습니다.
 - Bridge는 v1 `capabilities`와 현재 모임의 `openMeetup`만 지원합니다. 실제 main-frame의 scheme/host/port를 검사합니다. 수락 이후 실행과 웹 응답 관측은 독립적이며 timeout/종료에서 자동 재전송하지 않습니다. 자세한 종료 계약은 [PR1 수용조건](docs/pr1-acceptance.md)을 따릅니다.
 
-현재 Web의 기본 스타일은 `src/features/meetup/meetup.css.ts`에서 모임·시설·계정 화면이 함께 사용하며 계정 입력 배치는 `src/features/account/account.css.ts`에 있습니다. 화면 구성은 `MeetupPage.tsx`·`PlacesPage.tsx`·`AccountPage.tsx`, Native 스타일 변경 지점은 `ios/CmonYo/Features/MeetupView.swift`·`FacilitiesView.swift`와 `ios/CmonYo/Web/DiscussionView.swift`입니다. SwiftUI에는 CSS가 직접 적용되지 않으므로 후속 브랜드 PR에서 Web·Native를 함께 맞춥니다. 기능 상태 분기와 API 계약은 유지하고 시각 변경에 영향받는 화면·접근성 검사를 다시 실행합니다. 범용 디자인 시스템은 없습니다.
+Web의 기본 스타일은 `src/features/meetup/meetup.css.ts`에서 모임·시설·계정 화면이 함께 사용하며 계정 입력 배치는 `src/features/account/account.css.ts`에 있습니다. 화면 구성은 `MeetingsPage.tsx`·`MeetupPage.tsx`·`PlacesPage.tsx`·`AccountPage.tsx`, Native 스타일 변경 지점은 `ios/CmonYo/Features/MeetingsView.swift`·`AccountView.swift`·`MeetupView.swift`·`FacilitiesView.swift`와 `ios/CmonYo/Web/DiscussionView.swift`입니다. SwiftUI에는 CSS가 직접 적용되지 않으므로 후속 브랜드 PR에서 Web·Native를 함께 맞춥니다. 기능 상태 분기와 API 계약은 유지하고 시각 변경에 영향받는 화면·접근성 검사를 다시 실행합니다. 범용 디자인 시스템은 없습니다.
 
 ## 2026-09-12 실행 결과
 

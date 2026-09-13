@@ -56,6 +56,8 @@ private struct FacilityDetailView: View {
         if let detail {
           Text(detail.place.name).font(.title).bold().accessibilityAddTraits(.isHeader)
           Text(detail.place.kind + " · " + detail.place.address)
+          NavigationLink("이 장소의 모임 보기") { MeetingListView(placeId: id) }
+          NavigationLink("이 장소에서 모임 만들기") { MeetingEditorView(placeId: id) }
           Text(detail.place.exerciseFacilities.isEmpty ? "운동시설 정보 미제공" : detail.place.exerciseFacilities.joined(separator: " · "))
           Text("공공데이터 기준일 \(detail.place.sourceDate). 현재 이용 가능 여부는 현장과 다를 수 있습니다.")
           ForecastView(weather: detail.weather, refreshFailed: error != nil)

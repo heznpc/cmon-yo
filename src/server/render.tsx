@@ -35,7 +35,7 @@ export function renderPage(
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width,initial-scale=1" />
         <meta name="referrer" content="no-referrer" />
-        <title>{`C'mon Yo! · ${'section' in state.route ? (state.route.section === 'account' ? '내 계정' : '시설') : '모임'}`}</title>
+        <title>{`C'mon Yo! · ${'section' in state.route ? (state.route.section === 'account' ? '내 계정' : state.route.section === 'meetings' ? '모임' : '시설') : '모임'}`}</title>
         {assets.css.map((href) => (
           <link key={href} rel="stylesheet" href={href} />
         ))}

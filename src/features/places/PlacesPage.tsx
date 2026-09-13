@@ -10,6 +10,7 @@ import {
 import { publicAPI } from '../../api/public';
 import { displayDate } from '../meetup/MeetupPage';
 import * as css from '../meetup/meetup.css';
+import { ProductNav } from '../meetup/MeetingsPage';
 
 function FacilityInfo({ place }: { place: Place }) {
   return (
@@ -85,12 +86,12 @@ export function PlacesPage({ id }: { id?: string }) {
   return (
     <main className={css.page}>
       <p>C'mon Yo! · 무안군 공공시설 파일럿</p>
-      <a href="/account">내 계정</a>
+      <ProductNav />
       {id ? <PlaceDetail id={id} ready={ready} /> : <PlaceList ready={ready} />}
       <p>
         <a href={placeSourceURL}>출처: 전국도시공원정보표준데이터</a>
       </p>
-      <a href="/meetups/11111111-1111-4111-8111-111111111111">공개 샘플 모임</a>
+      <a href="/meetups">운동 모임 둘러보기</a>
     </main>
   );
 }
@@ -145,6 +146,8 @@ function PlaceDetail({ id, ready }: { id: string; ready: boolean }) {
       {query.data ? (
         <>
           <FacilityInfo place={query.data.place} />
+          <a href={`/meetups?placeId=${id}`}>이 장소의 모임 보기</a>
+          <a href={`/meetups/new?placeId=${id}`}>이 장소에서 모임 만들기</a>
           <WeatherInfo weather={query.data.weather} refreshFailed={query.isError} />
         </>
       ) : null}

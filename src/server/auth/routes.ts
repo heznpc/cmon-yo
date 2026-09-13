@@ -9,12 +9,16 @@ export async function currentAccount(
   reply: FastifyReply,
 ): Promise<Account> {
   if (!auth) throw new Error('Authentication unavailable.');
+  const headers = fromNodeHeaders(request.headers);
+  // Bearer and browser credentials never fall back to one another.
+  if (headers.has('authorization')) headers.delete('cookie');
   const session = await auth.api.getSession({
-    headers: fromNodeHeaders(request.headers),
+    headers,
     returnHeaders: true,
   });
   const cookies = session.headers.getSetCookie();
-  if (cookies.length && !reply.sent) reply.header('set-cookie', cookies);
+  if (cookies.length && !reply.sent && !headers.has('authorization'))
+    reply.header('set-cookie', cookies);
   return accountSchema.parse({ user: session.response?.user ?? null });
 }
 
@@ -67,16 +71,14 @@ export function registerAuthRoutes(app: FastifyInstance, auth?: AuthService) {
         !/^callback\/(google|kakao|naver|apple)$/.test(path) &&
         request.headers.origin !== auth.options.baseURL
       )
-        return reply
-          .code(403)
-          .send({
-            error: {
-              code: 'INVALID_ORIGIN',
-              message: '허용되지 않은 계정 요청입니다.',
-              requestId: request.id,
-              retryable: false,
-            },
-          });
+        return reply.code(403).send({
+          error: {
+            code: 'INVALID_ORIGIN',
+            message: '허용되지 않은 계정 요청입니다.',
+            requestId: request.id,
+            retryable: false,
+          },
+        });
       const allowed = new Set([
         'sign-up/email',
         'sign-in/email',
@@ -127,7 +129,15 @@ export function registerAuthRoutes(app: FastifyInstance, auth?: AuthService) {
         );
         reply.code(response.status).header('Referrer-Policy', 'no-referrer');
         for (const [name, value] of response.headers)
-          if (name !== 'set-cookie' && name !== 'content-length') reply.header(name, value);
+          if (
+            ![
+              'set-cookie',
+              'content-length',
+              'set-auth-token',
+              'access-control-expose-headers',
+            ].includes(name)
+          )
+            reply.header(name, value);
         const retryAfter = response.headers.get('x-retry-after');
         if (retryAfter) reply.header('Retry-After', retryAfter);
         const cookies = response.headers.getSetCookie();

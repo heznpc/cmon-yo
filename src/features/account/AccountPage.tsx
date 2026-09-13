@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { accountKey, accountSchema, type Account } from '../../contracts/account';
 import * as css from '../meetup/meetup.css';
 import { form as formStyle } from './account.css';
+import { ProductNav } from '../meetup/MeetingsPage';
 
 export type AccountRoute = {
   section: 'account';
@@ -59,6 +60,7 @@ export function AccountPage({ route }: { route: AccountRoute }) {
   const accountReturn = `/account?returnTo=${encodeURIComponent(route.returnTo)}`;
   const status = useRef<HTMLParagraphElement>(null);
   const accountChannel = useRef<BroadcastChannel | null>(null);
+  const identityChanging = useRef(false);
   const query = useQuery<Account>({
     queryKey: accountKey(route.userId),
     staleTime: 30_000,
@@ -69,6 +71,7 @@ export function AccountPage({ route }: { route: AccountRoute }) {
       if (!response.ok) throw new Error('계정 조회에 실패했습니다.');
       const account = accountSchema.parse(await response.json());
       if (account.user && account.user.id !== route.userId) {
+        if (identityChanging.current) return { user: null };
         // A session can change outside this tab. Never store another user's
         // response under the identity embedded in this page's SSR state.
         window.location.reload();
@@ -110,6 +113,7 @@ export function AccountPage({ route }: { route: AccountRoute }) {
     if (error) status.current?.focus();
   }, [error]);
   async function changeIdentity(destination: string) {
+    identityChanging.current = true;
     await client.cancelQueries({ queryKey: ['private'] });
     client.removeQueries({ queryKey: ['private'] });
     // Posting through the listening instance notifies other tabs, not this one.
@@ -125,6 +129,7 @@ export function AccountPage({ route }: { route: AccountRoute }) {
     try {
       await action();
     } catch (e) {
+      identityChanging.current = false;
       setError(e instanceof Error ? e.message : '다시 시도해 주세요.');
     } finally {
       setPending(false);
@@ -145,6 +150,7 @@ export function AccountPage({ route }: { route: AccountRoute }) {
         setMessage('인증 메일을 확인한 뒤 로그인해 주세요.');
         setMode('login');
       } else if (mode === 'login') {
+        identityChanging.current = true;
         await authAction('sign-in/email', { email, password });
         await changeIdentity(route.returnTo);
       } else if (mode === 'forgot') {
@@ -163,7 +169,7 @@ export function AccountPage({ route }: { route: AccountRoute }) {
   }
   return (
     <main className={css.page}>
-      <a href="/places">둘러보기</a>
+      <ProductNav />
       <h1>내 계정</h1>
       <p role="alert" tabIndex={-1} ref={status}>
         {error || (query.isError ? '계정 정보를 확인하지 못했습니다. 다시 시도해 주세요.' : '')}

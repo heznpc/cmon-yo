@@ -13,6 +13,10 @@ import { currentAccount, registerAuthRoutes } from './auth/routes';
 import type { AuthService } from './auth/service';
 import { accountKey, accountReturnPath } from '../contracts/account';
 import { dehydrate } from '@tanstack/react-query';
+import { registerNativeAuth } from './auth/native';
+import { registerMeetings } from './meeting-routes';
+import type { MeetingService } from './services/meetings';
+import { meetingsOpenapi } from './meetings-openapi';
 export type Renderer = typeof renderPage;
 export function createApp({
   service = fixtureService(),
@@ -20,23 +24,44 @@ export function createApp({
   assets = { scripts: [], css: [] },
   deadlineMs = 5000,
   onCleanup,
+  observe,
   places = databasePlaces(undefined, kmaWeather()),
   auth,
+  meetings,
 }: {
   service?: MeetupService;
   renderer: () => Promise<Renderer>;
   assets?: Assets;
   deadlineMs?: number;
   onCleanup?: () => void;
+  observe?: (event: {
+    route: string;
+    method: string;
+    status: number;
+    durationMs: number;
+    requestId: string;
+  }) => void;
   places?: PlaceService;
   auth?: AuthService;
+  meetings?: MeetingService;
 }) {
   const app = Fastify({ logger: false });
+  app.addHook('onResponse', async (request, reply) => {
+    observe?.({
+      route: request.routeOptions.url ?? 'unmatched',
+      method: request.method,
+      status: reply.statusCode,
+      durationMs: Math.round(reply.elapsedTime),
+      requestId: request.id,
+    });
+  });
   app.addHook('onSend', async (_request, reply) => {
     reply.header('Cache-Control', 'private, no-store');
     reply.header('X-Content-Type-Options', 'nosniff');
   });
   registerAuthRoutes(app, auth);
+  registerNativeAuth(app, auth);
+  if (meetings) registerMeetings(app, meetings, auth, renderer, assets, deadlineMs);
   app.get('/account', async (request, reply) => {
     const client = createRequestClient();
     const controller = new AbortController();
@@ -91,32 +116,33 @@ export function createApp({
     }
     return reply;
   });
-  app.get('/api/v1/openapi.json', async () => openapi);
-  app.get('/api/v1/meetups/:id', async (request, reply) => {
-    const id = idSchema.safeParse((request.params as { id: string }).id);
-    if (!id.success)
-      return reply.code(400).send({
-        error: {
-          code: 'INVALID_ID',
-          message: '잘못된 모임 주소입니다.',
-          requestId: request.id,
-          retryable: false,
-        },
-      });
-    try {
-      return await service(id.data, AbortSignal.timeout(deadlineMs));
-    } catch (error) {
-      const status = error instanceof ServiceError ? error.status : 503;
-      return reply.code(status).send({
-        error: {
-          code: error instanceof ServiceError ? error.code : 'UNAVAILABLE',
-          message: status === 404 ? '모임을 찾을 수 없습니다.' : '모임을 불러오지 못했습니다.',
-          requestId: request.id,
-          retryable: status >= 500,
-        },
-      });
-    }
-  });
+  app.get('/api/v1/openapi.json', async () => (meetings ? meetingsOpenapi : openapi));
+  if (!meetings)
+    app.get('/api/v1/meetups/:id', async (request, reply) => {
+      const id = idSchema.safeParse((request.params as { id: string }).id);
+      if (!id.success)
+        return reply.code(400).send({
+          error: {
+            code: 'INVALID_ID',
+            message: '잘못된 모임 주소입니다.',
+            requestId: request.id,
+            retryable: false,
+          },
+        });
+      try {
+        return await service(id.data, AbortSignal.timeout(deadlineMs));
+      } catch (error) {
+        const status = error instanceof ServiceError ? error.status : 503;
+        return reply.code(status).send({
+          error: {
+            code: error instanceof ServiceError ? error.code : 'UNAVAILABLE',
+            message: status === 404 ? '모임을 찾을 수 없습니다.' : '모임을 불러오지 못했습니다.',
+            requestId: request.id,
+            retryable: status >= 500,
+          },
+        });
+      }
+    });
   const placeAPI = async (request: FastifyRequest, reply: Parameters<Renderer>[0]) => {
     const id = (request.params as { id?: string }).id;
     if (id && !placeIdSchema.safeParse(id).success)
@@ -215,7 +241,7 @@ export function createApp({
     }
     return reply;
   };
-  app.get('/meetups/:id', page);
+  if (!meetings) app.get('/meetups/:id', page);
   app.get('/meetups/:id/discussion', page);
   app.get('/places', page);
   app.get('/places/:id', page);

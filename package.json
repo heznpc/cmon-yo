@@ -7,6 +7,7 @@
     "node": ">=22.12.0"
   },
   "scripts": {
+    "meetups": "tsx scripts/meetups.ts",
     "with-env": "node --env-file=.env scripts/with-env.mjs",
     "qa:places": "tsx tests/places-server.ts",
     "auth": "tsx scripts/auth.ts",

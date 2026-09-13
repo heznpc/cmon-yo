@@ -8,7 +8,11 @@ import { databasePlaces } from './services/place';
 import { kmaWeather } from './weather/kma';
 import { createAuth, socialProviders } from './auth/service';
 import { authMailer } from './auth/mail';
+import { databaseMeetings } from './services/meetings';
 const production = process.env.NODE_ENV === 'production';
+const fixtureMode = process.env.MEETUP_SOURCE === 'fixture';
+if (process.env.MEETUP_SOURCE && !['fixture','database'].includes(process.env.MEETUP_SOURCE))
+  throw new Error('MEETUP_SOURCE must be database or fixture.');
 const vite = production
   ? null
   : await (
@@ -42,7 +46,9 @@ const auth =
       })
     : undefined;
 const app = createApp({
+  observe: (event) => console.log(JSON.stringify({ event: 'http', ...event })),
   auth,
+  meetings: fixtureMode ? undefined : databaseMeetings(pool),
   places: databasePlaces(pool, kmaWeather({ key: process.env.KMA_API_KEY })),
   service: fixtureService(process.env.MEETUP_FIXTURE_PATH),
   assets,

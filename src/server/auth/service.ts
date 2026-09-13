@@ -1,6 +1,7 @@
 import { betterAuth, type BetterAuthOptions } from 'better-auth';
 import type pg from 'pg';
 import type { SendAuthMail } from './mail';
+import { bearer } from 'better-auth/plugins/bearer';
 
 export function createAuth({
   pool,
@@ -29,6 +30,7 @@ export function createAuth({
     baseURL: origin,
     basePath: '/api/auth',
     secret,
+    plugins: [bearer({ requireSignature: true })],
     trustedOrigins: [origin, ...(providers.apple ? ['https://appleid.apple.com'] : [])],
     socialProviders: providers,
     logger: { disabled: true },

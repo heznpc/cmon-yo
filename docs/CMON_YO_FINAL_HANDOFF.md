@@ -2,7 +2,7 @@
 
 > **문서 기준: 2026-09-12 · 구현 상태와 후속 순서 갱신: 2026-09-13**
 > **문서 상태: 구현 기준선과 검증 계획. 구현·배포·성능 검증 완료 보고서가 아니다.**  
-> PR1은 병합됐고 PR2는 날씨 성공 실응답 검증이 남은 draft다. 다음 구현 단위는 **§16의 PR3A 인증·계정 격리**이며 PR2와 별도 PR에서 진행한다. 실행 증거와 미검증은 README와 각 PR 수용조건을 따른다.
+> PR1은 병합됐고 PR2는 날씨 성공 실응답 검증이 남은 draft다. **Web·Native 이메일 세션과 실제 모임을 PR #4에서 연결했으며** PR2와 별도 PR로 유지한다. 상세 실행 증거는 [모임 수용조건](meetups-acceptance.md)을 따른다. 실행 증거와 미검증은 README와 각 PR 수용조건을 따른다.
 
 ## 문서 읽는 법
 
@@ -140,19 +140,19 @@ C'mon Yo!는 지역 운동과 모임을 지속적으로 이용할 수 있는 서
 
 ### 2.1 현재 구현과 남은 검증 — 2026-09-13, HTTP 계약 보완 후 상태 기준
 
-**공개 조회의 기술 기반은 구현됐으나, 사용자가 모임을 만들고 참여하며 소통하는 제품 흐름은 아직 없다.** 현재 동작과 남은 사용자 흐름을 구분한다.
+**Web·iOS 로그인과 실제 모임 생성·주최 수정/취소·참여/취소·내 모임을 구현하고 로컬 DB·HTTP·브라우저·Simulator에서 실행했다. 소통과 공식 인증 공급자 연결은 후속이다.** 현재 동작과 남은 사용자 흐름을 구분한다.
 
 | 기능·품질 | 코드·검증 근거 | 현재 동작과 다음 검증 |
 |---|---|---|
 | React·TypeScript·SSR | `src/server/app.ts`, `src/server/render.tsx`, `src/server/loaders/`, `src/app/entry-client.tsx`; `tests/server.test.tsx`, dev/prod Web E2E | 요청별 QueryClient, 안전한 직렬화, 중단·실패, hydration과 초기 중복 조회를 구현·검증했다. loader 완료 후 stream을 시작하므로 데이터별 점진적 표시·성능 개선은 미입증 |
-| 프론트 ↔ 서버 계약 | `src/api/public.ts`, `src/server/openapi.ts`, `src/contracts/`; `tests/public-api.test.ts`, 실제 DB HTTP 검사 | 공개 조회 3개와 `/api/v1/me`의 계정 DTO·401/503 계약이 있다. 인증 mutation 전체 명세·독립 서버 배포는 후속 검증 |
-| 사용자 화면·상태 | `src/features/meetup/MeetupPage.tsx`, `src/features/places/PlacesPage.tsx`; 정상→404/연결 실패→복구, 좁은 화면·글자 확대 실행 QA | 기본 조회 UX와 Web 이메일 폼·원래 화면 복귀·탭 간 로그아웃을 연결했다. 작성 보존·참여·필터 복귀·Native 개인 cache·계정 전환의 전체 보장은 후속 |
+| 프론트 ↔ 서버 계약 | `src/api/public.ts`, `src/server/openapi.ts`, `src/contracts/`; `tests/public-api.test.ts`, 실제 DB HTTP 검사 | 실제 모임 조회/명령·개인 참여·내 모임·Native 이메일 인증의 명세가 `meetings-openapi.ts`에 있다. 인증 mutation 전체 명세·독립 서버 배포는 후속 검증 |
+| 사용자 화면·상태 | `src/features/meetup/MeetupPage.tsx`, `src/features/places/PlacesPage.tsx`; 정상→404/연결 실패→복구, 좁은 화면·글자 확대 실행 QA | 기본 조회 UX와 Web 이메일 폼·원래 화면 복귀·탭 간 로그아웃을 연결했다. 실제 모임 입력·실패 복구·개인 SSR·늦은 응답의 계정 격리를 검증했다. 공식 공급자·WebView 경계는 후속 |
 | WebView | `src/app/bridge.ts`, `ios/CmonYo/Web/`, 실제 WebKit 통합과 Simulator 도구 QA | 읽기 전용 왕복과 발신자·종료 경계는 검증했다. 인증 공유·키보드 입력·작성 중 복귀는 후속. XCUITest는 발견 2·실행 0이며 통과 아님 |
-| 실제 제품 데이터 | `db/001_places.sql`, `src/server/services/place.ts`; 공공시설 21행 import와 DB 검사 | 시설은 실제 데이터다. `src/server/services/meetup.ts`는 파일 fixture이며 실제 모집·참여·댓글 저장은 없다. 기상청 인증 성공 실응답은 필수 미검증 |
-| 모니터링·개선 | `app.ts`의 `logger: false`, client의 hydration console 기록; §15는 계획 | 오류 테스트와 requestId는 있으나 운영 수집·지표 baseline·측정에 따른 개선은 아직 없다. 테스트 결과와 운영 지표를 구분 |
+| 실제 제품 데이터 | `db/001_places.sql`, `src/server/services/place.ts`; 공공시설 21행 import와 DB 검사 | 시설은 실제 데이터다. `db/002_meetups.sql`과 `services/meetings.ts`가 실제 모집·참여를 저장한다. `services/meetup.ts`는 명시적 읽기 전용 회귀 adapter이며 댓글 저장은 없다. 기상청 인증 성공 실응답은 필수 미검증 |
+| 모니터링·개선 | `app.ts`/`main.ts`의 안전한 HTTP route·status·duration·requestId 로그; client의 hydration console 기록 | 오류 테스트와 requestId는 있으나 운영 수집·지표 baseline·측정에 따른 개선은 아직 없다. 테스트 결과와 운영 지표를 구분 |
 | 사용성·개발 검증 | README의 재현→수정→영향 검사 기록, 도구를 이용한 앱 QA | 기술 문제 해결 과정의 자료는 있다. 도구 QA는 사용자 인터뷰가 아니며 사용성/전환 개선은 미입증. 코드 변경의 이유와 재현·수정·재검증 결과를 계속 기록 |
 
-React/Fastify·TanStack Query·Vite·vanilla-extract를 유지한다. 다음 작업은 로그인·모임 참여 화면의 입력, 서버 권한, 개인 상태와 실패 복구를 연결하는 것이다. OpenAPI와 실제 HTTP 검사는 서버 배치가 바뀌어도 유지할 경계다. 현재 Web 인증은 Better Auth와 직접 PostgreSQL을 사용하며 실행 범위는 README의 계정 기록을 따른다.
+React/Fastify·TanStack Query·Vite·vanilla-extract를 유지한다. 이메일 로그인·모임 참여의 입력·서버 권한·개인 상태·실패 복구는 연결했다. 다음 작업에서는 공식 공급자와 인증된 WebView 등 남은 경계를 구현·검증하며 완료된 흐름을 회귀한다. OpenAPI와 실제 HTTP 검사는 서버 배치가 바뀌어도 유지할 경계다. 현재 Web 인증은 Better Auth와 직접 PostgreSQL을 사용하며 실행 범위는 README의 계정 기록을 따른다.
 
 범용 컴포넌트·프레임워크를 선행 구축하지 않는다. 생성 폼·필터·댓글 등 실제 화면에서 반복되는 요구가 생기면 필요한 컴포넌트를 추출하고 키보드·포커스·오류 표시를 검증한다. 최종 브랜드는 후속 적용할 수 있다.
 
@@ -209,7 +209,7 @@ SSR loader ─┐
 API route ──┘
 ```
 
-현재 제품 DB와 Web 이메일 인증은 `pg`를 통한 직접 PostgreSQL 연결이며 인증 구현체는 Better Auth다. Supabase 프로젝트·Auth를 사용하지 않으므로 해당 계정·키가 개발 선행조건이 아니다. Native/WKWebView의 세션 연결과 공급자별 실연결은 이어서 검증한다. 제품 테이블 접근은 서버 adapter에 모으고 runtime role과 migration/DDL 권한을 분리한다. 운영 DB의 schema·접근 권한은 배포 검증 대상이다.
+현재 제품 DB와 Web·Native 이메일 인증은 `pg`를 통한 직접 PostgreSQL 연결이며 인증 구현체는 Better Auth다. Supabase 프로젝트·Auth를 사용하지 않으므로 해당 계정·키가 개발 선행조건이 아니다. Native 이메일 Bearer 세션은 연결했고 인증된 WKWebView와 공급자별 실연결은 이어서 검증한다. 제품 테이블 접근은 서버 adapter에 모으고 runtime role과 migration/DDL 권한을 분리한다. 운영 DB의 schema·접근 권한은 배포 검증 대상이다.
 
 현재 HTTP 계약은 `GET /api/v1/openapi.json`으로 확인하며, Web은 얇은 HTTP client에서 JSON을 검증하고 TanStack Query로 화면 상태를 관리한다. SSR은 같은 service를 직접 호출하는 기준을 유지한다. 별도 Spring 제품 서버는 아직 없으며, 도입 시 SSR의 원격 API 호출·인증 전달·deadline을 별도로 검증해야 한다. Streaming renderer 사용과 데이터별 점진적 표시·성능 개선 입증을 구분한다.
 
@@ -625,16 +625,18 @@ fixture 하나의 decode 성공은 전체 호환성 보장이 아니다. 이전 
 
 | API | 목적 / 구현 시점 |
 |---|---|
-| GET /api/v1/meetups/:id | PR1 공개 fixture. 이후 실제 모임 상세 |
+| GET /api/v1/meetups/:id | 실제 모임 상세. 명시적 fixture 실행은 PR1 공개 표본 |
 | GET /api/v1/home?regionCode=&sport= | 동네의 장소·모임·조건 조합 |
 | GET /api/v1/places | 현재 시설 목록. 지역·종목 필터 입력은 PR3B에서 확장 |
 | GET /api/v1/places/:id | 장소·기구 상세 |
-| GET /api/v1/meetups?placeId=&date=&regionCode=&sport= | PR3B의 장소·지역·종목·날짜별 모임 목록 |
-| POST /api/v1/meetups | 인증된 모임 생성 |
-| PATCH /api/v1/meetups/:id | PR3B 주최자 수정·모임 취소. 허용 전이는 해당 단계에서 정의 |
-| PUT /api/v1/meetups/:id/participation | 참여/취소 의도 |
+| GET /api/v1/meetups?placeId=&date=&regionCode=&sport= | 구현: 장소·지역·종목·한국 날짜별 모임 목록·page |
+| POST /api/v1/meetups | 구현: 인증된 모임 생성·명령 UUID |
+| PATCH /api/v1/meetups/:id | 구현: edit/cancel/join/leave·현재 버전·명령 UUID |
+| GET /api/v1/meetups/:id/membership | 구현: 현재 계정의 주최/참여 상태·버전 |
 | GET /api/v1/me | PR3A 내 계정·로그인 수단. 가입·복구·세션·탈퇴의 세부 경로는 인증 구현체 확인 후 명세화 |
-| GET /api/v1/me/meetups | PR3B 내 참여/주최 모임 |
+| GET /api/v1/me/meetups | 구현: 내 참여/주최/취소 모임·page |
+| GET /api/v1/me/commands/:id | 구현: 계정별 모임 명령의 확정 결과 조회 |
+| POST /api/native/auth/* | 구현: 이메일 가입·로그인·로그아웃·인증 재전송·복구 요청. 상세 OpenAPI 참조 |
 | POST /api/v1/meetups/:id/check-ins | 위치 입력·서버 판정 |
 | POST /api/v1/participations/:id/verification-requests | 본인의 수동 확인 요청 |
 | POST /api/v1/participations/:id/attendance-confirmations | 권한 있는 주최자의 출석 확인 |
@@ -690,13 +692,13 @@ query key는 지역·리소스 ID·필터·개인화 범위를 명시한다. 로
 
 ### 12.1 고정 요구사항과 후보 방식
 
-**고정 요구사항**은 같은 사용자 identity, 서버 인가, 자격 증명 비노출, 계정 격리다. 구체적인 세션 교환 방식은 **Proposed / 미실행**이다.
+**고정 요구사항**은 같은 사용자 identity, 서버 인가, 자격 증명 비노출, 계정 격리다. Web Cookie와 Native Bearer 이메일 세션은 구현·실행했고, 아래 Native→WKWebView 세션 교환 방식은 **Proposed / 미실행**이다.
 
 인증 범위는 이메일 직접 가입과 Google·카카오·네이버 로그인이며 iOS 배포용 Apple 로그인도 포함한다. 제품 사용자 ID와 공급자별 subject의 연결을 서버에서 관리한다. 이메일 문자열이 같다는 이유만으로 자동 병합하지 않는다. 초기에는 로그인된 계정에 재인증을 거친 연결/해제만 제공하며 마지막 로그인 수단을 제거하지 않는다. 이미 다른 제품 계정에 연결된 identity의 계정 병합은 자동 처리하지 않고 충돌을 안내한다.
 
 가입에는 이메일 인증·재전송·로그인·비밀번호 재설정, 계정 화면에는 로그인 수단 확인·로그아웃·탈퇴를 포함한다. 인증 메일의 실제 발송과 로컬 수신함 검증을 구분한다. 탈퇴 시 세션 폐기와 작성물·예정 모임의 처리 규칙은 PR3A에서 정의하고, 해당 데이터가 생기는 PR3B/PR4에서 회귀를 추가한다. OAuth 로그인 화면은 공급자 지원 방식으로 열며 자체 WKWebView에 공급자 로그인 페이지를 넣는 것을 기본으로 삼지 않는다.
 
-세션 기준 후보는 Native API의 Bearer credential과 Browser/WKWebView의 서버 관리 same-origin HttpOnly cookie다. Native의 장기 credential은 Keychain에서 관리한다. Supabase Auth는 이 요구를 충족하는지 검증할 후보 중 하나이며 프로젝트 생성이 구현의 선행조건은 아니다. 이메일·각 공급자·탈퇴·앱 복귀를 함께 지원하는지 PR3A에서 확인하고 채택 결과를 기록한다. 공급자 선택과 제품 세션 계약을 혼동하지 않는다.
+현재 채택한 이메일 세션은 Better Auth의 서버 관리 Browser HttpOnly cookie와 서명 필수 Native Bearer credential이다. Native credential은 origin별 Keychain에서 관리하고 재실행 후 서버에서 계정을 확인한다. 인증된 WKWebView의 cookie 교환은 아직 구현하지 않았다. 이메일·공급자·탈퇴·앱 복귀의 전체 PR3A 수용조건은 별도로 추적하며 공급자 선택과 제품 세션 계약을 혼동하지 않는다.
 
 ```text
 Native access token
