@@ -37,6 +37,8 @@ PR1 기능 기준선은 main에 반영됐습니다. **PR2는 무안군 시설·�
 
 위 번호는 GitHub PR 번호와 다른 개발 단계이며 개별 PR은 검토 가능한 크기로 나눕니다. 단계 수를 남은 작업 수나 완료율로 사용하지 않습니다. 작은 화면·키보드·포커스·오류/재시도·접근성 및 최소 관측은 각 기능 단계에서 확인합니다. 동네 인증·원격 Push·리워드·실시간 채팅·사진 업로드는 후속 범위입니다.
 
+정해진 기능은 단계별 재승인을 기다리지 않고 구현·테스트·실행 QA·수정을 이어갑니다. 외부 키가 없는 경로는 로컬 DB·시험 공급자로 먼저 연결하고 실제 설정이 준비되면 공식 응답으로 다시 검증합니다. 기본 배치·가독성·반응형·포커스는 지금 검증하며, 최종 브랜드의 색상·서체·장식은 후속 스타일 PR에서 Web·Native에 일괄 적용합니다. 기능 테스트는 브랜드 CSS 클래스에 결합하지 않습니다.
+
 Web·API·iOS·DB migration을 한 저장소에서 관리하는 모노레포를 유지합니다. React/Fastify·직접 PostgreSQL과 공개 HTTP 계약을 사용하고, 인증 구현체는 이메일·각 공급자·세션·탈퇴 요구를 실제 연결해 확인합니다. Supabase는 후보이며 프로젝트 생성이 현재 선행조건은 아닙니다. PR3 기능은 별도 브랜치/PR에서 진행하며 날씨 설정 대기만으로 독립 구현을 막지 않습니다. 기존 XCUITest·실기기·VoiceOver 후속 미검증은 유지합니다.
 
 **계획·설정 검사 — 2026-09-13:** Node 26.3.1의 `node --input-type=module` 검사로 로컬 문서 링크/앵커 8개·코드 블록·단계 참조, `.env.example` 선언 35개·중복 없음·비밀 준비값 비어 있음·현재 런타임 기본값 불변을 확인했습니다. `node scripts/check-conventions.mjs`와 `git diff --check`도 통과했습니다. 문서·미사용 준비값 변경이므로 기능 테스트·앱 QA는 N/A이며 기존 실행 증거와 새 계획을 구분합니다.
@@ -185,7 +187,7 @@ npm run test:ios -- "$CMON_SIMULATOR_ID"
 - Native가 상세·modal 표시와 복귀를 소유하고 WebView가 안내 스크롤을 소유합니다. 안내를 닫으면 기존 상세가 남습니다. 입력·draft는 없고 WebView를 다시 열면 새 문서·스크롤로 시작합니다. Native 상세는 안내 실패에도 남습니다.
 - Bridge는 v1 `capabilities`와 현재 모임의 `openMeetup`만 지원합니다. 실제 main-frame의 scheme/host/port를 검사합니다. 수락 이후 실행과 웹 응답 관측은 독립적이며 timeout/종료에서 자동 재전송하지 않습니다. 자세한 종료 계약은 [PR1 수용조건](docs/pr1-acceptance.md)을 따릅니다.
 
-실제로 사용하는 스타일 변경 지점은 Web의 `src/features/meetup/meetup.css.ts`, 화면 구성은 `MeetupPage.tsx`, Native 상세는 `ios/CmonYo/Features/MeetupView.swift`, 안내 컨테이너는 `ios/CmonYo/Web/DiscussionView.swift`입니다. 범용 디자인 시스템은 없습니다.
+현재 Web의 기본 스타일은 `src/features/meetup/meetup.css.ts`에서 모임·시설 화면이 함께 사용합니다. 화면 구성은 `MeetupPage.tsx`·`PlacesPage.tsx`, Native 스타일 변경 지점은 `ios/CmonYo/Features/MeetupView.swift`·`FacilitiesView.swift`와 `ios/CmonYo/Web/DiscussionView.swift`입니다. SwiftUI에는 CSS가 직접 적용되지 않으므로 후속 브랜드 PR에서 Web·Native를 함께 맞춥니다. 기능 상태 분기와 API 계약은 유지하고 시각 변경에 영향받는 화면·접근성 검사를 다시 실행합니다. 범용 디자인 시스템은 없습니다.
 
 ## 2026-09-12 실행 결과
 
