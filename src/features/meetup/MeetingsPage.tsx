@@ -1,3 +1,6 @@
+const AttendancePanel = lazy(() =>
+  import('../attendance/AttendancePanel').then((m) => ({ default: m.AttendancePanel })),
+);
 import { lazy, Suspense, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -324,6 +327,9 @@ function MeetingDetail({ route }: { route: MeetingsRoute }) {
             </dd>
           </dl>
           <p>{m.description || '등록된 설명이 없습니다.'}</p>
+          <div className={css.actions}>
+            <AppLink href={`/meetups/${m.id}/discussion`}>모임 이야기</AppLink>
+          </div>
           <Suspense fallback={<p role="status">참여 상태를 확인하는 중…</p>}>
             <StreamSlot name="viewer">
               {(packet) => (
@@ -397,6 +403,11 @@ function MeetingActions({
   };
   return (
     <>
+      {route.userId ? (
+        <Suspense fallback={<p role="status">현장 확인 화면을 준비하는 중…</p>}>
+          <AttendancePanel id={id} userId={route.userId} ready={ready} />
+        </Suspense>
+      ) : null}
       {!route.userId ? (
         <Login returnTo={`/meetups/${id}`} />
       ) : ready ? (

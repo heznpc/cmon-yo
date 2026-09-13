@@ -16,7 +16,7 @@ export function accountReturnPath(value: string | null | undefined) {
   const base = 'https://return.invalid';
   try {
     const url = new URL(value, base);
-    if (url.origin !== base || !/^\/(?:places|meetups|account)(?:\/|$)/.test(url.pathname))
+    if (url.origin !== base || !/^\/(?:places|meetups|account|community|activity)(?:\/|$)/.test(url.pathname))
       return '/account';
     return url.pathname + url.search;
   } catch {

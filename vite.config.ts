@@ -22,5 +22,12 @@ export default defineConfig({
     manifest: true,
     rollupOptions: { input: 'src/app/entry-client.tsx' },
   },
-  test: { include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'], environment: 'node' },
+  // Better Auth introspects all visible PostgreSQL schemas. Do not drop one
+  // suite's schema during another suite's catalog read. Concurrency within
+  // each HTTP/DB test remains explicit (Promise.all and row-lock races).
+  test: {
+    fileParallelism: false,
+    include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
+    environment: 'node',
+  },
 });

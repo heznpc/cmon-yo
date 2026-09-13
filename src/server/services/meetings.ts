@@ -1,3 +1,5 @@
+import { migrateAttendance } from './attendance';
+import { migrateCommunity } from './community';
 import { randomUUID, createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import type pg from 'pg';
@@ -23,6 +25,8 @@ export async function migrateMeetings(pool: pg.Pool) {
   } finally {
     client.release();
   }
+  await migrateCommunity(pool);
+  await migrateAttendance(pool);
 }
 const selection = `SELECT m.*, (SELECT count(*)::int FROM participations p WHERE p.meetup_id=m.id AND p.status='joined') AS participant_count FROM meetups m`;
 function dto(row: pg.QueryResultRow) {
@@ -203,6 +207,22 @@ export function databaseMeetings(pool?: pg.Pool) {
           } else if (input.action === 'cancel') {
             await client.query("UPDATE meetups SET status='cancelled' WHERE id=$1", [id]);
           } else if (values) {
+            const scheduleChanged =
+              row.place_id !== values.placeId ||
+              row.starts_at.toISOString() !== values.startsAt ||
+              row.ends_at.toISOString() !== values.endsAt;
+            const hasAttendance = (
+              await client.query(
+                "SELECT 1 FROM attendance WHERE meetup_id=$1 AND (status='checked_in' OR review='pending') LIMIT 1",
+                [id],
+              )
+            ).rowCount;
+            if (scheduleChanged && (count > 1 || hasAttendance))
+              reject(
+                409,
+                'SCHEDULE_LOCKED',
+                '다른 참여자 또는 현장 확인이 있는 모임의 장소·시간은 변경할 수 없습니다.',
+              );
             if (values.capacity < count)
               reject(409, 'CAPACITY', '현재 참여 인원보다 정원을 줄일 수 없습니다.');
             await client.query(

@@ -14,22 +14,22 @@ export default defineConfig({
     },
     {
       name: 'meetings-development',
-      testMatch: 'meetings.spec.ts',
+      testMatch: ['meetings.spec.ts', 'community.spec.ts'],
       use: { baseURL: 'http://127.0.0.1:3115' },
     },
     {
       name: 'meetings-production',
-      testMatch: 'meetings.spec.ts',
+      testMatch: ['meetings.spec.ts', 'community.spec.ts'],
       use: { baseURL: 'http://127.0.0.1:3116' },
     },
     {
       name: 'development',
-      testIgnore: ['account.spec.ts', 'meetings.spec.ts'],
+      testIgnore: ['account.spec.ts', 'meetings.spec.ts', 'community.spec.ts'],
       use: { baseURL: 'http://127.0.0.1:3000' },
     },
     {
       name: 'production',
-      testIgnore: ['account.spec.ts', 'meetings.spec.ts'],
+      testIgnore: ['account.spec.ts', 'meetings.spec.ts', 'community.spec.ts'],
       use: { baseURL: 'http://127.0.0.1:3002' },
     },
     {
@@ -42,51 +42,51 @@ export default defineConfig({
     {
       command: 'PERF_PORT=3124 npm run perf:server',
       url: 'http://127.0.0.1:3124/_perf/setup',
-      reuseExistingServer: true,
+      reuseExistingServer: false,
     },
     {
       command: 'npx tsx tests/meetings-server.ts',
       url: 'http://127.0.0.1:3115/meetups',
-      reuseExistingServer: true,
+      reuseExistingServer: false,
     },
     {
       command: 'QA_PRODUCTION=1 QA_PORT=3116 npx tsx tests/meetings-server.ts',
       url: 'http://127.0.0.1:3116/meetups',
-      reuseExistingServer: true,
+      reuseExistingServer: false,
     },
     {
       command: 'npx tsx tests/account-server.ts',
       url: 'http://127.0.0.1:3114/account',
-      reuseExistingServer: true,
+      reuseExistingServer: false,
     },
     {
       command: 'npx tsx tests/places-server.ts',
       url: 'http://127.0.0.1:3112/places',
-      reuseExistingServer: true,
+      reuseExistingServer: false,
     },
     {
       command:
         'MEETUP_SOURCE=fixture MEETUP_FIXTURE_PATH=contracts/fixtures/meetup.json npm run dev',
       url: 'http://127.0.0.1:3000',
-      reuseExistingServer: true,
+      reuseExistingServer: false,
     },
     {
       command:
         'PORT=3002 MEETUP_SOURCE=fixture MEETUP_FIXTURE_PATH=contracts/fixtures/meetup.json npm start',
       url: 'http://127.0.0.1:3002',
-      reuseExistingServer: true,
+      reuseExistingServer: false,
     },
     {
       command:
         'PORT=3003 MEETUP_SOURCE=fixture MEETUP_FIXTURE_PATH=contracts/fixtures/malicious.json npm run dev',
       url: 'http://127.0.0.1:3003',
-      reuseExistingServer: true,
+      reuseExistingServer: false,
     },
     {
       command:
         'PORT=3004 MEETUP_SOURCE=fixture MEETUP_FIXTURE_PATH=contracts/fixtures/malicious.json npm start',
       url: 'http://127.0.0.1:3004',
-      reuseExistingServer: true,
+      reuseExistingServer: false,
     },
   ],
 });

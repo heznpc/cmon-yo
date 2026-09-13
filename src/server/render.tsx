@@ -39,7 +39,7 @@ export async function renderPage(
         {state.stream ? (
           <script dangerouslySetInnerHTML={{ __html: streamBootstrap(state.stream) }} />
         ) : null}
-        <title>{`C'mon Yo! · ${'section' in state.route ? (state.route.section === 'account' ? '내 계정' : state.route.section === 'meetings' ? '모임' : '시설') : '모임'}`}</title>
+        <title>{`C'mon Yo! · ${'section' in state.route ? (state.route.section === 'account' ? '내 계정' : state.route.section === 'meetings' ? '모임' : state.route.section === 'community' ? '커뮤니티' : '시설') : '모임'}`}</title>
         {assets.preloads?.map((href) => (
           <link key={href} rel="modulepreload" href={href} />
         ))}

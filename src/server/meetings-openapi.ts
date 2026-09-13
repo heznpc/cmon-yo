@@ -1,3 +1,13 @@
+import {
+  communityCommandSchema,
+  profileSchema,
+  communityResultSchema,
+  communityFiltersSchema,
+  postSchema,
+  postListSchema,
+  commentListSchema,
+} from '../contracts/community';
+import { attendanceSchema, attendanceCommandSchema } from '../contracts/attendance';
 import { z } from 'zod';
 import { openapi } from './openapi';
 import {
@@ -27,6 +37,14 @@ const errors = Object.fromEntries(
   ]),
 );
 const id = { name: 'id', in: 'path', required: true, schema: wire(idSchema) };
+const viewerHeader = {
+  name: 'X-Cmon-User',
+  in: 'header',
+  required: false,
+  schema: wire(z.union([idSchema, z.literal('guest')])),
+  description:
+    '조회 화면의 사용자입니다. 제공하면 현재 세션과 대조하고 불일치 시 409를 반환합니다.',
+};
 const commandHeaders = [
   {
     name: 'Idempotency-Key',
@@ -77,6 +95,101 @@ export const meetingsOpenapi = {
   },
   paths: {
     ...openapi.paths,
+    '/api/v1/me/profile': {
+      get: {
+        security,
+        parameters: [viewerHeader],
+        responses: { 200: response(profileSchema), ...errors },
+      },
+    },
+    '/api/v1/posts': {
+      get: {
+        security: [{}, ...security],
+        parameters: [
+          viewerHeader,
+          ...Object.entries(communityFiltersSchema.shape).map(([name, schema]) => ({
+            name,
+            in: 'query',
+            schema: wire(schema),
+          })),
+        ],
+        responses: { 200: response(postListSchema), ...errors },
+      },
+    },
+    '/api/v1/posts/{id}': {
+      get: {
+        security: [{}, ...security],
+        parameters: [id, viewerHeader],
+        responses: { 200: response(postSchema), ...errors },
+      },
+    },
+    ...Object.fromEntries(
+      ['posts', 'meetups'].map((parent) => [
+        `/api/v1/${parent}/{id}/comments`,
+        {
+          get: {
+            security: [{}, ...security],
+            parameters: [
+              id,
+              viewerHeader,
+              { name: 'cursor', in: 'query', schema: wire(communityFiltersSchema.shape.cursor) },
+              {
+                name: 'page',
+                in: 'query',
+                schema: { type: 'integer', minimum: 0, maximum: 10000 },
+              },
+            ],
+            responses: { 200: response(commentListSchema), ...errors },
+          },
+        },
+      ]),
+    ),
+    '/api/v1/community/commands': {
+      post: {
+        security,
+        parameters: commandHeaders,
+        requestBody: body(communityCommandSchema),
+        responses: { 200: response(communityResultSchema), ...errors },
+      },
+    },
+    '/api/v1/me/community-commands/{id}': {
+      get: {
+        security,
+        parameters: [id, viewerHeader],
+        responses: { 200: response(communityResultSchema), ...errors },
+      },
+    },
+    '/api/v1/me/blocks': {
+      get: {
+        security,
+        parameters: [viewerHeader],
+        responses: {
+          200: response(z.object({ users: z.array(z.object({ id: idSchema, name: z.string() })) })),
+          ...errors,
+        },
+      },
+    },
+    '/api/v1/meetups/{id}/attendance': {
+      get: {
+        security,
+        parameters: [id, viewerHeader],
+        responses: { 200: response(attendanceSchema), ...errors },
+      },
+      post: {
+        security,
+        parameters: [id, ...commandHeaders],
+        requestBody: body(attendanceCommandSchema),
+        responses: { 200: response(communityResultSchema), ...errors },
+      },
+    },
+    '/api/v1/me/attendance-commands/{id}': {
+      get: {
+        security,
+        parameters: [id, viewerHeader],
+        responses: { 200: response(communityResultSchema), ...errors },
+      },
+    },
+
     '/api/v1/me': { get: { ...openapi.paths['/api/v1/me'].get, security } },
     '/api/native/auth/sign-in/email': {
       post: {

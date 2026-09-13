@@ -1,4 +1,6 @@
+import { databaseAttendance } from '../src/server/services/attendance';
 // Loopback-only QA entry point. Real account verification and isolated DB.
+import { databaseCommunity } from '../src/server/services/community';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
@@ -67,12 +69,18 @@ const builtRenderer = production
 const app = createApp({
   auth,
   meetings: databaseMeetings(pool),
+  community: databaseCommunity(pool),
+  attendance: databaseAttendance(pool),
   places: databasePlaces(pool, async () => ({ status: 'unavailable', facts: null })),
   assets,
   renderer: async () =>
     production
       ? (await import(builtRenderer!)).renderPage
       : (await vite!.ssrLoadModule('/src/server/render.tsx')).renderPage,
+});
+app.post('/_test/reset-limits', async () => {
+  await pool.query('DELETE FROM auth_rate_limit');
+  return { ok: true };
 });
 app.get('/_test/slow-me', async (r, p) => {
   const account = await currentAccount(auth, r, p);

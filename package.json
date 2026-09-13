@@ -23,7 +23,9 @@
     "test:ios": "bash scripts/test-ios-simulator.sh",
     "facilities": "tsx scripts/facilities.ts",
     "perf:server": "vite build --ssr tests/performance/server.ts --outDir .cache/performance/harness && NODE_ENV=production node .cache/performance/harness/server.js",
-    "perf:measure": "node tests/performance/measure.mjs"
+    "perf:measure": "node tests/performance/measure.mjs",
+    "community": "tsx scripts/community.ts",
+    "qa:meetings": "tsx tests/meetings-server.ts"
   },
   "dependencies": {
     "@fastify/middie": "9.3.4",

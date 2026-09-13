@@ -14,7 +14,14 @@ import { ViewerGate, AccountBoundary, DocumentIdentity } from '../features/accou
 import { meetingFiltersSchema } from '../contracts/meetings';
 import { accountReturnPath } from '../contracts/account';
 import { NavigationEffects } from './navigation';
+import type { CommunityRoute } from '../features/community/CommunityPage';
 import { StreamContext, type StreamResources, type StreamState } from './stream';
+let loadedCommunity: ComponentType<{ route: CommunityRoute; initial?: string | null }> | undefined;
+const loadCommunity = () =>
+  import('../features/community/CommunityPage').then((m) => ({
+    default: (loadedCommunity = m.CommunityPage),
+  }));
+const LazyCommunity = lazy(loadCommunity);
 let loadedAccount: ComponentType<{ route: AccountRoute }> | undefined;
 let loadedMeetings: ComponentType<{ route: MeetingsRoute; ready?: boolean }> | undefined;
 let loadedFixture: ComponentType<{ route: FixtureRoute }> | undefined;
@@ -36,6 +43,7 @@ const LazyAccount = lazy(loadAccount),
 export async function prepareInitialRoute(state: InitialState) {
   const r = state.route;
   if (!('section' in r)) await loadFixture();
+  else if (r.section === 'community') await loadCommunity();
   else if (r.section === 'account') await loadAccount();
   else if (r.section === 'meetings') {
     await loadMeetings();
@@ -44,7 +52,12 @@ export async function prepareInitialRoute(state: InitialState) {
   }
 }
 export type InitialState = {
-  route: FixtureRoute | { section: 'places'; id?: string } | AccountRoute | MeetingsRoute;
+  route:
+    | FixtureRoute
+    | { section: 'places'; id?: string }
+    | AccountRoute
+    | MeetingsRoute
+    | CommunityRoute;
   dehydratedState: DehydratedState;
   url?: string;
   fixture?: boolean;
@@ -56,6 +69,7 @@ export function initialURL(state: InitialState) {
   if (!('section' in r)) return `/meetups/${r.id}${r.discussion ? '/discussion' : ''}`;
   if (r.section === 'places') return '/places' + (r.id ? '/' + r.id : '');
   if (r.section === 'account') return '/account';
+  if (r.section === 'community') return '/community';
   return r.mode === 'mine'
     ? '/account/meetups'
     : r.mode === 'create'
@@ -119,7 +133,36 @@ export function App({
                     )
                   }
                 />
-                <Route path="/meetups/:id/discussion" element={<FixturePage discussion />} />
+                <Route
+                  path="/meetups/:id/discussion"
+                  element={
+                    state.fixture ? (
+                      <FixturePage discussion />
+                    ) : (
+                      <CommunityRoutePage mode="discussion" initial={initial} />
+                    )
+                  }
+                />
+                <Route
+                  path="/activity"
+                  element={<CommunityRoutePage mode="activity" initial={initial} />}
+                />
+                <Route
+                  path="/community"
+                  element={<CommunityRoutePage mode="list" initial={initial} />}
+                />
+                <Route
+                  path="/community/new"
+                  element={<CommunityRoutePage mode="create" initial={initial} />}
+                />
+                <Route
+                  path="/community/:id"
+                  element={<CommunityRoutePage mode="detail" initial={initial} />}
+                />
+                <Route
+                  path="/account/posts"
+                  element={<CommunityRoutePage mode="mine" initial={initial} />}
+                />
                 <Route
                   path="/account/meetups"
                   element={<MeetingRoute mode="mine" initial={initial} />}
@@ -208,5 +251,25 @@ function AccountRoutePage({ initial }: { initial?: InitialState }) {
         />
       )}
     </ViewerGate>
+  );
+}
+
+function CommunityRoutePage({
+  mode,
+  initial,
+}: {
+  mode: CommunityRoute['mode'];
+  initial?: InitialState;
+}) {
+  const { id } = useParams(),
+    location = useLocation(),
+    Page = loadedCommunity ?? LazyCommunity;
+  const known = initial && 'userId' in initial.route ? initial.route.userId : undefined;
+  return (
+    <Page
+      key={location.pathname + location.search}
+      route={{ section: 'community', mode, id, userId: known ?? null }}
+      initial={known}
+    />
   );
 }

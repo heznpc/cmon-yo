@@ -19,10 +19,18 @@ globalStyle('button', {
   background: '#f5f5f5',
   color: '#202124',
 });
-globalStyle('a', { color: '#164da8', minHeight: 44, display: 'inline-flex', alignItems: 'center' });
+globalStyle('a', {
+  overflowWrap: 'anywhere',
+  maxWidth: '100%',
+  minWidth: 0,
+  color: '#164da8',
+  minHeight: 44,
+  display: 'inline-flex',
+  alignItems: 'center',
+});
 globalStyle(':focus-visible', { outline: '3px solid #164da8', outlineOffset: 3 });
 globalStyle('h1', { fontSize: '1.8rem', lineHeight: 1.3, overflowWrap: 'anywhere' });
-globalStyle('p, dd', { overflowWrap: 'anywhere' });
+globalStyle('p, dd, li', { overflowWrap: 'anywhere' });
 globalStyle('dt', { fontWeight: 700 });
 globalStyle('dd', { margin: '0 0 16px' });
 export const page = style({ maxWidth: 720, margin: '0 auto', padding: '24px 20px 48px' });

@@ -2,6 +2,9 @@ import { test, expect, type Page, type APIRequestContext } from '@playwright/tes
 import { randomUUID } from 'node:crypto';
 test.use({ actionTimeout: 12_000 });
 
+test.beforeEach(async ({ request, baseURL }) => {
+  expect((await request.post(baseURL + '/_test/reset-limits')).ok()).toBe(true);
+});
 async function account(request: APIRequestContext, origin: string, label: string) {
   const email = `flow-${randomUUID()}@example.test`,
     password = 'Local-Only-' + randomUUID();

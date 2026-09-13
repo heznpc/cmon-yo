@@ -21,6 +21,10 @@ import { registerNativeAuth } from './auth/native';
 import { registerMeetings } from './meeting-routes';
 import type { MeetingService } from './services/meetings';
 import { meetingsOpenapi } from './meetings-openapi';
+import { registerCommunity } from './community-routes';
+import type { CommunityService } from './services/community';
+import { registerAttendance } from './attendance-routes';
+import type { AttendanceService } from './services/attendance';
 export type Renderer = typeof renderPage;
 export function createApp({
   service = fixtureService(),
@@ -32,6 +36,8 @@ export function createApp({
   places = databasePlaces(undefined, kmaWeather()),
   auth,
   meetings,
+  community,
+  attendance,
 }: {
   service?: MeetupService;
   renderer: () => Promise<Renderer>;
@@ -48,6 +54,8 @@ export function createApp({
   places?: PlaceService;
   auth?: AuthService;
   meetings?: MeetingService;
+  community?: CommunityService;
+  attendance?: AttendanceService;
 }) {
   const app = Fastify({ logger: false });
   app.addHook('onResponse', async (request, reply) => {
@@ -69,6 +77,8 @@ export function createApp({
     );
     reply.header('X-Content-Type-Options', 'nosniff');
   });
+  if (community) registerCommunity(app, community, auth, renderer, assets, deadlineMs, meetings);
+  if (attendance) registerAttendance(app, attendance, auth);
   registerAuthRoutes(app, auth);
   registerNativeAuth(app, auth);
   if (meetings) registerMeetings(app, meetings, auth, renderer, assets, deadlineMs);
@@ -299,7 +309,7 @@ export function createApp({
     return reply;
   };
   if (!meetings) app.get('/meetups/:id', page);
-  app.get('/meetups/:id/discussion', page);
+  if (!community) app.get('/meetups/:id/discussion', page);
   app.get('/places', page);
   app.get('/places/:id', page);
   app.get('/', async (_request, reply) => reply.redirect('/places'));

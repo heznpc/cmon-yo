@@ -1,3 +1,4 @@
+import { databaseAttendance } from './services/attendance';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { productionAssets } from './assets';
@@ -10,6 +11,7 @@ import { kmaWeather } from './weather/kma';
 import { createAuth, socialProviders } from './auth/service';
 import { authMailer } from './auth/mail';
 import { databaseMeetings } from './services/meetings';
+import { databaseCommunity } from './services/community';
 const production = process.env.NODE_ENV === 'production';
 const fixtureMode = process.env.MEETUP_SOURCE === 'fixture';
 if (process.env.MEETUP_SOURCE && !['fixture', 'database'].includes(process.env.MEETUP_SOURCE))
@@ -45,6 +47,8 @@ const auth =
       })
     : undefined;
 const app = createApp({
+  attendance: pool && !fixtureMode ? databaseAttendance(pool) : undefined,
+  community: pool && !fixtureMode ? databaseCommunity(pool) : undefined,
   observe: (event) => console.log(JSON.stringify({ event: 'http', ...event })),
   auth,
   meetings: fixtureMode ? undefined : databaseMeetings(pool),
