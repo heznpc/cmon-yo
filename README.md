@@ -40,6 +40,8 @@ Node **22.22.3**, npm **10.9.8**. 의존성은 `package-lock.json`에 고정합�
 
 API·DB·인증 준비값은 [`.env.example`](.env.example)에 모았습니다. 현재 사용하는 값, Native에 별도 전달하는 값, 아직 앱에서 읽지 않는 인증 준비용 `SETUP_*`를 구분합니다. 실제 값은 Git에서 제외된 `.env`에만 입력합니다.
 
+로컬 PostgreSQL은 개발 환경에서 직접 구성할 수 있으므로 외부 DB 서비스 가입이나 사용자 제공 키가 필요하지 않습니다. 개발 DB와 테스트 DB를 분리해 연결하고, 운영 DB 주소·접근 권한은 배포 시 준비합니다. 사용자 키가 없는 동안에는 공개 시설 표본·로컬 DB·시험용 공급자 응답으로 개발을 계속합니다. 현재 PR의 필수 실연결 증거와 후속 기능 구현 진행 여부는 별도로 판단합니다.
+
 ```sh
 # .env가 이미 있으면 덮어쓰지 않습니다.
 test -e .env || (umask 077; cp .env.example .env)
@@ -60,6 +62,10 @@ npm run with-env -- dev
 첫 로그인 공급자는 Google입니다. [Google 연결 설정](https://supabase.com/docs/guides/auth/social-login/auth-google)에 따라 Web client ID·secret을 준비합니다. Supabase를 선택하면 [프로젝트 URL·publishable key](https://supabase.com/docs/guides/getting-started/api-keys)를 준비하고, Google→Supabase callback과 로그인 후 Web/iOS 복귀 주소를 구분합니다. [Redirect 설정](https://supabase.com/docs/guides/auth/redirect-urls)은 PR3A에서 실제 인증 방식과 함께 확정합니다. 시설 공개 파일 수집에는 별도 키가 없고, GPS·HealthKit은 기기 권한 설정입니다.
 
 **환경변수 실행 확인 — 2026-09-13:** Node 22.22.3/npm 10.9.8에서 `npm run with-env -- typecheck -- --pretty false`와 `npm run with-env -- build`가 통과했습니다. 빈 credential의 템플릿으로 `npm run with-env -- dev`와 `npm run with-env -- start`를 각각 실행해 모임 API/SSR 200, 개발·운영 asset 경로, DB 미설정 시 시설 API 503, 셸의 PORT 우선 적용을 HTTP 스크립트로 확인했습니다. 환경변수 목록·빈 비밀값·Git 제외·문서 링크도 검사했습니다. UI 변경이 없는 설정 작업으로 화면 QA와 전체 테스트는 반복하지 않았으며, Google 로그인·인증된 날씨 실연결을 검증한 결과가 아닙니다.
+
+후속 DB 연결 검사에서 최초 `node --env-file=.env --run` 명령이 하위 script에 파일의 값을 전달하지 않는 결함을 재현했습니다(migrate 실패, DB 검사 3개 skip). [Node 문서의 제한](https://nodejs.org/api/cli.html#--run)에 맞춰 파일을 읽은 Node 프로세스가 npm에 환경을 전달하도록 수정했습니다. `tests/env-runner.test.ts`는 기본값과 다른 파일 값의 실제 전달, 셸 우선순위, 인자 보존, 실패 종료 코드를 검증합니다. 수정 후 lint/typecheck/build, `npm run with-env -- test -- tests/env-runner.test.ts tests/facilities.test.tsx` **7개 성공·skip 0**을 확인했습니다.
+
+프로젝트 전용 PostgreSQL 17.11의 개발/테스트 DB를 분리하고 `.env`에 연결한 뒤, `npm run with-env -- facilities -- migrate`와 `apply contracts/samples/muan-parks.json`으로 실제 표본 **21행**을 적재했습니다. 수정한 `with-env -- dev`/`start`의 시설 API·SSR 200, 키 없는 날씨 unavailable을 HTTP 스크립트로 확인했습니다. `with-env -- qa:places`에서는 실제 DB와 로컬 시험 서버를 통해 fresh → 오류 시 stale → 복구 fresh, timeout 시 stale, 성공 이력 없는 오류 시 unavailable을 확인했습니다. 합성 응답이므로 공식 기상청 성공 응답의 필수 미검증은 유지합니다.
 
 fixture 모임만 확인하려면 DB나 인증 설정 없이 아래 명령으로 실행할 수 있습니다.
 
@@ -108,6 +114,17 @@ npm run test:ios -- "$CMON_SIMULATOR_ID"
 ```
 
 `tests/places-server.ts`는 3112의 실제 DB service와 3113의 **합성 KMA HTTP 응답**을 연결하는 로컬 QA 도구입니다. `PUT /_test/state/{normal,reset,empty,error,not-found,disconnect,changed,weather-error,weather-timeout}`으로 상태를 전환합니다. 제품 서버에 포함하지 않으며 실제 기상청 날씨 표본이 아닙니다. Web E2E가 이 서버를 직접 시작/종료할 수 있습니다. 별도 실행한 QA 서버는 끝나면 Ctrl-C로 종료합니다.
+
+```sh
+# DATABASE_URL이 연결된 로컬 DB만 필요합니다. 기상청 키는 필요하지 않습니다.
+npm run with-env -- qa:places
+# http://127.0.0.1:3112/places
+# 정상 → 갱신 실패(이전 예보) → 재시도 성공을 제어할 수 있습니다.
+curl -fsS -X PUT http://127.0.0.1:3112/_test/state/weather-error
+curl -fsS -X PUT http://127.0.0.1:3112/_test/state/normal
+```
+
+이 도구의 `local-qa-only` 키는 로컬 시험 서버 전용이며 외부 공급자에서 유효한 키가 아닙니다. OAuth도 PR3A에서 시험용 공급자와 실제 Google 연결을 구분해 검증합니다. 임의 키나 시험 응답으로 Google 로그인·공식 날씨 실연결을 통과 처리하지 않습니다. 현재 시설 표본은 공원 위치와 운동시설 목록을 제공하며 개별 운동기구의 정밀 위치는 제공하지 않습니다.
 
 ## 검증 명령
 
