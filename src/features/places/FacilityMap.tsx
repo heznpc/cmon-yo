@@ -44,7 +44,7 @@ export const FacilityMap = memo(function FacilityMap({
   const [loaded, setLoaded] = useState(false);
   const [location, setLocation] = useState<DeviceLocation | null>(null);
   const [locationState, setLocationState] = useState<
-    'idle' | 'loading' | 'granted' | 'denied' | 'unavailable'
+    'idle' | 'loading' | 'granted' | 'denied' | 'timeout' | 'unavailable'
   >('idle');
   const locationRequested = useRef(false);
   const mounted = useRef(true);
@@ -71,11 +71,18 @@ export const FacilityMap = memo(function FacilityMap({
         },
         (error) => {
           if (!mounted.current) return;
-          setLocationState(error.code === error.PERMISSION_DENIED ? 'denied' : 'unavailable');
+          if (error.code === 1) {
+            setLocationState('denied');
+          } else if (error.code === 3) {
+            setLocationState('timeout');
+          } else {
+            setLocationState('unavailable');
+          }
         },
-        // A quick network/GPS fix is more reliable for local browsers than
-        // waiting on a high-accuracy fix that may not exist on a desktop.
-        { enableHighAccuracy: false, maximumAge: 60_000, timeout: 8_000 },
+        // Permission prompts and the first desktop location fix can take longer
+        // than a normal request. Keep the request alive long enough for the
+        // user to answer the prompt, while still giving an explicit retry path.
+        { enableHighAccuracy: false, maximumAge: 60_000, timeout: 30_000 },
       );
     } catch {
       setLocationState('unavailable');
@@ -250,6 +257,11 @@ export const FacilityMap = memo(function FacilityMap({
       {locationState === 'unavailable' ? (
         <p className={css.mapMessage} role="status">
           현재 위치를 확인할 수 없습니다. 지도는 시설 핀으로 계속 사용할 수 있습니다.
+        </p>
+      ) : null}
+      {locationState === 'timeout' ? (
+        <p className={css.mapMessage} role="status">
+          위치 확인 시간이 초과되었습니다. 위치 서비스를 확인한 뒤 다시 시도해 주세요.
         </p>
       ) : null}
       <div ref={container} className={css.map} role="region" aria-label="공원과 운동시설 지도" />
