@@ -3,14 +3,14 @@ import Fastify from 'fastify';
 import middie from '@fastify/middie';
 import { createServer } from 'vite';
 import { createApp } from '../src/server/app';
-import { createPool } from '../src/server/db';
 import { databasePlaces } from '../src/server/services/place';
 import { ServiceError } from '../src/server/services/meetup';
 import { kmaWeather } from '../src/server/weather/kma';
 import { forecastResponse } from './fixtures/kma';
+import { isolatedPlacesDatabase } from './support/isolated-places';
 
-if (!process.env.DATABASE_URL) throw new Error('QA database required');
-const pool = createPool(process.env.DATABASE_URL);
+const database = await isolatedPlacesDatabase('places_ui');
+const pool = database.pool;
 let state = 'normal';
 const upstream = Fastify();
 upstream.get('/', async (request, reply) => {
@@ -96,6 +96,6 @@ for (const event of ['SIGINT', 'SIGTERM'] as const)
     await app.close();
     await upstream.close();
     await vite.close();
-    await pool.end();
+    await database.close();
     process.exit(0);
   });

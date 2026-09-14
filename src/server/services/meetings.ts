@@ -1,5 +1,6 @@
 import { migrateAttendance } from './attendance';
 import { migrateCommunity } from './community';
+import { migratePlaceFavorites } from './place';
 import { randomUUID, createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import type pg from 'pg';
@@ -28,6 +29,7 @@ export async function migrateMeetings(pool: pg.Pool) {
   }
   await migrateCommunity(pool);
   await migrateAttendance(pool);
+  await migratePlaceFavorites(pool);
 }
 const selection = `SELECT m.*, (SELECT count(*)::int FROM participations p WHERE p.meetup_id=m.id AND p.status='joined') AS participant_count FROM meetups m`;
 function dto(row: pg.QueryResultRow) {

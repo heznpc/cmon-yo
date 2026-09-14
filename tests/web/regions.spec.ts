@@ -71,6 +71,12 @@ test('regions from imported data drive facility pages, meetup creation and commu
   expect((await (await request.get('/api/v1/meetups/' + id)).json()).meetup.regionCode).toBe(
     '11680',
   );
+  await page.goto('/places/' + park.id);
+  await page.getByRole('button', { name: '찜하기', exact: true }).click();
+  await expect(page.getByRole('button', { name: '찜 해제', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
   await page.goto('/meetups?regionCode=46840');
   await expect(page.getByRole('link', { name: title, exact: true })).toHaveCount(0);
   await page.getByRole('combobox', { name: '동네', exact: true }).selectOption('11680');
@@ -78,9 +84,16 @@ test('regions from imported data drive facility pages, meetup creation and commu
   await expect(page.getByRole('link', { name: title, exact: true })).toBeVisible();
 
   await page.goto('/community/new');
+  await expect(page.getByLabel('제목', { exact: true })).toHaveCount(1);
   await page.getByLabel('제목', { exact: true }).fill(title);
   await page.getByLabel('본문', { exact: true }).fill('다른 동네의 운동 질문입니다.');
   await page.getByRole('combobox', { name: '게시글 동네', exact: true }).selectOption('11680');
+  await page.getByRole('button', { name: '게시글 저장', exact: true }).click();
+  await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '글 수정', exact: true }).click();
+  await expect(page.getByRole('combobox', { name: '게시글 동네', exact: true })).toHaveValue(
+    '11680',
+  );
   await page.getByRole('button', { name: '게시글 저장', exact: true }).click();
   await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
   await page.goto('/community?regionCode=46840');

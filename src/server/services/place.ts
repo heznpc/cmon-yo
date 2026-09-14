@@ -1,4 +1,5 @@
 import type pg from 'pg';
+import { readFile } from 'node:fs/promises';
 import {
   placeDetailSchema,
   regionListSchema,
@@ -30,6 +31,21 @@ export type PlaceService = {
     favorite: boolean,
   ): Promise<{ id: string; favorite: boolean }>;
 };
+
+export async function migratePlaceFavorites(pool: pg.Pool) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(15012894)');
+    await client.query(await readFile('db/005_place_favorites.sql', 'utf8'));
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
 export function databasePlaces(pool: pg.Pool | undefined, weather: WeatherService): PlaceService {
   const database = () => {
     if (!pool) throw new ServiceError(503, 'UNAVAILABLE', '시설을 불러오지 못했습니다.');
@@ -82,7 +98,8 @@ export function databasePlaces(pool: pg.Pool | undefined, weather: WeatherServic
                  cos(radians($3)) * cos(radians((document->>'latitude')::double precision)) *
                  cos(radians((document->>'longitude')::double precision) - radians($4)) +
                  sin(radians($3)) * sin(radians((document->>'latitude')::double precision))
-               )))
+               ))),
+               source_key DESC
              LIMIT 101 OFFSET $5`,
             [
               source,

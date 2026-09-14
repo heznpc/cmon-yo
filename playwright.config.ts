@@ -65,14 +65,12 @@ export default defineConfig({
       reuseExistingServer: false,
     },
     {
-      command:
-        'MEETUP_SOURCE=fixture MEETUP_FIXTURE_PATH=contracts/fixtures/meetup.json npm run dev',
+      command: 'QA_PORT=3000 npx tsx tests/public-server.ts',
       url: 'http://127.0.0.1:3000',
       reuseExistingServer: false,
     },
     {
-      command:
-        'PORT=3002 MEETUP_SOURCE=fixture MEETUP_FIXTURE_PATH=contracts/fixtures/meetup.json npm start',
+      command: 'QA_PRODUCTION=1 QA_PORT=3002 npx tsx tests/public-server.ts',
       url: 'http://127.0.0.1:3002',
       reuseExistingServer: false,
     },

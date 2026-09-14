@@ -173,6 +173,16 @@ describe.runIf(process.env.TEST_DATABASE_URL)(
         expect(last.places).toHaveLength(1);
         expect(last.nextPage).toBeNull();
         expect(new Set([...first.places, ...last.places].map((p) => p.id)).size).toBe(101);
+        const nearby = await (
+          await fetch(origin + '/api/v1/places?latitude=34.9&longitude=126.4')
+        ).json();
+        const nearbyLast = await (
+          await fetch(origin + '/api/v1/places?latitude=34.9&longitude=126.4&page=1')
+        ).json();
+        expect(new Set([...nearby.places, ...nearbyLast.places].map((p) => p.id)).size).toBe(122);
+        expect(
+          await (await fetch(origin + '/api/v1/places?latitude=34.9&longitude=126.4')).json(),
+        ).toEqual(nearby);
         expect((await fetch(origin + '/api/v1/places?regionCode=bad')).status).toBe(400);
         const html = await (await fetch(origin + '/places?regionCode=11680&page=1')).text();
         expect(html).toContain('[시험] 다른 지역 1');
