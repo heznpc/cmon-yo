@@ -73,7 +73,9 @@ export const FacilityMap = memo(function FacilityMap({
           if (!mounted.current) return;
           setLocationState(error.code === error.PERMISSION_DENIED ? 'denied' : 'unavailable');
         },
-        { enableHighAccuracy: true, maximumAge: 30_000, timeout: 10_000 },
+        // A quick network/GPS fix is more reliable for local browsers than
+        // waiting on a high-accuracy fix that may not exist on a desktop.
+        { enableHighAccuracy: false, maximumAge: 60_000, timeout: 8_000 },
       );
     } catch {
       setLocationState('unavailable');
@@ -238,6 +240,11 @@ export const FacilityMap = memo(function FacilityMap({
       {locationState === 'denied' ? (
         <p className={css.mapMessage} role="status">
           위치 권한이 거부되었습니다. 브라우저 설정에서 허용한 뒤 다시 시도해 주세요.
+        </p>
+      ) : null}
+      {locationState === 'granted' ? (
+        <p className={css.mapMessage} role="status">
+          현재 위치를 지도에 표시했습니다.
         </p>
       ) : null}
       {locationState === 'unavailable' ? (
