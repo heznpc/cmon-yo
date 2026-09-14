@@ -291,8 +291,6 @@ function PlaceList() {
 }
 function PlaceDetail({ id }: { id: string }) {
   const client = useQueryClient();
-  const [favoriteBusy, setFavoriteBusy] = useState(false);
-  const [favoriteMessage, setFavoriteMessage] = useState('');
   const query = useQuery({
     queryKey: placeKey(id),
     staleTime: 60_000,
@@ -308,38 +306,6 @@ function PlaceDetail({ id }: { id: string }) {
     initialDataUpdatedAt: () => client.getQueryState(placesKey)?.dataUpdatedAt,
     queryFn: ({ signal }) => publicAPI.placeInfo(id, signal),
   });
-  const favorites = useQuery({
-    queryKey: favoritePlacesKey,
-    retry: false,
-    queryFn: ({ signal }) => publicAPI.favoritePlaces(signal),
-  });
-  const isFavorite = favorites.data?.placeIds.includes(id) ?? false;
-  async function toggleFavorite() {
-    if (favorites.data === null || favorites.isError) {
-      setFavoriteMessage('찜하려면 로그인해 주세요.');
-      return;
-    }
-    if (favoriteBusy) return;
-    setFavoriteBusy(true);
-    setFavoriteMessage('');
-    try {
-      const next = await publicAPI.setFavorite(id, !isFavorite, new AbortController().signal);
-      client.setQueryData(
-        favoritePlacesKey,
-        (current: { placeIds: string[] } | null | undefined) => ({
-          placeIds: next.favorite
-            ? Array.from(new Set([...(current?.placeIds ?? []), id]))
-            : (current?.placeIds ?? []).filter((placeId) => placeId !== id),
-        }),
-      );
-    } catch (error) {
-      setFavoriteMessage(
-        error instanceof Error ? error.message : '찜을 저장하지 못했습니다. 다시 시도해 주세요.',
-      );
-    } finally {
-      setFavoriteBusy(false);
-    }
-  }
   return (
     <>
       <AppLink href="/places">시설 목록으로 돌아가기</AppLink>
@@ -357,17 +323,8 @@ function PlaceDetail({ id }: { id: string }) {
             <AppLink className={css.primary} href={`/meetups/new?placeId=${id}`}>
               이 장소에서 모임 만들기
             </AppLink>
-            <button
-              className={mapCSS.favorite}
-              aria-pressed={isFavorite}
-              aria-label={isFavorite ? '찜 해제' : '찜하기'}
-              disabled={favoriteBusy || favorites.isPending}
-              onClick={() => void toggleFavorite()}
-            >
-              <Icon name="heart" /> {isFavorite ? '찜 해제' : '찜하기'}
-            </button>
+            <FavoriteButton id={id} />
           </div>
-          {favoriteMessage ? <p role="alert">{favoriteMessage}</p> : null}
           <Suspense
             fallback={
               <section aria-label="날씨">
@@ -388,6 +345,58 @@ function PlaceDetail({ id }: { id: string }) {
         refresh={() => void query.refetch()}
         label="시설 새로고침"
       />
+    </>
+  );
+}
+
+function FavoriteButton({ id }: { id: string }) {
+  const client = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const favorites = useQuery({
+    queryKey: favoritePlacesKey,
+    retry: false,
+    queryFn: ({ signal }) => publicAPI.favoritePlaces(signal),
+  });
+  const isFavorite = favorites.data?.placeIds.includes(id) ?? false;
+  async function toggle() {
+    if (favorites.data === null || favorites.isError) {
+      setMessage('찜하려면 로그인해 주세요.');
+      return;
+    }
+    if (busy) return;
+    setBusy(true);
+    setMessage('');
+    try {
+      const next = await publicAPI.setFavorite(id, !isFavorite, new AbortController().signal);
+      client.setQueryData(
+        favoritePlacesKey,
+        (current: { placeIds: string[] } | null | undefined) => ({
+          placeIds: next.favorite
+            ? Array.from(new Set([...(current?.placeIds ?? []), id]))
+            : (current?.placeIds ?? []).filter((placeId) => placeId !== id),
+        }),
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : '찜을 저장하지 못했습니다. 다시 시도해 주세요.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <>
+      <button
+        className={mapCSS.favorite}
+        aria-pressed={isFavorite}
+        aria-label={isFavorite ? '찜 해제' : '찜하기'}
+        disabled={busy || favorites.isPending}
+        onClick={() => void toggle()}
+      >
+        <Icon name="heart" /> {isFavorite ? '찜 해제' : '찜하기'}
+      </button>
+      {message ? <p role="alert">{message}</p> : null}
     </>
   );
 }
