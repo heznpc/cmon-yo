@@ -92,6 +92,33 @@ export function facilityRegionCodes(value = ''): string[] {
   return [...new Set(z.array(regionCodeSchema).parse(value.split(',').map((code) => code.trim())))];
 }
 
+function deduplicateRows(rows: Record<string, unknown>[]) {
+  const selected = new Map<string, Record<string, unknown>>();
+  const result: Record<string, unknown>[] = [];
+  for (const row of rows) {
+    const id = String(row.MANAGE_NO ?? '');
+    if (!/^[0-9]{5}-[0-9]{5}$/.test(id)) {
+      result.push(row);
+      continue;
+    }
+    const previous = selected.get(id);
+    const institution = String(row.INSTT_NM ?? '');
+    const previousInstitution = String(previous?.INSTT_NM ?? '');
+    // The live file repeats a management number during administrative changes.
+    // Prefer the row with the most specific institution label; normalization
+    // still rejects malformed rows and conflicting duplicate snapshots.
+    if (!previous) {
+      selected.set(id, row);
+      result.push(row);
+    } else if (institution.split(/\s+/).length > previousInstitution.split(/\s+/).length) {
+      const index = result.indexOf(previous);
+      if (index >= 0) result[index] = row;
+      selected.set(id, row);
+    }
+  }
+  return result;
+}
+
 export async function collectParks(fetcher: typeof fetch = fetch, regionCodes: string[] = []) {
   const selected = z.array(regionCodeSchema).parse(regionCodes);
   const get = async (url: URL) => {
@@ -133,6 +160,7 @@ export async function collectParks(fetcher: typeof fetch = fetch, regionCodes: s
         selected.includes(String((row as Record<string, unknown>).MANAGE_NO).slice(0, 5)),
       )
     : records;
+  const normalizedRegional = deduplicateRows(regional as Record<string, unknown>[]);
   const fields = [
     'MANAGE_NO',
     'PARK_NM',
@@ -151,8 +179,8 @@ export async function collectParks(fetcher: typeof fetch = fetch, regionCodes: s
     regionCodes: selected,
     capturedAt: new Date().toISOString(),
     collection: { complete: true, total: header.totalCount, received: records.length, pages },
-    expectedCount: regional.length,
-    records: regional.map((row) =>
+    expectedCount: normalizedRegional.length,
+    records: normalizedRegional.map((row) =>
       Object.fromEntries(fields.map((key) => [key, (row as Record<string, unknown>)[key]])),
     ),
   };

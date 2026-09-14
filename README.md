@@ -180,7 +180,7 @@ npm run dev
 # http://127.0.0.1:3000/places/park-46840-00023
 ```
 
-`npm run facilities -- capture /tmp/new-muan-parks.json`은 공식 포털 파일 전체 수집이 성공한 뒤 새 지역 파일을 만듭니다(기존 파일 덮어쓰기 거부). 갱신 시 이 파일을 dry-run 후 apply합니다. source 파일 없이 자동으로 fixture를 넣거나 누락 행을 삭제하지 않습니다. DB 미설정/실패는 503, 등록 행 없음은 빈 목록입니다. API는 `/api/v1/places`, `/api/v1/places/:id`입니다.
+`npm run facilities -- capture /tmp/new-parks.json`은 공식 포털 파일 전체 수집이 성공한 뒤 snapshot을 만듭니다(기존 파일 덮어쓰기 거부). 제공처의 반복 관리번호는 기관명이 가장 구체적인 행 하나로 정리하며, 갱신 시 이 파일을 dry-run 후 apply합니다. source 파일 없이 자동으로 fixture를 넣거나 누락 행을 삭제하지 않습니다. DB 미설정/실패는 503, 등록 행 없음은 빈 목록입니다. API는 `/api/v1/places`, `/api/v1/places/:id`입니다.
 
 Native 기본 탭은 둘러보기입니다. `CMON_START_TAB=meetups`로 실제 모임 탭에서 시작할 수 있습니다. `CMON_API_URL` 설정은 모든 탭에 적용됩니다. `KMA_API_KEY` 미설정이면 시설은 표시하고 날씨는 조회 불가로 표시합니다.
 
