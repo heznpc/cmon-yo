@@ -211,7 +211,7 @@ function PlaceList() {
               aria-live="polite"
             >
               <span className={css.category}>{selected.kind}</span>
-              <h2>{selected.name}</h2>
+              <h3>{selected.name}</h3>
               <p className={css.metadata}>{selected.address}</p>
               <p className={css.metadata}>
                 {selected.exerciseFacilities.join(' · ') || '운동시설 정보 미제공'}

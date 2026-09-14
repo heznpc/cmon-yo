@@ -64,7 +64,7 @@ export const selected = style({
   borderRadius: 16,
   background: theme.soft,
 });
-globalStyle(`${selected} h2`, { marginBottom: 8 });
+globalStyle(`${selected} h3`, { marginBottom: 8 });
 export const resultList = style({ minWidth: 0 });
 globalStyle(`${resultList} ul`, { marginTop: 0 });
 export const locate = style({ fontSize: '0.8125rem', marginTop: 8, padding: '6px 12px' });
