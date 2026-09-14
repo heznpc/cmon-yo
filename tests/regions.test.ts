@@ -6,7 +6,7 @@ import {
   collectParks,
   facilityRegionCodes,
 } from '../src/server/facilities/source';
-import { placeDetailSchema } from '../src/contracts/place';
+import { placeDetailSchema, placeFiltersSchema } from '../src/contracts/place';
 import { meetingFiltersSchema } from '../src/contracts/meetings';
 import { profileSchema, postInputSchema } from '../src/contracts/community';
 
@@ -24,6 +24,14 @@ test('a second region is accepted by facility import and Web contracts', () => {
       place: { ...fixture.place, id: 'park-11680-00001' },
     }).success,
   ).toBe(true);
+});
+
+test('nearby facility filters require a complete device coordinate pair', () => {
+  expect(placeFiltersSchema.parse({ latitude: '37.5665', longitude: '126.978' })).toMatchObject({
+    latitude: 37.5665,
+    longitude: 126.978,
+  });
+  expect(placeFiltersSchema.safeParse({ latitude: 37.5665 }).success).toBe(false);
 });
 
 test('meeting, post and profile contracts do not select a region on behalf of the user', () => {
