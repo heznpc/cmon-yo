@@ -68,6 +68,29 @@ globalStyle(`${selected} h2`, { marginBottom: 8 });
 export const resultList = style({ minWidth: 0 });
 globalStyle(`${resultList} ul`, { marginTop: 0 });
 export const locate = style({ fontSize: '0.8125rem', marginTop: 8, padding: '6px 12px' });
+export const cardActions = style({
+  display: 'flex',
+  gap: 10,
+  flexWrap: 'wrap',
+  alignItems: 'center',
+});
+export const favorite = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 6,
+  fontSize: '0.8125rem',
+  padding: '8px 12px',
+  minHeight: 44,
+  selectors: {
+    '&[aria-pressed="true"]': {
+      color: theme.link,
+      borderColor: theme.link,
+      background: theme.soft,
+    },
+  },
+});
+globalStyle(`${favorite} svg`, { width: 18, height: 18 });
 export const selectedRow = style({
   borderRadius: 12,
   background: theme.soft,

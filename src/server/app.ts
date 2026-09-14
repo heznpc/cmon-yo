@@ -229,6 +229,74 @@ export function createApp({
   app.get('/api/v1/places/:id', placeAPI);
   app.get('/api/v1/places/:id/info', placeAPI);
   app.get('/api/v1/places/:id/weather', placeAPI);
+  const favoriteUser = async (request: FastifyRequest, reply: Parameters<Renderer>[0]) => {
+    if (!auth) throw new ServiceError(503, 'UNAVAILABLE', '계정 서비스를 사용할 수 없습니다.');
+    const account = await currentAccount(auth, request, reply);
+    if (!account.user)
+      throw new ServiceError(401, 'UNAUTHENTICATED', '찜하려면 로그인이 필요합니다.');
+    if (!account.user.emailVerified)
+      throw new ServiceError(403, 'EMAIL_NOT_VERIFIED', '이메일 인증이 필요합니다.');
+    if (
+      request.headers['x-cmon-user'] !== undefined &&
+      request.headers['x-cmon-user'] !== account.user.id
+    )
+      throw new ServiceError(
+        409,
+        'ACCOUNT_CHANGED',
+        '계정이 변경되었습니다. 화면을 새로 열어 주세요.',
+      );
+    return account.user.id;
+  };
+  const favoriteError = (
+    request: FastifyRequest,
+    reply: Parameters<Renderer>[0],
+    error: unknown,
+  ) => {
+    const err =
+      error instanceof ServiceError
+        ? error
+        : new ServiceError(503, 'UNAVAILABLE', '찜 목록을 처리하지 못했습니다.');
+    return reply.code(err.status).send({
+      error: {
+        code: err.code,
+        message: err.message,
+        requestId: request.id,
+        retryable: err.status >= 500,
+      },
+    });
+  };
+  app.get('/api/v1/me/place-favorites', async (request, reply) => {
+    try {
+      const user = await favoriteUser(request, reply);
+      if (!places.favorites)
+        throw new ServiceError(503, 'UNAVAILABLE', '찜 목록을 사용할 수 없습니다.');
+      return await places.favorites(user, AbortSignal.timeout(deadlineMs));
+    } catch (error) {
+      return favoriteError(request, reply, error);
+    }
+  });
+  for (const [method, url, favorite] of [
+    ['PUT', '/api/v1/me/place-favorites/:id', true],
+    ['DELETE', '/api/v1/me/place-favorites/:id', false],
+  ] as const)
+    app.route({
+      method,
+      url,
+      handler: async (request, reply) => {
+        try {
+          if (request.headers.origin !== auth?.options.baseURL)
+            throw new ServiceError(403, 'INVALID_ORIGIN', '허용되지 않은 요청입니다.');
+          const id = placeIdSchema.safeParse((request.params as { id: string }).id);
+          if (!id.success) throw new ServiceError(400, 'INVALID_ID', '시설 주소를 확인해 주세요.');
+          const user = await favoriteUser(request, reply);
+          if (!places.setFavorite)
+            throw new ServiceError(503, 'UNAVAILABLE', '찜 목록을 사용할 수 없습니다.');
+          return await places.setFavorite(user, id.data, favorite);
+        } catch (error) {
+          return favoriteError(request, reply, error);
+        }
+      },
+    });
   const page = async (request: FastifyRequest, reply: Parameters<Renderer>[0]) => {
     const isPlace = request.routeOptions.url?.startsWith('/places') ?? false;
     const rawId = (request.params as { id?: string }).id;

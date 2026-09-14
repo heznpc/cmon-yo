@@ -43,6 +43,8 @@ test('published OpenAPI matches actual HTTP reads, empty results and 400/404/503
     const spec = await (await fetch(`${origin}/api/v1/openapi.json`)).json();
     expect(Object.keys(spec.paths).sort()).toEqual([
       '/api/v1/me',
+      '/api/v1/me/place-favorites',
+      '/api/v1/me/place-favorites/{id}',
       '/api/v1/meetups/{id}',
       '/api/v1/places',
       '/api/v1/places/{id}',
@@ -110,9 +112,13 @@ test('web HTTP client validates wire data, retains error metadata, maps detail 4
   let status = 200;
   let body: unknown = meetup;
   let calls = 0;
-  server.get('/api/v1/*', async (_request, reply) => {
-    calls++;
-    return reply.code(status).type('application/json').send(body);
+  server.route({
+    method: ['GET', 'PUT', 'DELETE'],
+    url: '/api/v1/*',
+    handler: async (_request, reply) => {
+      calls++;
+      return reply.code(status).type('application/json').send(body);
+    },
   });
   const origin = await server.listen({ host: '127.0.0.1', port: 0 });
   const api = createPublicAPI((path, init) => fetch(new URL(String(path), origin), init));
@@ -132,6 +138,11 @@ test('web HTTP client validates wire data, retains error metadata, maps detail 4
     expect(detail).not.toHaveProperty('futureField');
     body = { places: [place.place] };
     expect(await api.places(signal)).toEqual(body);
+
+    body = { placeIds: [place.place.id] };
+    expect(await api.favoritePlaces(signal)).toEqual(body);
+    body = { id: place.place.id, favorite: true };
+    expect(await api.setFavorite(place.place.id, true, signal)).toEqual(body);
 
     body = { place: place.place };
     expect(await api.placeInfo(place.place.id, signal)).toEqual(body);
@@ -169,6 +180,17 @@ test('web HTTP client validates wire data, retains error metadata, maps detail 4
     });
     expect(failure.message).not.toContain('INTERNAL_PROVIDER_DETAIL');
     expect(calls - before).toBe(1);
+
+    status = 401;
+    body = {
+      error: {
+        code: 'UNAUTHENTICATED',
+        message: 'sign in',
+        requestId: 'request-auth',
+        retryable: false,
+      },
+    };
+    expect(await api.favoritePlaces(signal)).toBeNull();
 
     status = 200;
     for (const invalid of ['not-json', { ...place, weather: { status: 'fresh', facts: null } }]) {

@@ -14,6 +14,8 @@ PR1 기능 기준선은 main에 반영됐습니다. **PR2는 무안군 시설·�
 
 **시설 지도 — 2026-09-14:** Web은 실제 지도와 시설 목록을 함께 표시하고, Native는 MapKit에 같은 공원 좌표를 핀으로 표시합니다. 검색 → 핀 선택 → 시설 정보 → 상세·모임 이동을 연결했습니다. 지도 설정키는 추가로 필요하지 않습니다. [지도 연결과 실패 동작](docs/integrations.md#시설-지도)을 참고합니다.
 
+**시설 찜 — 2026-09-14:** 이메일 인증을 마친 계정은 시설 목록·선택 카드·상세 화면에서 공원을 찜하고 해제할 수 있습니다. 찜 목록은 계정별 PostgreSQL에 저장되며 새로고침 후에도 복원합니다. 로그인하지 않았거나 이메일 인증 전이면 저장하지 않고 안내합니다. API 계약은 `/api/v1/me/place-favorites`와 OpenAPI 명세에 포함합니다.
+
 ## 현재 구조와 프론트의 API 연결
 
 - 첫 HTML: Fastify SSR loader → application service → PostgreSQL/날씨 adapter → HTML과 직렬화된 Query 상태 → React hydration. 이후 웹 재조회는 `src/api/public.ts` → same-origin HTTP API → 동일 service입니다. Native는 URLSession으로 같은 JSON API를 소비합니다.

@@ -17,6 +17,12 @@ export type PlaceService = {
   detail(id: string, signal: AbortSignal): Promise<PlaceDetail>;
   info(id: string, signal: AbortSignal): Promise<PlaceInfo>;
   weather(place: Place, signal: AbortSignal): Promise<PlaceWeather>;
+  favorites?(user: string, signal: AbortSignal): Promise<{ placeIds: string[] }>;
+  setFavorite?(
+    user: string,
+    id: string,
+    favorite: boolean,
+  ): Promise<{ id: string; favorite: boolean }>;
 };
 export function databasePlaces(pool: pg.Pool | undefined, weather: WeatherService): PlaceService {
   const database = () => {
@@ -52,6 +58,33 @@ export function databasePlaces(pool: pg.Pool | undefined, weather: WeatherServic
     async detail(id, signal) {
       const { place } = await info(id, signal);
       return placeDetailSchema.parse({ place, weather: (await forecast(place, signal)).weather });
+    },
+    async favorites(user, signal) {
+      signal.throwIfAborted();
+      const result = await database().query(
+        'SELECT place_id FROM place_favorites WHERE user_id = $1 ORDER BY created_at, place_id',
+        [user],
+      );
+      signal.throwIfAborted();
+      return { placeIds: result.rows.map((row) => row.place_id) };
+    },
+    async setFavorite(user, id, favorite) {
+      const place = await database().query(
+        'SELECT 1 FROM places WHERE source = $1 AND source_key = $2',
+        [source, id.slice(5)],
+      );
+      if (!place.rowCount) throw new ServiceError(404, 'NOT_FOUND', '시설을 찾을 수 없습니다.');
+      if (favorite)
+        await database().query(
+          'INSERT INTO place_favorites(user_id, place_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [user, id],
+        );
+      else
+        await database().query('DELETE FROM place_favorites WHERE user_id = $1 AND place_id = $2', [
+          user,
+          id,
+        ]);
+      return { id, favorite };
     },
   };
 }

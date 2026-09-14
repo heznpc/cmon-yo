@@ -40,3 +40,8 @@ export const placeWeatherSchema = z.object({ placeId: placeIdSchema, weather: we
 export type PlaceInfo = z.infer<typeof placeInfoSchema>;
 export type PlaceWeather = z.infer<typeof placeWeatherSchema>;
 export const weatherKey = (id: string) => ['weather', id] as const;
+export const favoritePlacesSchema = z.object({ placeIds: z.array(placeIdSchema) });
+export type FavoritePlaces = z.infer<typeof favoritePlacesSchema>;
+export const favoritePlaceResultSchema = z.object({ id: placeIdSchema, favorite: z.boolean() });
+export type FavoritePlaceResult = z.infer<typeof favoritePlaceResultSchema>;
+export const favoritePlacesKey = ['private', 'place-favorites'] as const;

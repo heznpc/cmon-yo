@@ -14,3 +14,12 @@ CREATE TABLE IF NOT EXISTS facility_import_runs (
   finished_at timestamptz NOT NULL DEFAULT now(),
   report jsonb NOT NULL
 );
+CREATE TABLE IF NOT EXISTS place_favorites (
+  -- Better Auth owns auth_user and is migrated separately. Keeping this key
+  -- without a cross-migration FK lets facility-only imports run in isolation.
+  user_id uuid NOT NULL,
+  place_id text NOT NULL CHECK (place_id ~ '^park-46840-[0-9]{5}$'),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, place_id)
+);
+CREATE INDEX IF NOT EXISTS place_favorites_user_created ON place_favorites(user_id, created_at, place_id);

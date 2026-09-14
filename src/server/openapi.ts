@@ -7,6 +7,8 @@ import {
   placeListSchema,
   placeInfoSchema,
   placeWeatherSchema,
+  favoritePlacesSchema,
+  favoritePlaceResultSchema,
 } from '../contracts/place';
 import { accountSchema, accountUserSchema } from '../contracts/account';
 
@@ -31,6 +33,20 @@ const unavailable = response(
 const detailErrors = {
   '400': response('ApiError', 'INVALID_ID: malformed identifier; do not retry unchanged.'),
   '404': response('ApiError', 'NOT_FOUND: replace the previous detail with an absent state.'),
+  '503': unavailable,
+};
+const favoriteMutationErrors = {
+  '400': response('ApiError', 'INVALID_ID: malformed facility identifier; do not retry unchanged.'),
+  '401': response('ApiError', 'UNAUTHENTICATED: sign in before reading or changing favorites.'),
+  '403': response(
+    'ApiError',
+    'EMAIL_NOT_VERIFIED: verify the account email before changing favorites.',
+  ),
+  '409': response('ApiError', 'ACCOUNT_CHANGED: reload after the active account changes.'),
+  '503': unavailable,
+};
+const favoriteReadErrors = {
+  '401': response('ApiError', 'UNAUTHENTICATED: sign in before reading favorites.'),
   '503': unavailable,
 };
 
@@ -124,6 +140,38 @@ export const openapi = {
         },
       },
     },
+    '/api/v1/me/place-favorites': {
+      get: {
+        operationId: 'listFavoritePlaces',
+        summary: 'Read facility favorites for the signed-in account.',
+        security: [{ SessionCookie: [] }, { SecureSessionCookie: [] }],
+        responses: {
+          '200': response('FavoritePlaces', 'Favorite facility identifiers in saved order.'),
+          ...favoriteReadErrors,
+        },
+      },
+    },
+    '/api/v1/me/place-favorites/{id}': {
+      parameters: [{ name: 'id', in: 'path', required: true, schema: wireSchema(placeIdSchema) }],
+      put: {
+        operationId: 'favoritePlace',
+        summary: 'Save a facility to the signed-in account favorites.',
+        security: [{ SessionCookie: [] }, { SecureSessionCookie: [] }],
+        responses: {
+          '200': response('FavoritePlaceResult', 'Saved favorite state.'),
+          ...favoriteMutationErrors,
+        },
+      },
+      delete: {
+        operationId: 'unfavoritePlace',
+        summary: 'Remove a facility from the signed-in account favorites.',
+        security: [{ SessionCookie: [] }, { SecureSessionCookie: [] }],
+        responses: {
+          '200': response('FavoritePlaceResult', 'Removed favorite state.'),
+          ...favoriteMutationErrors,
+        },
+      },
+    },
   },
   components: {
     securitySchemes: {
@@ -153,6 +201,8 @@ export const openapi = {
       PlaceDetail: wireSchema(placeDetailSchema),
       PlaceInfo: wireSchema(placeInfoSchema),
       PlaceWeather: wireSchema(placeWeatherSchema),
+      FavoritePlaces: wireSchema(favoritePlacesSchema),
+      FavoritePlaceResult: wireSchema(favoritePlaceResultSchema),
       ApiError: wireSchema(apiErrorSchema),
     },
   },

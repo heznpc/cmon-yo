@@ -6,6 +6,10 @@ import {
   placeListSchema,
   placeInfoSchema,
   placeWeatherSchema,
+  favoritePlacesSchema,
+  favoritePlaceResultSchema,
+  type FavoritePlaces,
+  type FavoritePlaceResult,
 } from '../contracts/place';
 
 export class PublicApiError extends Error {
@@ -108,6 +112,78 @@ export function createPublicAPI(fetcher: typeof fetch = fetch) {
       detail(
         read(`/api/v1/places/${encodeURIComponent(id)}`, placeDetailSchema, signal, placeMessages),
       ),
+    favoritePlaces: async (signal: AbortSignal): Promise<FavoritePlaces | null> => {
+      try {
+        return await read('/api/v1/me/place-favorites', favoritePlacesSchema, signal, {
+          unavailable: '찜 목록을 불러오지 못했습니다. 다시 시도해 주세요.',
+          invalid: '찜 목록을 읽을 수 없습니다.',
+        });
+      } catch (error) {
+        if (error instanceof PublicApiError && error.status === 401) return null;
+        throw error;
+      }
+    },
+    setFavorite: async (
+      id: string,
+      favorite: boolean,
+      signal: AbortSignal,
+    ): Promise<FavoritePlaceResult> => {
+      signal.throwIfAborted();
+      let response: Response;
+      try {
+        response = await fetcher(`/api/v1/me/place-favorites/${encodeURIComponent(id)}`, {
+          method: favorite ? 'PUT' : 'DELETE',
+          signal,
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json' },
+        });
+      } catch {
+        signal.throwIfAborted();
+        throw new PublicApiError(
+          '찜을 저장하지 못했습니다. 다시 시도해 주세요.',
+          null,
+          'NETWORK_ERROR',
+          true,
+        );
+      }
+      if (!response.ok) {
+        let body: unknown;
+        try {
+          body = await response.json();
+        } catch {
+          body = undefined;
+        }
+        const envelope = apiErrorSchema.safeParse(body);
+        throw new PublicApiError(
+          envelope.success
+            ? envelope.data.error.message
+            : '찜을 저장하지 못했습니다. 다시 시도해 주세요.',
+          response.status,
+          envelope.success ? envelope.data.error.code : 'HTTP_ERROR',
+          response.status >= 500,
+        );
+      }
+      let body: unknown;
+      try {
+        body = await response.json();
+      } catch {
+        throw new PublicApiError(
+          '찜 응답을 읽을 수 없습니다.',
+          response.status,
+          'INVALID_RESPONSE',
+          false,
+        );
+      }
+      const parsed = favoritePlaceResultSchema.safeParse(body);
+      if (!parsed.success || parsed.data.id !== id || parsed.data.favorite !== favorite)
+        throw new PublicApiError(
+          '찜 응답을 읽을 수 없습니다.',
+          response.status,
+          'INVALID_RESPONSE',
+          false,
+        );
+      return parsed.data;
+    },
   };
 }
 

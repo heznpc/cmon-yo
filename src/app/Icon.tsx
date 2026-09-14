@@ -10,6 +10,8 @@ const paths = {
   search: 'm21 21-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z',
   chevron: 'm9 5 7 7-7 7',
   plus: 'M12 5v14M5 12h14',
+  heart:
+    'M20.8 8.7c0 5.2-8.8 10.1-8.8 10.1S3.2 13.9 3.2 8.7A4.7 4.7 0 0 1 12 6.1a4.7 4.7 0 0 1 8.8 2.6Z',
 } as const;
 export function Icon({ name }: { name: keyof typeof paths }) {
   return (
