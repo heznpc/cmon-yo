@@ -50,12 +50,12 @@ export function FacilityMap({
   const mounted = useRef(true);
   const locationRef = useRef<DeviceLocation | null>(null);
   locationRef.current = location;
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
       mounted.current = false;
-    },
-    [],
-  );
+    };
+  }, []);
   function requestLocation() {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
       setLocationState('unavailable');
