@@ -1,4 +1,4 @@
-import { test, expect, type BrowserContext } from '@playwright/test';
+import { test, expect, type BrowserContext } from '../web/fixtures';
 const id = 'park-46840-00023';
 test('the related meeting link works while the original SSR weather stream is still held', async ({
   page,
@@ -135,6 +135,7 @@ test('production streamed weather, independent recovery, late navigation and cac
   await control({ mode: 'hold', reset: true });
   await page.getByRole('button', { name: '날씨 다시 조회' }).click();
   await expect(page.getByText('날씨를 갱신하는 중…')).toBeVisible();
+  await expect(page.getByRole('button', { name: '날씨 다시 조회' })).toBeFocused();
   await related.click();
   await expect(page.getByRole('heading', { name: '같이 운동할 모임' })).toBeVisible();
   await page.getByRole('link', { name: '둘러보기', exact: true }).click();

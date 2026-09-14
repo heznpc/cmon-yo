@@ -27,8 +27,11 @@ globalStyle('button', {
   maxWidth: '100%',
   overflowWrap: 'anywhere',
 });
-globalStyle('button:hover:not(:disabled)', { background: t.field, borderColor: '#B7BFCC' });
-globalStyle('button:disabled', {
+globalStyle('button:hover:not(:disabled):not([aria-disabled="true"])', {
+  background: t.field,
+  borderColor: '#B7BFCC',
+});
+globalStyle('button:disabled, button[aria-disabled="true"]', {
   cursor: 'not-allowed',
   color: '#737986',
   background: t.field,

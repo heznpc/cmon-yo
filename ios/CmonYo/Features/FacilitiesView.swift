@@ -1,4 +1,5 @@
 import SwiftUI
+import MapKit
 
 struct FacilitiesView: View {
   let api: FacilityAPI
@@ -7,15 +8,20 @@ struct FacilitiesView: View {
   @State private var loading = true
   @State private var attempt = 0
   @State private var search = ""
+  private var visiblePlaces: [Facility] {
+    let term = search.trimmingCharacters(in: .whitespacesAndNewlines)
+    return (places ?? []).filter { term.isEmpty || ($0.name + " " + $0.address).localizedCaseInsensitiveContains(term) }
+  }
   var body: some View {
     NavigationStack {
       ScrollView {
         LazyVStack(alignment: .leading, spacing: 20) {
-          Text("가까운 공원에서 오늘의 운동을 시작해요.").foregroundStyle(.secondary)
+          Text("지도에서 공원을 찾고, 함께 운동할 장소를 골라보세요.").foregroundStyle(.secondary)
           if let error { Text(error).accessibilityIdentifier("facility-error") }
           if error != nil && places != nil { Text("이전에 불러온 목록입니다. 최신 정보를 확인하지 못했습니다.") }
           if places?.isEmpty == true { Text("등록된 시설 정보가 없습니다.") }
-          ForEach((places ?? []).filter { search.isEmpty || ($0.name + " " + $0.address).localizedCaseInsensitiveContains(search) }) { place in
+          if places?.isEmpty == false { FacilityMapView(api: api, places: visiblePlaces) }
+          ForEach(visiblePlaces) { place in
             NavigationLink { FacilityDetailView(api: api, id: place.id) } label: {
               HStack(alignment: .top, spacing: 16) {
                 NeighborhoodIcon(symbol: "tree")
@@ -29,7 +35,7 @@ struct FacilitiesView: View {
             }.buttonStyle(.plain)
             Divider()
           }
-          if !search.isEmpty && places != nil && !(places ?? []).contains(where: { ($0.name + " " + $0.address).localizedCaseInsensitiveContains(search) }) {
+          if !search.isEmpty && places != nil && visiblePlaces.isEmpty {
             Text("검색한 이름·주소의 시설이 없습니다.").foregroundStyle(.secondary)
           }
           if loading { ProgressView("시설을 불러오는 중…") }
@@ -50,6 +56,46 @@ struct FacilitiesView: View {
           catch { self.error = error.localizedDescription }
           loading = false
         }
+    }
+  }
+}
+private struct FacilityMapView: View {
+  let api: FacilityAPI
+  let places: [Facility]
+  @State private var camera: MapCameraPosition = .automatic
+  @State private var selectedID: String?
+  private var selected: Facility? { places.first { $0.id == selectedID } }
+  var body: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      HStack {
+        Text("공원 위치").font(.headline)
+        Spacer()
+        Button("전체 핀 보기") { selectedID = nil; camera = .automatic }.disabled(places.isEmpty)
+      }
+      Map(position: $camera, selection: $selectedID) {
+        ForEach(places) { place in
+          Marker(place.name, coordinate: CLLocationCoordinate2D(latitude: place.latitude, longitude: place.longitude))
+            .tint(NeighborhoodStyle.accent).tag(place.id)
+        }
+      }
+      .mapStyle(.standard(elevation: .flat))
+      .mapControls { MapCompass(); MapScaleView() }
+      .frame(height: 340).clipShape(RoundedRectangle(cornerRadius: 18))
+      .accessibilityIdentifier("facility-map")
+      if let selected {
+        VStack(alignment: .leading, spacing: 10) {
+          Text(selected.name).font(.headline)
+          Text(selected.address).font(.subheadline).foregroundStyle(.secondary)
+          NavigationLink("시설 상세 보기") { FacilityDetailView(api: api, id: selected.id) }
+            .buttonStyle(NeighborhoodButton())
+        }.padding(16).background(NeighborhoodStyle.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 14))
+      } else {
+        Text("핀을 누르면 시설 정보와 상세 보기를 확인할 수 있습니다.").font(.footnote).foregroundStyle(.secondary)
+      }
+    }
+    .onChange(of: places.map { "\($0.id):\($0.latitude):\($0.longitude)" }) { _, _ in
+      selectedID = nil
+      camera = .automatic
     }
   }
 }

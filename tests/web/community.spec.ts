@@ -1,4 +1,4 @@
-import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
+import { test, expect, type APIRequestContext, type Page } from './fixtures';
 import { randomUUID } from 'node:crypto';
 test.beforeEach(async ({ request, baseURL }) => {
   expect((await request.post(baseURL + '/_test/reset-limits')).ok()).toBe(true);

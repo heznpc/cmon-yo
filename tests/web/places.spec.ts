@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 const id = 'park-46840-00023';
 
 test('facility search narrows real rows, explains no results and preserves navigation', async ({
@@ -155,4 +155,50 @@ test('local HTTP QA: fresh/stale/unavailable, 404, disconnect, retry and small-s
   await page.getByRole('link', { name: '다시 시도', exact: true }).click();
   await expect(page.getByRole('link', { name: '근린공원 36', exact: true })).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+test('map pins follow search and keyboard selection opens the matching facility detail', async ({
+  page,
+}) => {
+  await page.goto('/places');
+  const map = page.getByRole('region', { name: '공원과 운동시설 지도' });
+  const search = page.getByRole('searchbox', { name: '시설 이름·주소 검색' });
+  await expect(map.getByRole('button', { name: /지도 핀$/ })).toHaveCount(21);
+  await expect(page.getByText('지도를 불러오는 중… 시설 목록도 이용할 수 있습니다.')).toHaveCount(
+    0,
+  );
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await search.fill('근린공원 36');
+  await expect(map.getByRole('button', { name: /지도 핀$/ })).toHaveCount(1);
+  const pin = map.getByRole('button', { name: '근린공원 36 지도 핀', exact: true });
+  await pin.focus();
+  await page.keyboard.press('Enter');
+  await expect(pin).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByLabel('선택한 시설')).toContainText('일로읍 오남로 55');
+  await page.getByRole('link', { name: '시설 상세 보기', exact: true }).click();
+  await expect(page).toHaveURL(/\/places\/park-46840-00023$/);
+  await expect(page.getByRole('heading', { name: '근린공원 36', exact: true })).toBeVisible();
+  await page.getByRole('link', { name: '시설 목록으로 돌아가기' }).click();
+  await expect(map.getByRole('button', { name: /지도 핀$/ })).toHaveCount(21);
+  await search.fill('해당 시설 없음');
+  await expect(map.getByRole('button', { name: /지도 핀$/ })).toHaveCount(0);
+  await expect(page.getByLabel('선택한 시설')).toHaveCount(0);
+  await expect(
+    page.getByRole('status').filter({ hasText: '검색한 이름·주소의 시설이 없습니다.' }),
+  ).toBeVisible();
+});
+
+test('tile failure leaves facility access intact and map retry recovers', async ({ page }) => {
+  await page.route('https://tiles.openfreemap.org/**', (route) => route.abort());
+  await page.goto('/places');
+  await expect(page.getByRole('alert')).toContainText('지도 배경을 불러오지 못했습니다.');
+  await expect(page.getByRole('link', { name: '근린공원 36', exact: true })).toBeVisible();
+  await page.unroute('https://tiles.openfreemap.org/**');
+  await page.getByRole('button', { name: '지도 다시 불러오기' }).click();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  const pin = page.getByRole('button', { name: '운남공원 지도 핀', exact: true });
+  await pin.click();
+  await expect(page.getByLabel('선택한 시설')).toContainText('운남공원');
+  await page.getByRole('button', { name: '전체 핀 보기' }).click();
+  await expect(page.getByLabel('선택한 시설')).toHaveCount(0);
 });

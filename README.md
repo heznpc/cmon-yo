@@ -12,6 +12,8 @@ PR1 기능 기준선은 main에 반영됐습니다. **PR2는 무안군 시설·�
 
 **UI·연결 설정 — 2026-09-14:** 첨부 색상에서 추출한 `#7893F8`을 Web·Native 테마로 적용하고, 동네 목록·검색·작성 폼·모바일 탐색을 정리했습니다. [화면 비교·실행 검증](docs/ui-theme-qa.md)에 리뷰 범위와 재현 방법을 기록했습니다. OAuth와 외부 API는 [`.env.example`](.env.example)과 [공급자 콘솔·callback 설정 안내](docs/integrations.md)를 함께 확인합니다. 키 입력은 실연결 검증을 시작할 준비이며, Native 소셜 로그인은 별도 구현 대상입니다.
 
+**시설 지도 — 2026-09-14:** Web은 실제 지도와 시설 목록을 함께 표시하고, Native는 MapKit에 같은 공원 좌표를 핀으로 표시합니다. 검색 → 핀 선택 → 시설 정보 → 상세·모임 이동을 연결했습니다. 지도 설정키는 추가로 필요하지 않습니다. [지도 연결과 실패 동작](docs/integrations.md#시설-지도)을 참고합니다.
+
 ## 현재 구조와 프론트의 API 연결
 
 - 첫 HTML: Fastify SSR loader → application service → PostgreSQL/날씨 adapter → HTML과 직렬화된 Query 상태 → React hydration. 이후 웹 재조회는 `src/api/public.ts` → same-origin HTTP API → 동일 service입니다. Native는 URLSession으로 같은 JSON API를 소비합니다.

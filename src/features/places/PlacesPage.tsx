@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import {
   placeKey,
   weatherKey,
@@ -15,6 +15,8 @@ import { StreamSlot } from '../../app/stream';
 import { AppLink } from '../../app/navigation';
 import { ProductNav } from '../../app/ProductNav';
 import { Icon } from '../../app/Icon';
+import { FacilityMap } from './FacilityMap';
+import * as mapCSS from './places.css';
 
 function FacilityInfo({ place }: { place: Place }) {
   return (
@@ -86,7 +88,11 @@ export function PlacesPage({ id }: { id?: string }) {
   return (
     <>
       <ProductNav />
-      <main id="page-content" tabIndex={-1} className={css.page}>
+      <main
+        id="page-content"
+        tabIndex={-1}
+        className={[css.page, id ? '' : mapCSS.explorePage].join(' ')}
+      >
         {id ? <PlaceDetail id={id} /> : <PlaceList />}
         <footer className={css.footer}>
           <p>무안군 공공시설 · 공개 자료에 기반한 시설 정보입니다.</p>
@@ -101,16 +107,31 @@ export function PlacesPage({ id }: { id?: string }) {
 }
 function PlaceList() {
   const [search, setSearch] = useState('');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const query = useQuery({
     queryKey: placesKey,
     staleTime: 60_000,
     retry: false,
     queryFn: ({ signal }) => publicAPI.places(signal),
   });
+  const visiblePlaces = useMemo(
+    () =>
+      (query.data?.places ?? []).filter((place) =>
+        (place.name + ' ' + place.address)
+          .toLocaleLowerCase()
+          .includes(search.trim().toLocaleLowerCase()),
+      ),
+    [query.data?.places, search],
+  );
+  const selected = visiblePlaces.find((place) => place.id === selectedId);
+  const selectedCard = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    selectedCard.current?.scrollIntoView({ block: 'nearest' });
+  }, [selected?.id]);
   return (
     <>
       <h1>공원과 운동시설</h1>
-      <p className={css.lead}>가까운 공원에서 오늘의 운동을 시작해요.</p>
+      <p className={css.lead}>지도에서 공원을 찾고, 함께 운동할 장소를 골라보세요.</p>
       <label className={css.search}>
         <Icon name="search" />
         <input
@@ -118,7 +139,10 @@ function PlaceList() {
           aria-label="시설 이름·주소 검색"
           placeholder="시설 이름·주소 검색"
           value={search}
-          onChange={(event) => setSearch(event.target.value)}
+          onChange={(event) => {
+            setSearch(event.target.value);
+            setSelectedId(null);
+          }}
         />
       </label>
       {query.isError ? <p role="alert">시설을 불러오지 못했습니다. 다시 시도해 주세요.</p> : null}
@@ -126,38 +150,76 @@ function PlaceList() {
         <p>이전에 불러온 목록입니다. 최신 정보를 확인하지 못했습니다.</p>
       ) : null}
       {query.data?.places.length === 0 ? <p>등록된 시설 정보가 없습니다.</p> : null}
-      <ul>
-        {query.data?.places
-          .filter((place) => (place.name + ' ' + place.address).includes(search.trim()))
-          .map((place) => (
-            <li key={place.id}>
-              <AppLink href={`/places/${place.id}`} className={css.row} aria-label={place.name}>
-                <span className={css.rowIcon}>
-                  <Icon name="places" />
-                </span>
-                <div className={css.rowContent}>
-                  <h2 className={css.rowTitle}>{place.name}</h2>
-                  <span className={css.metadata}>
-                    {place.kind} · {place.address}
-                  </span>
-                  <span className={css.metadata}>
-                    {place.exerciseFacilities.length
-                      ? place.exerciseFacilities.join(' · ')
-                      : '운동시설 정보 미제공'}
-                  </span>
-                </div>
-                <Icon name="chevron" />
+      <div className={mapCSS.layout}>
+        <div className={mapCSS.mapColumn}>
+          {query.data?.places.length ? (
+            <FacilityMap
+              places={visiblePlaces}
+              selectedId={selected?.id ?? null}
+              onSelect={setSelectedId}
+            />
+          ) : null}
+          {query.data?.places.length ? (
+            <p className={css.note}>핀을 누르면 시설 정보와 상세 보기를 확인할 수 있습니다.</p>
+          ) : null}
+        </div>
+        <div className={mapCSS.resultList}>
+          {selected ? (
+            <div
+              ref={selectedCard}
+              className={mapCSS.selected}
+              role="region"
+              aria-label="선택한 시설"
+              aria-live="polite"
+            >
+              <span className={css.category}>{selected.kind}</span>
+              <h2>{selected.name}</h2>
+              <p className={css.metadata}>{selected.address}</p>
+              <p className={css.metadata}>
+                {selected.exerciseFacilities.join(' · ') || '운동시설 정보 미제공'}
+              </p>
+              <AppLink className={css.primary} href={`/places/${selected.id}`}>
+                시설 상세 보기
               </AppLink>
-            </li>
-          ))}
-      </ul>
-      {search.trim() &&
-      query.data?.places.length &&
-      !query.data.places.some((place) =>
-        (place.name + ' ' + place.address).includes(search.trim()),
-      ) ? (
-        <p role="status">검색한 이름·주소의 시설이 없습니다.</p>
-      ) : null}
+            </div>
+          ) : null}
+
+          <p className={css.note}>
+            시설 {visiblePlaces.length}곳 · 지도 핀과 같은 검색 결과입니다.
+          </p>
+          <ul>
+            {visiblePlaces.map((place) => (
+              <li
+                key={place.id}
+                className={place.id === selected?.id ? mapCSS.selectedRow : undefined}
+              >
+                <AppLink href={`/places/${place.id}`} className={css.row} aria-label={place.name}>
+                  <div className={css.rowContent}>
+                    <h2 className={css.rowTitle}>{place.name}</h2>
+                    <span className={css.metadata}>
+                      {place.kind} · {place.address}
+                    </span>
+                    <span className={css.metadata}>
+                      {place.exerciseFacilities.join(' · ') || '운동시설 정보 미제공'}
+                    </span>
+                  </div>
+                  <Icon name="chevron" />
+                </AppLink>
+                <button
+                  className={mapCSS.locate}
+                  aria-label={place.name + ' 지도에서 보기'}
+                  onClick={() => setSelectedId(place.id)}
+                >
+                  지도에서 보기
+                </button>
+              </li>
+            ))}
+          </ul>
+          {search.trim() && query.data?.places.length && !visiblePlaces.length ? (
+            <p role="status">검색한 이름·주소의 시설이 없습니다.</p>
+          ) : null}
+        </div>
+      </div>
       <p role="status">{query.isFetching ? '시설을 불러오는 중…' : ''}</p>
       <FacilityRefresh
         loading={query.isFetching}
@@ -249,7 +311,12 @@ function WeatherPanel({ id, failed = false }: { id: string; failed?: boolean }) 
         </section>
       )}
       {query.data && query.isFetching ? <p role="status">날씨를 갱신하는 중…</p> : null}
-      <button disabled={query.isFetching} onClick={() => void query.refetch()}>
+      <button
+        aria-disabled={query.isFetching}
+        onClick={() => {
+          if (!query.isFetching) void query.refetch();
+        }}
+      >
         날씨 다시 조회
       </button>
     </div>

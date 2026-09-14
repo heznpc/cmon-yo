@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { randomUUID } from 'node:crypto';
 
 test('email lifecycle, original-target return, cross-tab sign-out and small-screen failure recovery', async ({

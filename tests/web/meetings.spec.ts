@@ -1,4 +1,4 @@
-import { test, expect, type Page, type APIRequestContext } from '@playwright/test';
+import { test, expect, type Page, type APIRequestContext } from './fixtures';
 import { randomUUID } from 'node:crypto';
 test.use({ actionTimeout: 12_000 });
 

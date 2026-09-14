@@ -83,6 +83,9 @@ export function AccountPage({ route }: { route: AccountRoute }) {
     },
   });
   const user = query.isError ? null : query.data?.user;
+  // SSR inputs must wait for hydration, and an outgoing account document must
+  // stay locked until navigation finishes so typed values cannot be discarded.
+  const formDisabled = !ready || pending || identityChanging.current;
   useEffect(() => {
     setReady(true);
     const controller = new AbortController();
@@ -191,7 +194,7 @@ export function AccountPage({ route }: { route: AccountRoute }) {
               <p>{user.name}님</p>
               <p>{user.email}</p>
               <button
-                disabled={!ready || pending}
+                disabled={formDisabled}
                 onClick={() =>
                   void run(async () => {
                     await authAction('sign-out', {});
@@ -202,7 +205,7 @@ export function AccountPage({ route }: { route: AccountRoute }) {
                 로그아웃
               </button>
               <button
-                disabled={!ready || pending}
+                disabled={formDisabled}
                 onClick={() =>
                   void run(async () => {
                     await authAction('delete-user', { callbackURL: '/account' });
@@ -220,7 +223,13 @@ export function AccountPage({ route }: { route: AccountRoute }) {
                 {mode === 'signup' ? (
                   <label>
                     닉네임
-                    <input name="name" required maxLength={60} autoComplete="nickname" />
+                    <input
+                      name="name"
+                      required
+                      maxLength={60}
+                      autoComplete="nickname"
+                      disabled={formDisabled}
+                    />
                   </label>
                 ) : null}
                 {mode !== 'reset' ? (
@@ -231,6 +240,7 @@ export function AccountPage({ route }: { route: AccountRoute }) {
                       type="email"
                       required
                       autoComplete="email"
+                      disabled={formDisabled}
                       value={email}
                       onChange={(event) => setEmail(event.target.value)}
                     />
@@ -246,11 +256,12 @@ export function AccountPage({ route }: { route: AccountRoute }) {
                       minLength={12}
                       maxLength={128}
                       autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                      disabled={formDisabled}
                     />
                     <span>12~128자</span>
                   </label>
                 ) : null}
-                <button className={css.primary} disabled={!ready || pending}>
+                <button className={css.primary} disabled={formDisabled}>
                   {labels[mode]}
                 </button>
               </form>
@@ -260,7 +271,7 @@ export function AccountPage({ route }: { route: AccountRoute }) {
                   .map((item) => (
                     <button
                       key={item}
-                      disabled={pending}
+                      disabled={formDisabled}
                       onClick={() => {
                         setMode(item);
                         setError('');
@@ -272,7 +283,7 @@ export function AccountPage({ route }: { route: AccountRoute }) {
                   ))}
               </div>
               <button
-                disabled={!ready || pending || !email}
+                disabled={formDisabled || !email}
                 onClick={() =>
                   void run(async () => {
                     await authAction('send-verification-email', {
@@ -288,7 +299,7 @@ export function AccountPage({ route }: { route: AccountRoute }) {
               {providers.map((provider) => (
                 <button
                   key={provider}
-                  disabled={!ready || pending}
+                  disabled={formDisabled}
                   onClick={() =>
                     void run(async () => {
                       const result = await authAction('sign-in/social', {

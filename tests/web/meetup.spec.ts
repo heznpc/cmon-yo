@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { mkdir } from 'node:fs/promises';
 import fixture from '../../contracts/fixtures/meetup.json' with { type: 'json' };
 import malicious from '../../contracts/fixtures/malicious.json' with { type: 'json' };
