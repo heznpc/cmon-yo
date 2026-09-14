@@ -1,3 +1,4 @@
+import { RegionSelect } from '../places/RegionSelect';
 const AttendancePanel = lazy(() =>
   import('../attendance/AttendancePanel').then((m) => ({ default: m.AttendancePanel })),
 );
@@ -130,7 +131,7 @@ function MeetingList({ route, ready }: { route: MeetingsRoute; ready: boolean })
   return (
     <>
       <h1>같이 운동할 모임</h1>
-      <p className={css.lead}>무안군 이웃과 걷고, 달리고, 함께해요.</p>
+      <p>정원에는 주최자도 포함됩니다.</p>
       <form
         className={css.filters}
         action="/meetups"
@@ -141,12 +142,11 @@ function MeetingList({ route, ready }: { route: MeetingsRoute; ready: boolean })
           );
         }}
       >
-        <label>
-          동네
-          <select name="regionCode" defaultValue={route.filters.regionCode}>
-            <option value="46840">무안군</option>
-          </select>
-        </label>
+        <RegionSelect
+          key={route.filters.regionCode ?? ''}
+          name="regionCode"
+          defaultValue={route.filters.regionCode ?? ''}
+        />
         <label>
           종목
           <select name="sport" defaultValue={route.filters.sport ?? ''}>

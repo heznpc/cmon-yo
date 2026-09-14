@@ -99,6 +99,59 @@ export function App({
         : undefined,
   );
   const initial = first ? state : undefined;
+  // Entry modules are prepared before SSR and hydration. Keep ready document content
+  // outside a route-wide boundary: React may segment a large completed boundary
+  // into hidden HTML that needs JavaScript to reveal. SPA code loading still suspends.
+  const routes = (
+    <Routes>
+      <Route path="/" element={<PlacesPage />} />
+      <Route path="/places" element={<PlacesPage />} />
+      <Route path="/places/:id" element={<PlaceRoute />} />
+      <Route path="/meetups" element={<MeetingRoute mode="list" initial={initial} />} />
+      <Route path="/meetups/new" element={<MeetingRoute mode="create" initial={initial} />} />
+      <Route
+        path="/meetups/:id"
+        element={
+          state.fixture || !('section' in state.route) ? (
+            <FixturePage />
+          ) : (
+            <MeetingRoute mode="detail" initial={initial} />
+          )
+        }
+      />
+      <Route
+        path="/meetups/:id/discussion"
+        element={
+          state.fixture ? (
+            <FixturePage discussion />
+          ) : (
+            <CommunityRoutePage mode="discussion" initial={initial} />
+          )
+        }
+      />
+      <Route path="/activity" element={<CommunityRoutePage mode="activity" initial={initial} />} />
+      <Route path="/community" element={<CommunityRoutePage mode="list" initial={initial} />} />
+      <Route
+        path="/community/new"
+        element={<CommunityRoutePage mode="create" initial={initial} />}
+      />
+      <Route
+        path="/community/:id"
+        element={<CommunityRoutePage mode="detail" initial={initial} />}
+      />
+      <Route path="/account/posts" element={<CommunityRoutePage mode="mine" initial={initial} />} />
+      <Route path="/account/meetups" element={<MeetingRoute mode="mine" initial={initial} />} />
+      <Route path="/account" element={<AccountRoutePage initial={initial} />} />
+      <Route
+        path="*"
+        element={
+          <main>
+            <h1>페이지를 찾을 수 없습니다.</h1>
+          </main>
+        }
+      />
+    </Routes>
+  );
   return (
     <QueryClientProvider client={client}>
       <HydrationBoundary state={first ? state.dehydratedState : undefined}>
@@ -107,77 +160,19 @@ export function App({
             value={first && state.stream ? { state: state.stream, resources } : null}
           >
             <NavigationEffects />
-            <Suspense
-              fallback={
-                <main>
-                  <p role="status">화면을 불러오는 중…</p>
-                </main>
-              }
-            >
-              <Routes>
-                <Route path="/" element={<PlacesPage />} />
-                <Route path="/places" element={<PlacesPage />} />
-                <Route path="/places/:id" element={<PlaceRoute />} />
-                <Route path="/meetups" element={<MeetingRoute mode="list" initial={initial} />} />
-                <Route
-                  path="/meetups/new"
-                  element={<MeetingRoute mode="create" initial={initial} />}
-                />
-                <Route
-                  path="/meetups/:id"
-                  element={
-                    state.fixture || !('section' in state.route) ? (
-                      <FixturePage />
-                    ) : (
-                      <MeetingRoute mode="detail" initial={initial} />
-                    )
-                  }
-                />
-                <Route
-                  path="/meetups/:id/discussion"
-                  element={
-                    state.fixture ? (
-                      <FixturePage discussion />
-                    ) : (
-                      <CommunityRoutePage mode="discussion" initial={initial} />
-                    )
-                  }
-                />
-                <Route
-                  path="/activity"
-                  element={<CommunityRoutePage mode="activity" initial={initial} />}
-                />
-                <Route
-                  path="/community"
-                  element={<CommunityRoutePage mode="list" initial={initial} />}
-                />
-                <Route
-                  path="/community/new"
-                  element={<CommunityRoutePage mode="create" initial={initial} />}
-                />
-                <Route
-                  path="/community/:id"
-                  element={<CommunityRoutePage mode="detail" initial={initial} />}
-                />
-                <Route
-                  path="/account/posts"
-                  element={<CommunityRoutePage mode="mine" initial={initial} />}
-                />
-                <Route
-                  path="/account/meetups"
-                  element={<MeetingRoute mode="mine" initial={initial} />}
-                />
-                <Route path="/account" element={<AccountRoutePage initial={initial} />} />
-                <Route
-                  path="*"
-                  element={
-                    <main>
-                      <h1>페이지를 찾을 수 없습니다.</h1>
-                    </main>
-                  }
-                />
-              </Routes>
-            </Suspense>
+            {first ? (
+              routes
+            ) : (
+              <Suspense
+                fallback={
+                  <main>
+                    <p role="status">화면을 불러오는 중…</p>
+                  </main>
+                }
+              >
+                {routes}
+              </Suspense>
+            )}
           </StreamContext.Provider>
         </DocumentIdentity.Provider>
       </HydrationBoundary>

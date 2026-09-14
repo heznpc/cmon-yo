@@ -1,9 +1,13 @@
+import { useSearchParams } from 'react-router';
+import { RegionSelect } from './RegionSelect';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import {
   placeKey,
   weatherKey,
   placesKey,
+  placeListKey,
+  placeFiltersSchema,
   placeSourceURL,
   favoritePlacesKey,
   type Weather,
@@ -96,7 +100,7 @@ export function PlacesPage({ id }: { id?: string }) {
       >
         {id ? <PlaceDetail id={id} /> : <PlaceList />}
         <footer className={css.footer}>
-          <p>무안군 공공시설 · 공개 자료에 기반한 시설 정보입니다.</p>
+          <p>현재 위치 주변 공공시설 · 공개 자료에 기반한 시설 정보입니다.</p>
           <p>
             <AppLink href={placeSourceURL}>출처: 전국도시공원정보표준데이터</AppLink>
           </p>
@@ -107,16 +111,22 @@ export function PlacesPage({ id }: { id?: string }) {
   );
 }
 function PlaceList() {
+  const [params, setParams] = useSearchParams();
   const client = useQueryClient();
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [favoriteBusy, setFavoriteBusy] = useState<string | null>(null);
   const [favoriteMessage, setFavoriteMessage] = useState('');
+  const parsedFilters = placeFiltersSchema.safeParse(
+    Object.fromEntries([...params].filter(([, value]) => value !== '')),
+  );
+  const filters = parsedFilters.success ? parsedFilters.data : { page: 0 };
   const query = useQuery({
-    queryKey: placesKey,
+    enabled: parsedFilters.success,
+    queryKey: placeListKey(filters),
     staleTime: 60_000,
     retry: false,
-    queryFn: ({ signal }) => publicAPI.places(signal),
+    queryFn: ({ signal }) => publicAPI.places(signal, filters),
   });
   const visiblePlaces = useMemo(
     () =>
@@ -182,6 +192,20 @@ function PlaceList() {
           }}
         />
       </label>
+      {!parsedFilters.success ? <p role="alert">조회 조건을 확인해 주세요.</p> : null}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          setParams({ regionCode: String(new FormData(e.currentTarget).get('regionCode') ?? '') });
+        }}
+      >
+        <RegionSelect
+          key={filters.regionCode ?? ''}
+          name="regionCode"
+          defaultValue={filters.regionCode ?? ''}
+        />
+        <button>시설 조건 적용</button>
+      </form>
       {query.isError ? <p role="alert">시설을 불러오지 못했습니다. 다시 시도해 주세요.</p> : null}
       {query.isError && query.data ? (
         <p>이전에 불러온 목록입니다. 최신 정보를 확인하지 못했습니다.</p>
@@ -281,6 +305,32 @@ function PlaceList() {
         </div>
       </div>
       <p role="status">{query.isFetching ? '시설을 불러오는 중…' : ''}</p>
+      {filters.page > 0 ? (
+        <AppLink
+          href={
+            '/places?' +
+            new URLSearchParams({
+              regionCode: filters.regionCode ?? '',
+              page: String(filters.page - 1),
+            })
+          }
+        >
+          이전 시설 페이지
+        </AppLink>
+      ) : null}
+      {query.data?.nextPage != null ? (
+        <AppLink
+          href={
+            '/places?' +
+            new URLSearchParams({
+              regionCode: filters.regionCode ?? '',
+              page: String(query.data.nextPage),
+            })
+          }
+        >
+          다음 시설 페이지
+        </AppLink>
+      ) : null}
       <FacilityRefresh
         loading={query.isFetching}
         refresh={() => void query.refetch()}

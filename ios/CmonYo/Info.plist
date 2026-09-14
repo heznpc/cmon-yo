@@ -23,5 +23,7 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>현재 위치 주변의 운동 시설을 지도에 표시하기 위해 위치를 사용합니다.</string>
 </dict>
 </plist>

@@ -45,7 +45,7 @@ Google은 공식 문서에서 로컬 개발 redirect를 허용합니다. Apple W
 
 ## 시설 지도
 
-Web은 MapLibre GL JS와 [OpenFreeMap의 공식 공개 지도](https://openfreemap.org/quick_start/), Native는 MapKit을 사용합니다. 두 경로 모두 이번 구현에 입력할 API 키가 없습니다. 공공시설 API에 있는 좌표를 핀으로 표시하며 사용자 현재 위치 권한을 요청하지 않습니다.
+Web은 MapLibre GL JS와 [OpenFreeMap의 공식 공개 지도](https://openfreemap.org/quick_start/), Native는 MapKit을 사용합니다. 두 경로 모두 이번 구현에 입력할 API 키가 없습니다. 공공시설 API 좌표와 기기 현재 위치를 각각 시설 핀·현재 위치 마커로 표시합니다. 위치 권한을 거부하거나 기기 위치를 읽지 못해도 시설 목록과 핀은 계속 사용할 수 있습니다.
 
 지도 배경은 외부 네트워크 연결이 필요하고 Web은 WebGL을 사용합니다. 초기화·배경 요청 실패 시 오류와 재시도를 표시하며 시설 목록·상세는 계속 이용할 수 있습니다. OpenFreeMap·OpenMapTiles·OpenStreetMap의 출처 표기를 유지합니다. 자동 회귀 검사는 시험용 지도 스타일·GeoJSON으로 외부 트래픽을 만들지 않으며, 실제 지도 배경 표시는 별도로 실행 확인합니다.
 

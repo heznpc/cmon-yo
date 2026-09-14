@@ -1,10 +1,10 @@
 import { z } from 'zod';
-import { placeSchema, type Place } from '../../contracts/place';
+import { placeSchema, regionCodeSchema, type Place } from '../../contracts/place';
 
 export const source = 'data.go.kr/15012890';
 const coordinate = z.string().trim().min(1).transform(Number).pipe(z.number().finite());
 const rowSchema = z.object({
-  MANAGE_NO: z.string().regex(/^46840-\d{5}$/),
+  MANAGE_NO: z.string().regex(/^[0-9]{5}-[0-9]{5}$/),
   PARK_NM: z.string().trim().min(1),
   PARK_SE: z.string().trim().min(1),
   RDNMADR: z.string(),
@@ -13,11 +13,13 @@ const rowSchema = z.object({
   LONGITUDE: coordinate,
   MVM_FCLTY: z.string(),
   REFERENCE_DATE: z.iso.date(),
+  INSTT_NM: z.string().trim().optional(),
 });
 export const snapshotSchema = z
   .object({
     source: z.literal(source),
-    regionCode: z.literal('46840'),
+    regionCode: regionCodeSchema.nullable(),
+    regionCodes: z.array(regionCodeSchema).optional(),
     capturedAt: z.iso.datetime(),
     collection: z
       .object({
@@ -27,7 +29,7 @@ export const snapshotSchema = z
         pages: z.number().int().positive(),
       })
       .refine((v) => v.total === v.received),
-    expectedCount: z.number().int().positive(),
+    expectedCount: z.number().int().nonnegative(),
     records: z.array(z.unknown()),
   })
   .refine((v) => v.expectedCount === v.records.length);
@@ -39,12 +41,20 @@ export class SourceError extends Error {
 export function normalizeSnapshot(input: unknown): Place[] {
   const parsed = snapshotSchema.safeParse(input);
   if (!parsed.success) throw new SourceError([]);
+  const selected =
+    parsed.data.regionCodes ?? (parsed.data.regionCode ? [parsed.data.regionCode] : []);
+  if (parsed.data.regionCode && (selected.length !== 1 || selected[0] !== parsed.data.regionCode))
+    throw new SourceError([]);
   const places: Place[] = [];
   const failures: number[] = [];
   const seen = new Set<string>();
   parsed.data.records.forEach((value, index) => {
     const row = rowSchema.safeParse(value);
-    if (!row.success || seen.has(row.data.MANAGE_NO)) {
+    if (
+      !row.success ||
+      seen.has(row.data.MANAGE_NO) ||
+      (selected.length > 0 && !selected.includes(row.data.MANAGE_NO.slice(0, 5)))
+    ) {
       failures.push(index + 1);
       return;
     }
@@ -66,6 +76,7 @@ export function normalizeSnapshot(input: unknown): Place[] {
         ),
       ],
       sourceDate: r.REFERENCE_DATE,
+      ...(r.INSTT_NM ? { regionName: r.INSTT_NM } : {}),
     });
     if (!place.success) failures.push(index + 1);
     else places.push(place.data);
@@ -76,7 +87,13 @@ export function normalizeSnapshot(input: unknown): Place[] {
 
 // The portal's public file-download protocol, observed on 2026-09-13.
 // Fetch every page before publishing a regional snapshot. Absence never deletes DB rows.
-export async function collectParks(fetcher: typeof fetch = fetch) {
+export function facilityRegionCodes(value = ''): string[] {
+  if (!value.trim()) return [];
+  return [...new Set(z.array(regionCodeSchema).parse(value.split(',').map((code) => code.trim())))];
+}
+
+export async function collectParks(fetcher: typeof fetch = fetch, regionCodes: string[] = []) {
+  const selected = z.array(regionCodeSchema).parse(regionCodes);
   const get = async (url: URL) => {
     const response = await fetcher(url, { signal: AbortSignal.timeout(10_000) });
     if (!response.ok) throw new SourceError([]);
@@ -111,9 +128,11 @@ export async function collectParks(fetcher: typeof fetch = fetch) {
   }
   const after = headerSchema.parse(await get(headerURL));
   if (after.totalCount !== header.totalCount) throw new SourceError([]);
-  const pilot = records.filter((row) =>
-    String((row as Record<string, unknown>).MANAGE_NO).startsWith('46840-'),
-  );
+  const regional = selected.length
+    ? records.filter((row) =>
+        selected.includes(String((row as Record<string, unknown>).MANAGE_NO).slice(0, 5)),
+      )
+    : records;
   const fields = [
     'MANAGE_NO',
     'PARK_NM',
@@ -124,14 +143,16 @@ export async function collectParks(fetcher: typeof fetch = fetch) {
     'LONGITUDE',
     'MVM_FCLTY',
     'REFERENCE_DATE',
+    'INSTT_NM',
   ];
   const snapshot = {
     source,
-    regionCode: '46840',
+    regionCode: selected.length === 1 ? selected[0] : null,
+    regionCodes: selected,
     capturedAt: new Date().toISOString(),
     collection: { complete: true, total: header.totalCount, received: records.length, pages },
-    expectedCount: pilot.length,
-    records: pilot.map((row) =>
+    expectedCount: regional.length,
+    records: regional.map((row) =>
       Object.fromEntries(fields.map((key) => [key, (row as Record<string, unknown>)[key]])),
     ),
   };

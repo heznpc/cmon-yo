@@ -24,6 +24,7 @@ targets:
       properties:
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
+        NSLocationWhenInUseUsageDescription: 현재 위치 주변의 운동 시설을 지도에 표시하기 위해 위치를 사용합니다.
   CmonYoTests:
     type: bundle.unit-test
     platform: iOS

@@ -36,7 +36,7 @@ struct NeighborhoodToolbar: ToolbarContent {
       Text("C’mon Yo!").font(.headline.bold().italic()).foregroundStyle(NeighborhoodStyle.link)
     }
     ToolbarItem(placement: .topBarTrailing) {
-      Label("무안군", systemImage: "mappin").labelStyle(.titleAndIcon).font(.subheadline).foregroundStyle(.secondary).fixedSize()
+      Label("내 위치", systemImage: "mappin").labelStyle(.titleAndIcon).font(.subheadline).foregroundStyle(.secondary).fixedSize()
     }
   }
 }

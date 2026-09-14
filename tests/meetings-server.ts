@@ -41,6 +41,30 @@ await importParks(
   JSON.parse(await readFile('contracts/samples/muan-parks.json', 'utf8')),
   false,
 );
+// Additional regional data is test-only. A captured public snapshot can replace it for execution QA.
+const regionSnapshot = process.env.QA_FACILITY_SNAPSHOT
+  ? JSON.parse(await readFile(process.env.QA_FACILITY_SNAPSHOT, 'utf8'))
+  : null;
+if (regionSnapshot) await importParks(pool, regionSnapshot, false);
+else {
+  const sample = JSON.parse(await readFile('contracts/samples/muan-parks.json', 'utf8'));
+  const report = await importParks(
+    pool,
+    {
+      ...sample,
+      regionCode: '11680',
+      expectedCount: 101,
+      records: Array.from({ length: 101 }, (_, i) => ({
+        ...sample.records[0],
+        MANAGE_NO: '11680-' + String(i + 1).padStart(5, '0'),
+        PARK_NM: '[지역 시험] 공원 ' + (i + 1),
+        INSTT_NM: '서울특별시 강남구',
+      })),
+    },
+    false,
+  );
+  if (report.status !== 'succeeded') throw new Error('Regional fixture import failed');
+}
 const vite = production
   ? null
   : await (

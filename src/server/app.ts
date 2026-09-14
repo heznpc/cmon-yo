@@ -1,3 +1,4 @@
+import { placeFiltersSchema } from '../contracts/place';
 import { installObservability, type Observation } from './observability';
 import { randomUUID } from 'node:crypto';
 import { deferState } from './deferred';
@@ -185,6 +186,18 @@ export function createApp({
         });
       }
     });
+  const placeFilters = (request: FastifyRequest) => {
+    const parsed = placeFiltersSchema.safeParse(
+      Object.fromEntries(
+        Object.entries(request.query as Record<string, unknown>).filter(
+          ([, value]) => value !== '',
+        ),
+      ),
+    );
+    if (!parsed.success)
+      throw new ServiceError(400, 'INVALID_FILTER', '조회 조건을 확인해 주세요.');
+    return parsed.data;
+  };
   const placeAPI = async (request: FastifyRequest, reply: Parameters<Renderer>[0]) => {
     const id = (request.params as { id?: string }).id;
     if (id && !placeIdSchema.safeParse(id).success)
@@ -208,7 +221,8 @@ export function createApp({
     reply.raw.once('finish', cleanup);
     try {
       const signal = controller.signal;
-      if (!id) return await places.list(signal);
+      if (request.routeOptions.url === '/api/v1/regions') return await places.regions(signal);
+      if (!id) return await places.list(signal, placeFilters(request));
       if (request.routeOptions.url?.endsWith('/info')) return await places.info(id, signal);
       if (request.routeOptions.url?.endsWith('/weather'))
         return await places.weather((await places.info(id, signal)).place, signal);
@@ -217,7 +231,7 @@ export function createApp({
       const status = error instanceof ServiceError ? error.status : 503;
       return reply.code(status).send({
         error: {
-          code: status === 404 ? 'NOT_FOUND' : 'UNAVAILABLE',
+          code: error instanceof ServiceError ? error.code : 'UNAVAILABLE',
           message: status === 404 ? '시설을 찾을 수 없습니다.' : '시설을 불러오지 못했습니다.',
           requestId: request.id,
           retryable: status >= 500,
@@ -225,6 +239,7 @@ export function createApp({
       });
     }
   };
+  app.get('/api/v1/regions', placeAPI);
   app.get('/api/v1/places', placeAPI);
   app.get('/api/v1/places/:id', placeAPI);
   app.get('/api/v1/places/:id/info', placeAPI);
@@ -330,7 +345,7 @@ export function createApp({
     reply.raw.once('finish', cleanup);
     try {
       const state = isPlace
-        ? await loadPlaces(id.data, places, controller.signal, client)
+        ? await loadPlaces(id.data, places, controller.signal, client, placeFilters(request))
         : await loadMeetup(id.data!, service, controller.signal, client);
       const resources: StreamResources = {};
       if (isPlace && id.data) {

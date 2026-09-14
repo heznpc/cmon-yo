@@ -10,6 +10,7 @@ import {
   meetingCommandSchema,
 } from '../../contracts/meetings';
 import type { z } from 'zod';
+import { regionOfPlace } from '../../contracts/place';
 import { ServiceError } from './meetup';
 
 export async function migrateMeetings(pool: pg.Pool) {
@@ -59,12 +60,12 @@ export function databaseMeetings(pool?: pg.Pool) {
     detail,
     async list(filters: MeetingFilters) {
       const { rows } = await db().query(
-        `${selection} WHERE m.region_code=$1
+        `${selection} WHERE ($1::text IS NULL OR m.region_code=$1)
         AND ($2::text IS NULL OR m.sport=$2) AND ($3::text IS NULL OR m.place_id=$3)
         AND ($4::date IS NULL OR (m.starts_at AT TIME ZONE 'Asia/Seoul')::date=$4::date)
         ORDER BY m.starts_at,m.id LIMIT 21 OFFSET $5`,
         [
-          filters.regionCode,
+          filters.regionCode ?? null,
           filters.sport ?? null,
           filters.placeId ?? null,
           filters.date ?? null,
@@ -156,7 +157,7 @@ export function databaseMeetings(pool?: pg.Pool) {
           meetupId = randomUUID();
           await client.query(
             `INSERT INTO meetups (id,host_id,title,description,sport,place_id,place_name,region_code,starts_at,ends_at,capacity)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,'46840',$8,$9,$10)`,
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
             [
               meetupId,
               userId,
@@ -165,6 +166,7 @@ export function databaseMeetings(pool?: pg.Pool) {
               input.sport,
               input.placeId,
               placeName,
+              regionOfPlace(input.placeId),
               input.startsAt,
               input.endsAt,
               input.capacity,
@@ -226,7 +228,7 @@ export function databaseMeetings(pool?: pg.Pool) {
             if (values.capacity < count)
               reject(409, 'CAPACITY', '현재 참여 인원보다 정원을 줄일 수 없습니다.');
             await client.query(
-              `UPDATE meetups SET title=$2,description=$3,sport=$4,place_id=$5,place_name=$6,starts_at=$7,ends_at=$8,capacity=$9 WHERE id=$1`,
+              `UPDATE meetups SET title=$2,description=$3,sport=$4,place_id=$5,place_name=$6,starts_at=$7,ends_at=$8,capacity=$9,region_code=$10 WHERE id=$1`,
               [
                 id,
                 values.title,
@@ -237,6 +239,7 @@ export function databaseMeetings(pool?: pg.Pool) {
                 values.startsAt,
                 values.endsAt,
                 values.capacity,
+                regionOfPlace(values.placeId),
               ],
             );
           }

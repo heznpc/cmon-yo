@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS places (
   source text NOT NULL CHECK (source = 'data.go.kr/15012890'),
-  source_key text NOT NULL CHECK (source_key ~ '^46840-[0-9]{5}$'),
+  source_key text NOT NULL CHECK (source_key ~ '^[0-9]{5}-[0-9]{5}$'),
   document jsonb NOT NULL CHECK (jsonb_typeof(document) = 'object'),
   updated_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (source, source_key),
@@ -14,12 +14,7 @@ CREATE TABLE IF NOT EXISTS facility_import_runs (
   finished_at timestamptz NOT NULL DEFAULT now(),
   report jsonb NOT NULL
 );
-CREATE TABLE IF NOT EXISTS place_favorites (
-  -- Better Auth owns auth_user and is migrated separately. Keeping this key
-  -- without a cross-migration FK lets facility-only imports run in isolation.
-  user_id uuid NOT NULL,
-  place_id text NOT NULL CHECK (place_id ~ '^park-46840-[0-9]{5}$'),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  PRIMARY KEY (user_id, place_id)
-);
-CREATE INDEX IF NOT EXISTS place_favorites_user_created ON place_favorites(user_id, created_at, place_id);
+
+-- Keep existing rows while allowing any standard regional code.
+ALTER TABLE places DROP CONSTRAINT IF EXISTS places_source_key_check;
+ALTER TABLE places ADD CONSTRAINT places_source_key_check CHECK (source_key ~ '^[0-9]{5}-[0-9]{5}$');

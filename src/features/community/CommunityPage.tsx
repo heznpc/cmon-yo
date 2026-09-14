@@ -153,7 +153,7 @@ function CommunityContent({ route, ready }: { route: CommunityRoute; ready: bool
           ) : null}
           {mode === 'list' || mode === 'mine' ? (
             <>
-              <p className={styles.lead}>무안군 · 질문과 후기를 나누세요.</p>
+              <p className={styles.lead}>동네의 운동 질문과 후기를 나누세요.</p>
               <nav className={styles.actions}>
                 <Link className={styles.primary} to="/community/new">
                   <Icon name="plus" />글 쓰기

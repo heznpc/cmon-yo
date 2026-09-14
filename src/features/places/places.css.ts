@@ -42,6 +42,15 @@ export const pin = style({
   height: 52,
   minHeight: 52,
 });
+export const userLocation = style({
+  width: 18,
+  height: 18,
+  borderRadius: '50%',
+  background: '#3655B3',
+  border: '3px solid #fff',
+  boxSizing: 'border-box',
+});
+export const locationControl = style({ fontSize: '0.8125rem' });
 globalStyle(`${pin} svg`, { width: 44, height: 52, display: 'block' });
 // Keep provider attribution visible and size map controls for touch input.
 globalStyle(`${map} .maplibregl-ctrl-attrib`, {

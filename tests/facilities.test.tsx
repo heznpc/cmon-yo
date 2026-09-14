@@ -131,6 +131,61 @@ describe.runIf(process.env.TEST_DATABASE_URL)(
           .rowCount,
       ).toBe(3);
     });
+    test('existing DB migration preserves rows and a second region is reachable through every page', async () => {
+      const before = (await pool.query('SELECT document FROM places ORDER BY source_key')).rows;
+      await pool.query('ALTER TABLE places DROP CONSTRAINT places_source_key_check');
+      await pool.query(
+        "ALTER TABLE places ADD CONSTRAINT places_source_key_check CHECK(source_key ~ '^46840-[0-9]{5}$')",
+      );
+      await migrate(pool);
+      expect((await pool.query('SELECT document FROM places ORDER BY source_key')).rows).toEqual(
+        before,
+      );
+      const second = {
+        ...snapshot,
+        regionCode: '11680',
+        expectedCount: 101,
+        records: Array.from({ length: 101 }, (_, i) => ({
+          ...snapshot.records[0],
+          MANAGE_NO: '11680-' + String(i + 1).padStart(5, '0'),
+          PARK_NM: '[시험] 다른 지역 ' + (i + 1),
+          INSTT_NM: '서울특별시 강남구',
+        })),
+      };
+      expect(await importParks(pool, second, false)).toMatchObject({
+        status: 'succeeded',
+        inserted: 101,
+      });
+      const app = createApp({
+        places: databasePlaces(pool, kmaWeather()),
+        renderer: async () => renderPage,
+      });
+      const origin = await app.listen({ host: '127.0.0.1', port: 0 });
+      try {
+        const check = responseContract(await (await fetch(origin + '/api/v1/openapi.json')).json());
+        const catalog = await (await fetch(origin + '/api/v1/regions')).json();
+        expect(check('/api/v1/regions', 200, catalog).valid).toBe(true);
+        expect(catalog.regions).toContainEqual({ code: '11680', name: '서울특별시 강남구' });
+        const first = await (await fetch(origin + '/api/v1/places?regionCode=11680')).json();
+        expect(first.places).toHaveLength(100);
+        expect(first.nextPage).toBe(1);
+        const last = await (await fetch(origin + '/api/v1/places?regionCode=11680&page=1')).json();
+        expect(last.places).toHaveLength(1);
+        expect(last.nextPage).toBeNull();
+        expect(new Set([...first.places, ...last.places].map((p) => p.id)).size).toBe(101);
+        expect((await fetch(origin + '/api/v1/places?regionCode=bad')).status).toBe(400);
+        const html = await (await fetch(origin + '/places?regionCode=11680&page=1')).text();
+        expect(html).toContain('[시험] 다른 지역 1');
+        expect(html).not.toContain('근린공원 36');
+        const detail = await (await fetch(origin + '/places/park-11680-00001')).text();
+        expect(detail).toContain('[시험] 다른 지역 1');
+        expect((await fetch(origin + '/api/v1/places/park-11680-00001/info')).status).toBe(200);
+      } finally {
+        app.server.closeAllConnections();
+        await app.close();
+      }
+      await pool.query("DELETE FROM places WHERE source_key LIKE '11680-%'");
+    });
     test('actual HTTP API and SSR read DB changes, empty, 404 and DB outage without fixture fallback', async () => {
       const service = databasePlaces(pool, kmaWeather());
       const app = createApp({ places: service, renderer: async () => renderPage });
@@ -153,7 +208,10 @@ describe.runIf(process.env.TEST_DATABASE_URL)(
         expect((await fetch(`${origin}/api/v1/places/park-46840-99999`)).status).toBe(404);
         expect((await fetch(`${origin}/api/v1/places/bad`)).status).toBe(400);
         await pool.query('DELETE FROM places'); // This test owns its isolated schema.
-        expect(await (await fetch(`${origin}/api/v1/places`)).json()).toEqual({ places: [] });
+        expect(await (await fetch(`${origin}/api/v1/places`)).json()).toEqual({
+          places: [],
+          nextPage: null,
+        });
         expect(await (await fetch(`${origin}/places`)).text()).toContain(
           '등록된 시설 정보가 없습니다.',
         );

@@ -1,8 +1,43 @@
 import SwiftUI
 import MapKit
+import CoreLocation
+
+@MainActor
+final class DeviceLocation: NSObject, ObservableObject, CLLocationManagerDelegate {
+  @Published private(set) var authorization: CLAuthorizationStatus = .notDetermined
+  private let manager = CLLocationManager()
+
+  override init() {
+    super.init()
+    manager.delegate = self
+    authorization = manager.authorizationStatus
+  }
+
+  func request() {
+    switch manager.authorizationStatus {
+    case .notDetermined:
+      manager.requestWhenInUseAuthorization()
+    case .authorizedAlways, .authorizedWhenInUse:
+      manager.startUpdatingLocation()
+    default:
+      break
+    }
+  }
+
+  func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+    authorization = manager.authorizationStatus
+    if authorization == .authorizedAlways || authorization == .authorizedWhenInUse {
+      manager.startUpdatingLocation()
+    }
+  }
+}
 
 struct FacilitiesView: View {
   let api: FacilityAPI
+  @StateObject private var location = DeviceLocation()
+  @State private var region = ""
+  @State private var page = 0
+  @State private var nextPage: Int?
   @State private var places: [Facility]?
   @State private var error: String?
   @State private var loading = true
@@ -15,12 +50,13 @@ struct FacilitiesView: View {
   var body: some View {
     NavigationStack {
       ScrollView {
-        LazyVStack(alignment: .leading, spacing: 20) {
-          Text("지도에서 공원을 찾고, 함께 운동할 장소를 골라보세요.").foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 20) {
+          RegionPicker(api: api, selection: $region)
+            .onChange(of: region) { _, _ in page = 0; places = nil; error = nil; nextPage = nil }
           if let error { Text(error).accessibilityIdentifier("facility-error") }
           if error != nil && places != nil { Text("이전에 불러온 목록입니다. 최신 정보를 확인하지 못했습니다.") }
           if places?.isEmpty == true { Text("등록된 시설 정보가 없습니다.") }
-          if places?.isEmpty == false { FacilityMapView(api: api, places: visiblePlaces) }
+          if places?.isEmpty == false { FacilityMapView(api: api, places: visiblePlaces, location: location) }
           ForEach(visiblePlaces) { place in
             NavigationLink { FacilityDetailView(api: api, id: place.id) } label: {
               HStack(alignment: .top, spacing: 16) {
@@ -40,17 +76,18 @@ struct FacilitiesView: View {
           }
           if loading { ProgressView("시설을 불러오는 중…") }
           Button(error == nil ? "시설 새로고침" : "다시 시도") { attempt += 1 }.disabled(loading).frame(minHeight: 44)
+          if page > 0 { Button("이전 시설 페이지") { page -= 1; places = nil; error = nil }.disabled(loading) }
+          if let nextPage { Button("다음 시설 페이지") { page = nextPage; places = nil; error = nil }.disabled(loading) }
           FacilitySource()
         }.padding(24).buttonStyle(.bordered).controlSize(.large)
       }.navigationTitle("공원과 운동시설")
-        .toolbar { NeighborhoodToolbar() }
-        .searchable(text: $search, prompt: "시설 이름·주소 검색")
-        .task(id: attempt) {
+        .task { location.request() }
+        .task(id: "\(region):\(page):\(attempt)") {
           loading = true
           do {
-            let response = try await api.list()
+            let response = try await api.list(regionCode: region, page: page)
             try Task.checkCancellation()
-            places = response.places
+            places = response.places; nextPage = response.nextPage
             error = nil
           } catch is CancellationError { return }
           catch { self.error = error.localizedDescription }
@@ -62,6 +99,7 @@ struct FacilitiesView: View {
 private struct FacilityMapView: View {
   let api: FacilityAPI
   let places: [Facility]
+  @ObservedObject var location: DeviceLocation
   @State private var camera: MapCameraPosition = .automatic
   @State private var selectedID: String?
   private var selected: Facility? { places.first { $0.id == selectedID } }
@@ -73,13 +111,16 @@ private struct FacilityMapView: View {
         Button("전체 핀 보기") { selectedID = nil; camera = .automatic }.disabled(places.isEmpty)
       }
       Map(position: $camera, selection: $selectedID) {
+        if location.authorization == .authorizedAlways || location.authorization == .authorizedWhenInUse {
+          UserAnnotation()
+        }
         ForEach(places) { place in
           Marker(place.name, coordinate: CLLocationCoordinate2D(latitude: place.latitude, longitude: place.longitude))
             .tint(NeighborhoodStyle.accent).tag(place.id)
         }
       }
       .mapStyle(.standard(elevation: .flat))
-      .mapControls { MapCompass(); MapScaleView() }
+      .mapControls { MapUserLocationButton(); MapCompass(); MapScaleView() }
       .frame(height: 340).clipShape(RoundedRectangle(cornerRadius: 18))
       .accessibilityIdentifier("facility-map")
       if let selected {

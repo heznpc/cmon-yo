@@ -46,7 +46,7 @@ export function PostEditor({
     retry: false,
   });
   const meetings = useQuery({
-    queryKey: meetingListKey({ regionCode: '46840', page: 0 }),
+    queryKey: meetingListKey({ page: 0 }),
     queryFn: ({ signal }) => meetingRequest('/api/v1/meetups', meetingListSchema, { signal }),
     staleTime: 30000,
     retry: false,

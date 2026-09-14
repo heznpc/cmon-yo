@@ -188,6 +188,18 @@ test('map pins follow search and keyboard selection opens the matching facility 
   ).toBeVisible();
 });
 
+test('device location permission adds the actual position marker without hiding facilities', async ({
+  page,
+  baseURL,
+}) => {
+  await page.context().grantPermissions(['geolocation'], { origin: baseURL });
+  await page.context().setGeolocation({ latitude: 37.5665, longitude: 126.978 });
+  await page.goto('/places');
+  await expect(page.getByRole('img', { name: '현재 위치' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '내 위치 찾기' })).toBeVisible();
+  await expect(page.getByRole('link', { name: '근린공원 36', exact: true })).toBeVisible();
+});
+
 test('tile failure leaves facility access intact and map retry recovers', async ({ page }) => {
   await page.route('https://tiles.openfreemap.org/**', (route) => route.abort());
   await page.goto('/places');

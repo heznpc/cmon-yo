@@ -45,7 +45,7 @@ function Navigation({ pathname }: { pathname: string }) {
         </nav>
         <span className={css.location}>
           <Icon name="pin" />
-          무안군
+          내 위치
         </span>
         <nav aria-label="계정 메뉴" className={css.utilityNav}>
           <AppLink

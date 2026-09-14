@@ -1,5 +1,5 @@
 import { dehydrate, type QueryClient } from '@tanstack/react-query';
-import { placeKey, placesKey } from '../../contracts/place';
+import { placeKey, placeListKey, type PlaceFilters } from '../../contracts/place';
 import type { PlaceService } from '../services/place';
 
 export async function loadPlaces(
@@ -7,6 +7,7 @@ export async function loadPlaces(
   service: PlaceService,
   signal: AbortSignal,
   client: QueryClient,
+  filters: PlaceFilters = { page: 0 },
 ) {
   if (id)
     await client.fetchQuery({
@@ -16,8 +17,8 @@ export async function loadPlaces(
     });
   else
     await client.fetchQuery({
-      queryKey: placesKey,
-      queryFn: () => service.list(signal),
+      queryKey: placeListKey(filters),
+      queryFn: () => service.list(signal, filters),
       staleTime: 60_000,
     });
   signal.throwIfAborted();

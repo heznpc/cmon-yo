@@ -8,7 +8,9 @@ type Runtime = {
   library: typeof MapLibre;
   map: MapLibre.Map;
   markers: Map<string, MapLibre.Marker>;
+  userMarker: MapLibre.Marker | null;
 };
+type DeviceLocation = { latitude: number; longitude: number };
 const pinHTML =
   '<svg viewBox="0 0 44 52" aria-hidden="true"><path d="M22 49C16 40 4 29 4 20a18 18 0 0 1 36 0c0 9-12 20-18 29Z" fill="#7893F8" stroke="#17264C" stroke-width="2.5"/><circle cx="22" cy="20" r="6" fill="white"/></svg>';
 
@@ -40,6 +42,49 @@ export function FacilityMap({
   const [failed, setFailed] = useState(false);
   const [tileFailed, setTileFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [location, setLocation] = useState<DeviceLocation | null>(null);
+  const [locationState, setLocationState] = useState<
+    'idle' | 'loading' | 'granted' | 'denied' | 'unavailable'
+  >('idle');
+  const locationRequested = useRef(false);
+  const mounted = useRef(true);
+  const locationRef = useRef<DeviceLocation | null>(null);
+  locationRef.current = location;
+  useEffect(
+    () => () => {
+      mounted.current = false;
+    },
+    [],
+  );
+  function requestLocation() {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setLocationState('unavailable');
+      return;
+    }
+    setLocationState('loading');
+    try {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          if (!mounted.current) return;
+          setLocation({ latitude: position.coords.latitude, longitude: position.coords.longitude });
+          setLocationState('granted');
+        },
+        (error) => {
+          if (!mounted.current) return;
+          setLocationState(error.code === error.PERMISSION_DENIED ? 'denied' : 'unavailable');
+        },
+        { enableHighAccuracy: true, maximumAge: 30_000, timeout: 10_000 },
+      );
+    } catch {
+      setLocationState('unavailable');
+    }
+  }
+  useEffect(() => {
+    if (!locationRequested.current) {
+      locationRequested.current = true;
+      requestLocation();
+    }
+  }, []);
   useEffect(() => {
     let cancelled = false;
     let map: MapLibre.Map | undefined;
@@ -56,9 +101,9 @@ export function FacilityMap({
           container: container.current,
           style: 'https://tiles.openfreemap.org/styles/liberty',
           attributionControl: { compact: false },
-          // Replaced by the public facility bounds as soon as markers mount.
-          center: [126.45, 34.9],
-          zoom: 10,
+          // Start from a neutral country view until device location or facility bounds are ready.
+          center: [127.8, 36.2],
+          zoom: 6,
           scrollZoom: false,
           dragRotate: false,
           pitchWithRotate: false,
@@ -80,7 +125,7 @@ export function FacilityMap({
         });
         observer = new ResizeObserver(() => map?.resize());
         observer.observe(container.current);
-        setRuntime({ library, map, markers: new Map() });
+        setRuntime({ library, map, markers: new Map(), userMarker: null });
       })
       .catch((error: unknown) => {
         console.error('시설 지도 초기화 실패', error);
@@ -96,6 +141,27 @@ export function FacilityMap({
       map?.remove();
     };
   }, [attempt]);
+
+  useEffect(() => {
+    if (!runtime || !location) return;
+    const element = document.createElement('div');
+    element.className = css.userLocation;
+    element.setAttribute('role', 'img');
+    element.setAttribute('aria-label', '현재 위치');
+    runtime.userMarker?.remove();
+    runtime.userMarker = new runtime.library.Marker({ element, anchor: 'center' })
+      .setLngLat([location.longitude, location.latitude])
+      .addTo(runtime.map);
+    runtime.map.flyTo({
+      center: [location.longitude, location.latitude],
+      zoom: Math.max(13, runtime.map.getZoom()),
+      duration: 0,
+    });
+    return () => {
+      runtime.userMarker?.remove();
+      runtime.userMarker = null;
+    };
+  }, [runtime, location]);
 
   useEffect(() => {
     if (!runtime) return;
@@ -119,7 +185,7 @@ export function FacilityMap({
       });
       markers.set(place.id, marker);
     }
-    fitPlaces(runtime, places);
+    if (!locationRef.current) fitPlaces(runtime, places);
     return () => {
       for (const marker of markers.values()) marker.remove();
       markers.clear();
@@ -152,6 +218,13 @@ export function FacilityMap({
       <div className={css.mapToolbar}>
         <span>공원 위치</span>
         <button
+          className={css.locationControl}
+          disabled={locationState === 'loading'}
+          onClick={requestLocation}
+        >
+          {locationState === 'loading' ? '현재 위치 확인 중…' : '내 위치 찾기'}
+        </button>
+        <button
           disabled={!runtime || !places.length}
           onClick={() => {
             if (!runtime) return;
@@ -162,6 +235,16 @@ export function FacilityMap({
           전체 핀 보기
         </button>
       </div>
+      {locationState === 'denied' ? (
+        <p className={css.mapMessage} role="status">
+          위치 권한이 거부되었습니다. 브라우저 설정에서 허용한 뒤 다시 시도해 주세요.
+        </p>
+      ) : null}
+      {locationState === 'unavailable' ? (
+        <p className={css.mapMessage} role="status">
+          현재 위치를 확인할 수 없습니다. 지도는 시설 핀으로 계속 사용할 수 있습니다.
+        </p>
+      ) : null}
       <div ref={container} className={css.map} role="region" aria-label="공원과 운동시설 지도" />
       {!loaded && !failed && !tileFailed ? (
         <p className={css.mapMessage} role="status">

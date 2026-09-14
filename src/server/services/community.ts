@@ -66,7 +66,7 @@ export function databaseCommunity(pool: pg.Pool) {
     async list(user: string | null, f: CommunityFilters) {
       if (f.mine && !user) fail(401, 'UNAUTHENTICATED', '로그인이 필요합니다.');
       const { rows } = await pool.query(
-        `SELECT t.*,u.name,${stamp} FROM posts t ${author} WHERE ${visible} AND ($2::text IS NULL OR t.sport=$2) AND (NOT $3::boolean OR t.author_id=$1) AND ($5::timestamptz IS NULL OR (t.created_at,t.id)<($5::timestamptz,$6::uuid)) ORDER BY t.created_at DESC,t.id DESC LIMIT 21 OFFSET $4`,
+        `SELECT t.*,u.name,${stamp} FROM posts t ${author} WHERE ${visible} AND ($2::text IS NULL OR t.sport=$2) AND ($7::text IS NULL OR t.region_code=$7) AND (NOT $3::boolean OR t.author_id=$1) AND ($5::timestamptz IS NULL OR (t.created_at,t.id)<($5::timestamptz,$6::uuid)) ORDER BY t.created_at DESC,t.id DESC LIMIT 21 OFFSET $4`,
         [
           user,
           f.sport ?? null,
@@ -74,6 +74,7 @@ export function databaseCommunity(pool: pg.Pool) {
           f.cursor ? 0 : f.page * 20,
           f.cursor?.split('~')[0] ?? null,
           f.cursor?.split('~')[1] ?? null,
+          f.regionCode ?? null,
         ],
       );
       return {
@@ -225,8 +226,8 @@ export function databaseCommunity(pool: pg.Pool) {
           if (input.action === 'edit') {
             const v = input.input;
             await c.query(
-              'UPDATE posts SET title=$2,body=$3,sport=$4,place_id=$5,meetup_id=$6,version=version+1 WHERE id=$1',
-              [id, v.title, v.body, v.sport, v.placeId, v.meetupId],
+              'UPDATE posts SET title=$2,body=$3,sport=$4,place_id=$5,meetup_id=$6,region_code=$7,version=version+1 WHERE id=$1',
+              [id, v.title, v.body, v.sport, v.placeId, v.meetupId, v.regionCode],
             );
           } else
             await c.query(`UPDATE ${table} SET hidden=true,version=version+1 WHERE id=$1`, [id]);

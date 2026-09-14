@@ -16,6 +16,7 @@ function gate<T>() {
 }
 function service(weather: PlaceService['weather']): PlaceService {
   return {
+    regions: async () => ({ regions: [{ code: '46840', name: '무안군' }] }),
     list: async () => ({ places: [data.place] }),
     info: async (requested) => {
       if (requested !== id) throw new ServiceError(404, 'NOT_FOUND', '시설을 찾을 수 없습니다.');

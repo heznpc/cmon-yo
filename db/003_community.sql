@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS posts (
  id uuid PRIMARY KEY, author_id uuid REFERENCES auth_user(id) ON DELETE SET NULL,
  title text NOT NULL CHECK(length(title) BETWEEN 1 AND 120), body text NOT NULL CHECK(length(body) BETWEEN 1 AND 5000),
- sport text NOT NULL CHECK(sport IN ('walking','running','cycling')), region_code text NOT NULL CHECK(region_code='46840'),
+ sport text NOT NULL CHECK(sport IN ('walking','running','cycling')), region_code text CHECK(region_code ~ '^[0-9]{5}$'),
  place_id text, meetup_id uuid REFERENCES meetups(id), version integer NOT NULL DEFAULT 1,
  hidden boolean NOT NULL DEFAULT false, created_at timestamptz NOT NULL DEFAULT now()
 );
@@ -32,5 +32,11 @@ CREATE TABLE IF NOT EXISTS community_commands (
 CREATE INDEX IF NOT EXISTS community_commands_rate ON community_commands(user_id,created_at);
 CREATE TABLE IF NOT EXISTS user_profiles (
  user_id uuid PRIMARY KEY REFERENCES auth_user(id) ON DELETE CASCADE,
- region_code text CHECK(region_code='46840'), version integer NOT NULL DEFAULT 0
+ region_code text CHECK(region_code ~ '^[0-9]{5}$'), version integer NOT NULL DEFAULT 0
 );
+
+ALTER TABLE posts ALTER COLUMN region_code DROP NOT NULL;
+ALTER TABLE posts DROP CONSTRAINT IF EXISTS posts_region_code_check;
+ALTER TABLE posts ADD CONSTRAINT posts_region_code_check CHECK (region_code ~ '^[0-9]{5}$');
+ALTER TABLE user_profiles DROP CONSTRAINT IF EXISTS user_profiles_region_code_check;
+ALTER TABLE user_profiles ADD CONSTRAINT user_profiles_region_code_check CHECK (region_code ~ '^[0-9]{5}$');
