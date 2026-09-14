@@ -100,7 +100,7 @@ export function PlacesPage({ id }: { id?: string }) {
       >
         {id ? <PlaceDetail id={id} /> : <PlaceList />}
         <footer className={css.footer}>
-          <p>현재 위치 주변 공공시설 · 공개 자료에 기반한 시설 정보입니다.</p>
+          <p>선택한 동네의 공공시설 · 공개 자료에 기반한 시설 정보입니다.</p>
           <p>
             <AppLink href={placeSourceURL}>출처: 전국도시공원정보표준데이터</AppLink>
           </p>

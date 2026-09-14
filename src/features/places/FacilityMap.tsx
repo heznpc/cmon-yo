@@ -256,7 +256,7 @@ export const FacilityMap = memo(function FacilityMap({
       ) : null}
       {locationState === 'granted' ? (
         <p className={css.mapMessage} role="status">
-          현재 위치를 지도에 표시했습니다.
+          현재 위치를 지도에 표시했습니다. 시설 목록은 선택한 동네 기준입니다.
         </p>
       ) : null}
       {locationState === 'unavailable' ? (
