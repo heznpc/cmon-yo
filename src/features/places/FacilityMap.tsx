@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import type * as MapLibre from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { Place } from '../../contracts/place';
@@ -27,7 +27,7 @@ function fitPlaces(runtime: Runtime, places: Place[]) {
 
 // Map code is loaded only after mount. The SSR facility list remains usable
 // when JavaScript, WebGL, or the external basemap is unavailable.
-export function FacilityMap({
+export const FacilityMap = memo(function FacilityMap({
   places,
   selectedId,
   onSelect,
@@ -262,4 +262,4 @@ export function FacilityMap({
       ) : null}
     </>
   );
-}
+});
