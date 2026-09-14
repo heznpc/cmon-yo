@@ -43,8 +43,8 @@ export const pin = style({
   minHeight: 52,
 });
 export const userLocation = style({
-  width: 18,
-  height: 18,
+  width: 20,
+  height: 20,
   borderRadius: '50%',
   background: '#3655B3',
   border: '3px solid #fff',

@@ -157,6 +157,8 @@ export const FacilityMap = memo(function FacilityMap({
     element.className = css.userLocation;
     element.setAttribute('role', 'img');
     element.setAttribute('aria-label', '현재 위치');
+    // Keep the device marker above facility pins when coordinates overlap.
+    element.style.zIndex = '2';
     runtime.userMarker?.remove();
     runtime.userMarker = new runtime.library.Marker({ element, anchor: 'center' })
       .setLngLat([location.longitude, location.latitude])
@@ -256,7 +258,8 @@ export const FacilityMap = memo(function FacilityMap({
       ) : null}
       {locationState === 'unavailable' ? (
         <p className={css.mapMessage} role="status">
-          현재 위치를 확인할 수 없습니다. 지도는 시설 핀으로 계속 사용할 수 있습니다.
+          기기 위치를 확인할 수 없습니다. 브라우저와 운영체제의 위치 서비스를 허용한 뒤 다시
+          시도해 주세요. 지도는 시설 핀으로 계속 사용할 수 있습니다.
         </p>
       ) : null}
       {locationState === 'timeout' ? (
