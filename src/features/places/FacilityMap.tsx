@@ -160,9 +160,12 @@ export const FacilityMap = memo(function FacilityMap({
     // Keep the device marker above facility pins when coordinates overlap.
     element.style.zIndex = '2';
     runtime.userMarker?.remove();
-    runtime.userMarker = new runtime.library.Marker({ element, anchor: 'center' })
+    const marker = new runtime.library.Marker({ element, anchor: 'center' })
       .setLngLat([location.longitude, location.latitude])
       .addTo(runtime.map);
+    runtime.userMarker = marker;
+    marker.getElement().style.zIndex = '2';
+    marker.getElement().parentElement?.style.setProperty('z-index', '2');
     runtime.map.flyTo({
       center: [location.longitude, location.latitude],
       zoom: Math.max(13, runtime.map.getZoom()),
