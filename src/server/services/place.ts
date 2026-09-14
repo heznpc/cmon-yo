@@ -72,11 +72,31 @@ export function databasePlaces(pool: pg.Pool | undefined, weather: WeatherServic
     },
     async list(signal, filters = { page: 0 }) {
       signal.throwIfAborted();
-      const result = await database().query(
-        `SELECT document FROM places WHERE source = $1 AND ($2::text IS NULL OR left(source_key,5)=$2)
-         ORDER BY source_key DESC LIMIT 101 OFFSET $3`,
-        [source, filters.regionCode ?? null, filters.page * 100],
-      );
+      const hasLocation = filters.latitude != null && filters.longitude != null;
+      const result = hasLocation
+        ? await database().query(
+            `SELECT document FROM places
+             WHERE source = $1 AND ($2::text IS NULL OR left(source_key,5)=$2)
+             ORDER BY
+               6371 * acos(least(1, greatest(-1,
+                 cos(radians($3)) * cos(radians((document->>'latitude')::double precision)) *
+                 cos(radians((document->>'longitude')::double precision) - radians($4)) +
+                 sin(radians($3)) * sin(radians((document->>'latitude')::double precision))
+               )))
+             LIMIT 101 OFFSET $5`,
+            [
+              source,
+              filters.regionCode ?? null,
+              filters.latitude,
+              filters.longitude,
+              filters.page * 100,
+            ],
+          )
+        : await database().query(
+            `SELECT document FROM places WHERE source = $1 AND ($2::text IS NULL OR left(source_key,5)=$2)
+             ORDER BY source_key DESC LIMIT 101 OFFSET $3`,
+            [source, filters.regionCode ?? null, filters.page * 100],
+          );
       signal.throwIfAborted();
       return placeListSchema.parse({
         places: result.rows.slice(0, 100).map((r) => r.document),

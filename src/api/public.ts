@@ -94,6 +94,8 @@ export function createPublicAPI(fetcher: typeof fetch = fetch) {
       const params = new URLSearchParams();
       if (filters.regionCode) params.set('regionCode', filters.regionCode);
       if (filters.page) params.set('page', String(filters.page));
+      if (filters.latitude != null) params.set('latitude', String(filters.latitude));
+      if (filters.longitude != null) params.set('longitude', String(filters.longitude));
       return read(
         '/api/v1/places' + (params.size ? '?' + params : ''),
         placeListSchema,

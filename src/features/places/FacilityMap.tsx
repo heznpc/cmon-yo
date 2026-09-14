@@ -31,10 +31,12 @@ export const FacilityMap = memo(function FacilityMap({
   places,
   selectedId,
   onSelect,
+  onLocation,
 }: {
   places: Place[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
+  onLocation?: (location: DeviceLocation) => void;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const [runtime, setRuntime] = useState<Runtime | null>(null);
@@ -66,7 +68,9 @@ export const FacilityMap = memo(function FacilityMap({
       navigator.geolocation.getCurrentPosition(
         (position) => {
           if (!mounted.current) return;
-          setLocation({ latitude: position.coords.latitude, longitude: position.coords.longitude });
+          const next = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+          setLocation(next);
+          onLocation?.(next);
           setLocationState('granted');
         },
         (error) => {

@@ -117,16 +117,24 @@ function PlaceList() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [favoriteBusy, setFavoriteBusy] = useState<string | null>(null);
   const [favoriteMessage, setFavoriteMessage] = useState('');
+  const [deviceLocation, setDeviceLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
   const parsedFilters = placeFiltersSchema.safeParse(
     Object.fromEntries([...params].filter(([, value]) => value !== '')),
   );
   const filters = parsedFilters.success ? parsedFilters.data : { page: 0 };
+  const queryFilters =
+    filters.regionCode || !deviceLocation
+      ? filters
+      : { ...filters, latitude: deviceLocation.latitude, longitude: deviceLocation.longitude };
   const query = useQuery({
     enabled: parsedFilters.success,
-    queryKey: placeListKey(filters),
+    queryKey: placeListKey(queryFilters),
     staleTime: 60_000,
     retry: false,
-    queryFn: ({ signal }) => publicAPI.places(signal, filters),
+    queryFn: ({ signal }) => publicAPI.places(signal, queryFilters),
   });
   const visiblePlaces = useMemo(
     () =>
@@ -219,6 +227,7 @@ function PlaceList() {
               places={visiblePlaces}
               selectedId={selected?.id ?? null}
               onSelect={setSelectedId}
+              onLocation={setDeviceLocation}
             />
           ) : null}
           {query.data?.places.length ? (

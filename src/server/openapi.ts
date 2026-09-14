@@ -112,11 +112,24 @@ export const openapi = {
             in: 'query',
             schema: { type: 'integer', minimum: 0, maximum: 10000, default: 0 },
           },
+          {
+            name: 'latitude',
+            in: 'query',
+            schema: { type: 'number', minimum: -90, maximum: 90 },
+            description: 'Device latitude; when paired with longitude, sort by nearest facility.',
+          },
+          {
+            name: 'longitude',
+            in: 'query',
+            schema: { type: 'number', minimum: -180, maximum: 180 },
+            description: 'Device longitude; when paired with latitude, sort by nearest facility.',
+          },
         ],
-        summary: 'Read imported parks, optionally filtered by region, in pages of 100.',
+        summary:
+          'Read imported parks, optionally filtered by region or sorted by device distance, in pages of 100.',
         responses: {
           '200': response('PlaceList', 'Imported public facilities; nextPage is null at the end.'),
-          '400': response('ApiError', 'INVALID_FILTER: malformed region or page.'),
+          '400': response('ApiError', 'INVALID_FILTER: malformed region, page, or coordinates.'),
           '503': unavailable,
         },
       },

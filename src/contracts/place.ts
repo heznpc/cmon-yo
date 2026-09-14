@@ -7,10 +7,16 @@ export const regionListSchema = z.object({
   regions: z.array(z.object({ code: regionCodeSchema, name: z.string().min(1) })),
 });
 export const regionsKey = ['regions'] as const;
-export const placeFiltersSchema = z.object({
-  regionCode: regionCodeSchema.optional(),
-  page: z.coerce.number().int().min(0).max(10000).default(0),
-});
+export const placeFiltersSchema = z
+  .object({
+    regionCode: regionCodeSchema.optional(),
+    page: z.coerce.number().int().min(0).max(10000).default(0),
+    latitude: z.coerce.number().min(-90).max(90).optional(),
+    longitude: z.coerce.number().min(-180).max(180).optional(),
+  })
+  .refine((value) => (value.latitude == null) === (value.longitude == null), {
+    message: 'latitude and longitude must be provided together',
+  });
 export type PlaceFilters = z.infer<typeof placeFiltersSchema>;
 export const placeSchema = z.object({
   id: placeIdSchema,
@@ -48,7 +54,12 @@ export type Weather = z.infer<typeof weatherSchema>;
 export type PlaceDetail = z.infer<typeof placeDetailSchema>;
 export const placesKey = ['places'] as const;
 export const placeListKey = (filters: PlaceFilters) =>
-  !filters.regionCode && filters.page === 0 ? placesKey : ([...placesKey, filters] as const);
+  !filters.regionCode &&
+  filters.page === 0 &&
+  filters.latitude == null &&
+  filters.longitude == null
+    ? placesKey
+    : ([...placesKey, filters] as const);
 export const placeKey = (id: string) => ['place', id] as const;
 export const placeSourceURL = 'https://www.data.go.kr/data/15012890/standard.do';
 // Independent units for new clients; the combined detail remains compatible.
