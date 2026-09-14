@@ -41,7 +41,6 @@ export const pin = style({
   width: 44,
   height: 52,
   minHeight: 52,
-  selectors: { '&[aria-pressed="true"]': { filter: 'drop-shadow(0 0 5px #17264C)' } },
 });
 globalStyle(`${pin} svg`, { width: 44, height: 52, display: 'block' });
 // Keep provider attribution visible and size map controls for touch input.
