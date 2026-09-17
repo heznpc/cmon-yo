@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { meetingInputSchema, type Meeting, type MeetingInput } from '../../contracts/meetings';
-import { placesKey } from '../../contracts/place';
+import { placeKey, placesKey } from '../../contracts/place';
 import { publicAPI } from '../../api/public';
 import { form } from '../account/account.css';
 import { primary } from './meetup.css';
@@ -34,6 +34,14 @@ export function MeetingEditor({
     staleTime: 60_000,
     retry: false,
     queryFn: ({ signal }) => publicAPI.places(signal),
+  });
+  const selectedInList = places.data?.places.some((place) => place.id === selectedPlace);
+  const selectedInfo = useQuery({
+    queryKey: placeKey(selectedPlace),
+    enabled: !!selectedPlace && !selectedInList,
+    staleTime: 60_000,
+    retry: false,
+    queryFn: ({ signal }) => publicAPI.placeInfo(selectedPlace, signal),
   });
   const command = useMeetingCommand(
     userId,
@@ -102,6 +110,9 @@ export function MeetingEditor({
               onChange={(event) => setSelectedPlace(event.target.value)}
             >
               <option value="">시설 선택</option>
+              {!selectedInList && selectedInfo.data ? (
+                <option value={selectedInfo.data.place.id}>{selectedInfo.data.place.name}</option>
+              ) : null}
               {places.data?.places.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}

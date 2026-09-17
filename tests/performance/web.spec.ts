@@ -118,7 +118,13 @@ test('production streamed weather, independent recovery, late navigation and cac
   await expect(page.getByText('최근에 받은 예보입니다.')).toBeVisible();
   await expect(related).toBeFocused();
   await expect(page.locator('section[aria-label="날씨"]')).toHaveCount(1);
-  expect(requests.filter((u) => u.includes('/api/'))).toEqual([]);
+  // Personal favorites load independently; public facility and weather data
+  // must still come from the streamed response without duplicate API reads.
+  expect(
+    requests.filter(
+      (u) => u.includes('/api/') && new URL(u).pathname !== '/api/v1/me/place-favorites',
+    ),
+  ).toEqual([]);
   await page.screenshot({ path: info.outputPath('weather-released.png') });
   // Retry changes just the weather query. Facility node and focus survive.
   await body.evaluate((e) => e.setAttribute('data-same-node', 'yes'));

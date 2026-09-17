@@ -11,10 +11,14 @@ test('regions from imported data drive facility pages, meetup creation and commu
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   page.on('console', (message) => {
-    // Anonymous viewer checks intentionally return 401 before sign-in.
+    // Anonymous account and favorites checks return 401 before sign-in.
     if (
       message.type() === 'error' &&
-      !(message.location().url.endsWith('/api/v1/me') && message.text().includes('401'))
+      !(
+        ['/api/v1/me', '/api/v1/me/place-favorites'].some((path) =>
+          message.location().url.endsWith(path),
+        ) && message.text().includes('401')
+      )
     )
       errors.push(message.text());
   });
@@ -81,6 +85,10 @@ test('regions from imported data drive facility pages, meetup creation and commu
   await page.getByLabel('제목', { exact: true }).fill(title);
   await page.getByLabel('본문', { exact: true }).fill('다른 동네의 운동 질문입니다.');
   await page.getByRole('combobox', { name: '게시글 동네', exact: true }).selectOption('11680');
+  await page.reload();
+  await expect(page.getByRole('combobox', { name: '게시글 동네', exact: true })).toHaveValue(
+    '11680',
+  );
   await page.getByRole('button', { name: '게시글 저장', exact: true }).click();
   await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
   await page.goto('/community?regionCode=46840');

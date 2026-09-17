@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { placeListSchema, placesKey } from '../../contracts/place';
+import { RegionSelect } from '../places/RegionSelect';
 import { meetingListSchema, meetingListKey } from '../../contracts/meetings';
 import { postInputSchema, type Post } from '../../contracts/community';
 import { meetingRequest } from '../../api/meetings';
@@ -29,13 +30,14 @@ export function PostEditor({
       title: post?.title ?? '',
       body: post?.body ?? '',
       sport: post?.sport ?? 'walking',
+      regionCode: post?.regionCode ?? '',
       placeId: post?.placeId ?? '',
       meetupId: post?.meetupId ?? '',
       version: post?.version ?? null,
     },
     postDraftSchema,
   );
-  const { title, body, sport, placeId, meetupId } = draft.value;
+  const { title, body, sport, regionCode, placeId, meetupId } = draft.value;
   const [preview, setPreview] = useState(false),
     [error, setError] = useState('');
   const locked = disabled || !draft.hydrated;
@@ -60,6 +62,7 @@ export function PostEditor({
           title,
           body,
           sport,
+          regionCode: regionCode || null,
           placeId: placeId || null,
           meetupId: meetupId || null,
         });
@@ -95,6 +98,13 @@ export function PostEditor({
           ))}
         </select>
       </label>
+      <RegionSelect
+        label="게시글 동네"
+        emptyLabel="동네 지정 안 함"
+        disabled={locked}
+        value={regionCode}
+        onChange={(e) => draft.update({ ...draft.value, regionCode: e.target.value })}
+      />
       <label htmlFor={bodyId}>본문</label>
       <textarea
         id={bodyId}
