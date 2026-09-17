@@ -11,6 +11,7 @@
 - 예: `feat(meetups): Native 상세 화면을 HTTP API에 연결`.
 - 저자는 `heznpc`, 이메일은 `222764483+heznpc@users.noreply.github.com`만 사용합니다. 개인 이메일이나 공동 저자 trailer를 넣지 않습니다.
 - merge 방식은 squash를 기본으로 합니다. force push, hard reset, 미병합 브랜치 삭제는 사전 승인 없이 하지 않습니다.
+- GitHub squash 병합은 계정 기본 이메일과 공동 저자 문구를 다시 넣을 수 있습니다. PR 검사 통과 후 최신 `origin/main`에서 로컬 `git merge --squash <검증된-PR-SHA>`를 실행하고 위의 작성자로 커밋합니다. `git push origin HEAD:main`의 일반 fast-forward 푸시를 사용하며, 거부되면 최신 main부터 다시 검토합니다. 병합 후 원격 커밋의 작성자·본문을 확인합니다.
 
 ## 이슈 → PR → 검증
 
