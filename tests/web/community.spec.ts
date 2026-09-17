@@ -48,9 +48,9 @@ test('community SSR, hydration, input recovery, comments, ownership, block and d
   await expect(initialForm.getByLabel('제목', { exact: true })).toBeDisabled();
   await noJS.close();
   const title = '[시험] 동네 질문 ' + randomUUID().slice(0, 6);
-  await page.getByLabel('제목', { exact: true }).fill(title);
+  await page.getByRole('textbox', { name: '제목', exact: true }).fill(title);
   await page
-    .getByLabel('본문', { exact: true })
+    .getByRole('textbox', { name: '본문', exact: true })
     .fill('<script>alert("unsafe")</script> 함께 걸어요.');
   await page.route('**/api/v1/community/commands', (route) =>
     route.fulfill({
@@ -60,7 +60,7 @@ test('community SSR, hydration, input recovery, comments, ownership, block and d
     }),
   );
   await page.getByRole('button', { name: '게시글 저장', exact: true }).click();
-  await expect(page.getByLabel('제목', { exact: true })).toHaveValue(title);
+  await expect(page.getByRole('textbox', { name: '제목', exact: true })).toHaveValue(title);
   await expect(page.getByRole('button', { name: '저장 결과 확인' })).toBeVisible();
   await page.unroute('**/api/v1/community/commands');
   await page.getByRole('button', { name: '같은 요청 다시 보내기' }).click();
@@ -78,7 +78,7 @@ test('community SSR, hydration, input recovery, comments, ownership, block and d
   await expect(page.getByRole('button', { name: '글 수정', exact: true })).toBeEnabled();
   expect(reads).toBe(0);
   await page.getByRole('button', { name: '글 수정', exact: true }).click();
-  await page.getByLabel('제목', { exact: true }).fill(title + ' 수정');
+  await page.getByRole('textbox', { name: '제목', exact: true }).fill(title + ' 수정');
   await page.getByRole('button', { name: '게시글 저장', exact: true }).click();
   await expect(page.getByRole('heading', { name: title + ' 수정', exact: true })).toBeVisible();
   const context = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 } });
