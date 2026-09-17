@@ -17,6 +17,7 @@ import { meetingRequest, MeetingRequestError } from '../../api/meetings';
 import { ViewerGate, AccountBoundary } from '../account/ViewerGate';
 import { ProductNav } from '../../app/ProductNav';
 import { Icon } from '../../app/Icon';
+import { RegionSelect } from '../places/RegionSelect';
 import * as styles from '../meetup/meetup.css';
 export type CommunityRoute = {
   section: 'community';
@@ -167,10 +168,18 @@ function CommunityContent({ route, ready }: { route: CommunityRoute; ready: bool
                   nav(
                     loc.pathname +
                       '?' +
-                      new URLSearchParams({ sport: String(d.get('sport') ?? '') }),
+                      new URLSearchParams({
+                        sport: String(d.get('sport') ?? ''),
+                        regionCode: String(d.get('regionCode') ?? ''),
+                      }),
                   );
                 }}
               >
+                <RegionSelect
+                  key={f.regionCode ?? ''}
+                  name="regionCode"
+                  defaultValue={f.regionCode ?? ''}
+                />
                 <label>
                   종목
                   <select name="sport" defaultValue={f.sport ?? ''}>
@@ -201,7 +210,13 @@ function CommunityContent({ route, ready }: { route: CommunityRoute; ready: bool
                 ))}
               </ul>
               {f.page > 0 || f.cursor ? (
-                <Link to={loc.pathname + '?' + new URLSearchParams({ sport: f.sport ?? '' })}>
+                <Link
+                  to={
+                    loc.pathname +
+                    '?' +
+                    new URLSearchParams({ sport: f.sport ?? '', regionCode: f.regionCode ?? '' })
+                  }
+                >
                   첫 페이지
                 </Link>
               ) : null}
