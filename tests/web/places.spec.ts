@@ -177,7 +177,9 @@ test('map pins follow search and keyboard selection opens the matching facility 
   await expect(page.getByLabel('선택한 시설')).toContainText('일로읍 오남로 55');
   await page.getByRole('link', { name: '시설 상세 보기', exact: true }).click();
   await expect(page).toHaveURL(/\/places\/park-46840-00023$/);
-  await expect(page.getByRole('heading', { name: '근린공원 36', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: '근린공원 36', exact: true, level: 1 }),
+  ).toBeVisible();
   await page.getByRole('link', { name: '시설 목록으로 돌아가기' }).click();
   await expect(map.getByRole('button', { name: /지도 핀$/ })).toHaveCount(21);
   await search.fill('해당 시설 없음');
