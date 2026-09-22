@@ -25,7 +25,8 @@ xcrun --sdk iphonesimulator swiftc -emit-library -module-name CmonYoTests \
   -I "$developer_path/usr/lib" -L "$developer_path/usr/lib" -lXCTestSwiftSupport \
   -F "$developer_path/Library/Frameworks" -framework XCTest \
   -o "$qa_root/Tests.xctest/Tests" ios/CmonYo/Networking/*.swift \
-  ios/CmonYo/Web/MeetupBridge.swift "$qa_root"/sources/*.swift
+  ios/CmonYo/Walking/*.swift ios/CmonYo/Web/MeetupBridge.swift \
+  ios/CmonYo/Web/QuestsNavigation.swift "$qa_root"/sources/*.swift
 SIMCTL_CHILD_DYLD_FRAMEWORK_PATH="$developer_path/Library/Frameworks" \
 SIMCTL_CHILD_DYLD_LIBRARY_PATH="$developer_path/usr/lib" \
 xcrun simctl spawn "$udid" "$developer_path/Library/Xcode/Agents/xctest" "$qa_root/Tests.xctest"

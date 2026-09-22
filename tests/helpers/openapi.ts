@@ -12,7 +12,7 @@ type Document = {
         responses: Record<
           string,
           {
-            content: { 'application/json': { schema: { $ref: string } } };
+            content: { 'application/json': { schema: AnySchema } };
           }
         >;
       };
@@ -32,11 +32,13 @@ export function responseContract(document: unknown) {
   return (path: string, status: number, body: unknown) => {
     const response = spec.paths[path]?.get.responses[String(status)];
     expect(response, `Undocumented GET ${path} ${status}`).toBeDefined();
-    const ref = response.content['application/json'].schema.$ref;
-    expect(ref).toMatch(/^#\/components\/schemas\/[^/]+$/);
-    const name = ref.split('/').at(-1)!;
-    if (!validators.has(name)) validators.set(name, ajv.compile(spec.components.schemas[name]));
-    const validate = validators.get(name)!;
+    const schema = response.content['application/json'].schema;
+    const ref = typeof schema === 'object' && typeof schema.$ref === 'string' ? schema.$ref : null;
+    if (ref) expect(ref).toMatch(/^#\/components\/schemas\/[^/]+$/);
+    const key = ref ?? `${path}:${status}`;
+    const definition = ref ? spec.components.schemas[ref.split('/').at(-1)!] : schema;
+    if (!validators.has(key)) validators.set(key, ajv.compile(definition));
+    const validate = validators.get(key)!;
     return { valid: validate(body), errors: validate.errors };
   };
 }

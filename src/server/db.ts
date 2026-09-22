@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { migrateDatabase } from './migrations';
 import pg from 'pg';
 
 // pg returns int8 as text by default. Authentication timestamps are safe JS
@@ -28,17 +28,5 @@ export function createPool(connectionString: string) {
   });
 }
 export async function migrate(pool: pg.Pool) {
-  const sql = await readFile('db/001_places.sql', 'utf8');
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    await client.query('SELECT pg_advisory_xact_lock(15012890)');
-    await client.query(sql);
-    await client.query('COMMIT');
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
+  await migrateDatabase(pool, 1);
 }

@@ -1,5 +1,5 @@
+import { migrateDatabase } from '../migrations';
 import { randomUUID, createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
 import type pg from 'pg';
 import {
   postSchema,
@@ -34,18 +34,7 @@ const post = (r: pg.QueryResultRow) =>
     meetupId: r.meetup_id,
   });
 export async function migrateCommunity(pool: pg.Pool) {
-  const c = await pool.connect();
-  try {
-    await c.query('BEGIN');
-    await c.query('SELECT pg_advisory_xact_lock(15012892)');
-    await c.query(await readFile('db/003_community.sql', 'utf8'));
-    await c.query('COMMIT');
-  } catch (e) {
-    await c.query('ROLLBACK');
-    throw e;
-  } finally {
-    c.release();
-  }
+  await migrateDatabase(pool, 3);
 }
 export function databaseCommunity(pool: pg.Pool) {
   const parent = async (

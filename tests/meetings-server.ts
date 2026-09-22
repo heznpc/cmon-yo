@@ -1,3 +1,5 @@
+import { databaseWalking } from '../src/server/walking/service';
+import { migrateWalking } from '../src/server/migrations';
 import { databaseAttendance } from '../src/server/services/attendance';
 // Loopback-only QA entry point. Real account verification and isolated DB.
 import { databaseCommunity } from '../src/server/services/community';
@@ -36,6 +38,8 @@ const auth = createAuth({
 await (await getMigrations(auth.options)).runMigrations();
 await migrate(pool);
 await migrateMeetings(pool);
+await migrateWalking(pool);
+const walking = databaseWalking(pool);
 await importParks(
   pool,
   JSON.parse(await readFile('contracts/samples/muan-parks.json', 'utf8')),
@@ -92,6 +96,7 @@ const builtRenderer = production
   : undefined;
 const app = createApp({
   auth,
+  walking,
   meetings: databaseMeetings(pool),
   community: databaseCommunity(pool),
   attendance: databaseAttendance(pool),
@@ -101,6 +106,21 @@ const app = createApp({
     production
       ? (await import(builtRenderer!)).renderPage
       : (await vite!.ssrLoadModule('/src/server/render.tsx')).renderPage,
+});
+// Test harness only: authenticated fixture submissions never enter production routes.
+app.post('/_test/walking', async (r, p) => {
+  if (r.headers.origin !== auth.options.baseURL) return p.code(403).send({});
+  const account = await currentAccount(auth, r, p);
+  if (!account.user?.emailVerified) return p.code(401).send({});
+  const input = r.body as { action?: string; steps?: number };
+  if (input.action !== 'seed' || !Number.isInteger(input.steps) || input.steps! < 0 || input.steps! > 100000)
+    return p.code(400).send({});
+  const dashboard = await walking.dashboard(account.user.id);
+  const source = dashboard.sourceId ? { id: dashboard.sourceId } :
+    await walking.command(account.user.id, randomUUID(), { action: 'bindHealth', deviceId: randomUUID() });
+  await walking.command(account.user.id, randomUUID(), { action: 'syncHealth', sourceId: source.id,
+    revision: Date.now(), days: [{ day: dashboard.today, steps: input.steps! }] });
+  return walking.dashboard(account.user.id);
 });
 app.post('/_test/reset-limits', async () => {
   await pool.query('DELETE FROM auth_rate_limit');

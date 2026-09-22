@@ -2,8 +2,8 @@ import { reportClientEvent } from '../../api/telemetry';
 import { commandAction, type ClientEvent } from '../../contracts/telemetry';
 import { useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
-import { meetingRequest, MeetingRequestError } from '../../api/meetings';
-import { communityResultSchema } from '../../contracts/community';
+import { apiRequest, RequestError } from '../../api/http';
+import { commandResultSchema } from '../../contracts/command';
 import { readRecovery, writeRecovery, removeRecovery } from './storage';
 
 type Command<I> = { key: string; input: I | null };
@@ -43,7 +43,7 @@ export function useCommand<I>({
   const validator = useRef(schema);
   const storageScope = 'command:' + scope;
   function report(outcome: ClientEvent['outcome'], key?: string) {
-    const area = scope.split(':')[0] as 'community' | 'meeting' | 'attendance';
+    const area = scope.split(':')[0] as 'community' | 'meeting' | 'attendance' | 'quests';
     reportClientEvent({
       event: 'command',
       area,
@@ -177,7 +177,7 @@ export function useCommand<I>({
     } catch (error) {
       if (!alive.current || !latest.current.ready) return false;
       const uncertain =
-        !(error instanceof MeetingRequestError) ||
+        !(error instanceof RequestError) ||
         error.status >= 500 ||
         error.code === 'COMMAND_CONFLICT';
       report(uncertain ? 'unknown' : 'rejected', command.key);
@@ -207,7 +207,7 @@ export function useCommand<I>({
     setPending(true);
     active.current = new AbortController();
     try {
-      const result = await meetingRequest(lookup + command.key, communityResultSchema, {
+      const result = await apiRequest(lookup + command.key, commandResultSchema, {
         signal: active.current.signal,
         headers: { 'X-Cmon-User': userId },
       });

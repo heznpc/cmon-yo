@@ -1,8 +1,5 @@
-import { migrateAttendance } from './attendance';
-import { migrateCommunity } from './community';
-import { migratePlaceFavorites } from './place';
+import { migrateDatabase } from '../migrations';
 import { randomUUID, createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
 import type pg from 'pg';
 import {
   meetingSchema,
@@ -15,21 +12,7 @@ import { regionOfPlace } from '../../contracts/place';
 import { ServiceError } from './meetup';
 
 export async function migrateMeetings(pool: pg.Pool) {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    await client.query('SELECT pg_advisory_xact_lock(15012891)');
-    await client.query(await readFile('db/002_meetups.sql', 'utf8'));
-    await client.query('COMMIT');
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
-  await migrateCommunity(pool);
-  await migrateAttendance(pool);
-  await migratePlaceFavorites(pool);
+  await migrateDatabase(pool, 5);
 }
 const selection = `SELECT m.*, (SELECT count(*)::int FROM participations p WHERE p.meetup_id=m.id AND p.status='joined') AS participant_count FROM meetups m`;
 function dto(row: pg.QueryResultRow) {

@@ -94,7 +94,7 @@ export const communityCommandSchema = z.discriminatedUnion('action', [
     .strict(),
   z.object({ action: z.literal('block'), id: idSchema, blocked: z.boolean() }).strict(),
 ]);
-export const communityResultSchema = z.object({ id: idSchema.nullable() });
+export { commandResultSchema as communityResultSchema } from './command';
 export type CommunityCommand = z.infer<typeof communityCommandSchema>;
 export type CommunityFilters = z.infer<typeof communityFiltersSchema>;
 export type Post = z.infer<typeof postSchema>;

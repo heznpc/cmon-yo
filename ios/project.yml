@@ -19,12 +19,14 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.heznpc.cmonyo
+        CODE_SIGN_ENTITLEMENTS: CmonYo/CmonYo.entitlements
     info:
       path: CmonYo/Info.plist
       properties:
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
         NSLocationWhenInUseUsageDescription: 현재 위치 주변의 운동 시설을 지도에 표시하기 위해 위치를 사용합니다.
+        NSHealthShareUsageDescription: 건강 앱의 걸음 수를 읽어 오늘의 걷기 보상과 함께하는 원정 진행도를 반영합니다.
   CmonYoTests:
     type: bundle.unit-test
     platform: iOS

@@ -1,5 +1,5 @@
+import { migrateDatabase } from '../migrations';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
 import type pg from 'pg';
 import {
   attendancePolicy,
@@ -11,18 +11,7 @@ const fail = (status: number, code: string, message: string): never => {
   throw new ServiceError(status, code, message);
 };
 export async function migrateAttendance(pool: pg.Pool) {
-  const c = await pool.connect();
-  try {
-    await c.query('BEGIN');
-    await c.query('SELECT pg_advisory_xact_lock(15012893)');
-    await c.query(await readFile('db/004_attendance.sql', 'utf8'));
-    await c.query('COMMIT');
-  } catch (e) {
-    await c.query('ROLLBACK');
-    throw e;
-  } finally {
-    c.release();
-  }
+  await migrateDatabase(pool, 4);
 }
 export function databaseAttendance(pool: pg.Pool, now = () => Date.now()) {
   return {

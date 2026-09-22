@@ -3,11 +3,13 @@ import SwiftUI
 @main
 struct CmonYoApp: App {
   @State private var session = AccountSession(baseURL: URL(string: ProcessInfo.processInfo.environment["CMON_API_URL"] ?? "http://127.0.0.1:3000")!)
+  @State private var walking = WalkingSyncService()
   @Environment(\.scenePhase) private var scenePhase
-  @State private var tab = ProcessInfo.processInfo.environment["CMON_START_TAB"] ?? "places"
+  @State private var tab = ProcessInfo.processInfo.environment["CMON_START_TAB"] ?? "walking"
   var body: some Scene {
     WindowGroup {
       TabView(selection: $tab) {
+        WalkingTab().tabItem { Label("걷기", systemImage: "figure.walk") }.tag("walking")
         FacilitiesView(api: FacilityAPI(baseURL: configurationURL))
           .tabItem { Label("둘러보기", systemImage: "tree") }.tag("places")
         if ProcessInfo.processInfo.environment["CMON_MEETUP_ID"] != nil { MeetupView(
@@ -18,11 +20,17 @@ struct CmonYoApp: App {
         } else { MeetingsTab().tabItem { Label("모임", systemImage: "person.2") }.tag("meetups") }
         AccountView().tabItem { Label("내 활동", systemImage: "person") }.tag("account")
       }
-      .id(session.privacyEpoch).environment(session)
+      .id(session.privacyEpoch).environment(session).environment(walking)
       .tint(NeighborhoodStyle.link)
       .task { await session.restore() }
+      .task(id: "\(session.generation):\(session.user?.id ?? "guest")") { await walking.activate(session) }
       .onChange(of: scenePhase) { _, phase in
-        if phase == .active && !session.restoring { Task { do { try await session.refreshAccount() } catch { session.notice = error.localizedDescription } } }
+        if phase == .active && !session.restoring {
+          Task {
+            do { try await session.refreshAccount() } catch { session.notice = error.localizedDescription }
+            await walking.activate(session)
+          }
+        }
       }
     }
   }

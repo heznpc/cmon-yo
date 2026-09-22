@@ -14,6 +14,7 @@ export const commandActionSchema = z.enum([
   'checkIn',
   'requestReview',
   'review',
+  'bindHealth', 'syncHealth', 'claimDaily', 'createExpedition', 'joinExpedition', 'leaveExpedition', 'claimStage', 'redeemBadge',
 ]);
 export function commandAction(input: unknown) {
   if (!input || typeof input !== 'object') return undefined;
@@ -40,7 +41,7 @@ export const clientEventSchema = z
     requestId: z.uuid().optional(),
     commandId: z.uuid().optional(),
     action: commandActionSchema.optional(),
-    area: z.enum(['community', 'meeting', 'attendance']).optional(),
+    area: z.enum(['community', 'meeting', 'attendance', 'quests']).optional(),
     outcome: z
       .enum([
         'sent',
