@@ -15,7 +15,14 @@ import { meetingFiltersSchema } from '../contracts/meetings';
 import { accountReturnPath } from '../contracts/account';
 import { NavigationEffects } from './navigation';
 import type { CommunityRoute } from '../features/community/CommunityPage';
+import type { QuestsRoute } from '../features/quests/QuestsPage';
 import { StreamContext, type StreamResources, type StreamState } from './stream';
+let loadedQuests: ComponentType<{ route: QuestsRoute; ready?: boolean }> | undefined;
+const loadQuests = () =>
+  import('../features/quests/QuestsPage').then((m) => ({
+    default: (loadedQuests = m.QuestsPage),
+  }));
+const LazyQuests = lazy(loadQuests);
 let loadedCommunity: ComponentType<{ route: CommunityRoute; initial?: string | null }> | undefined;
 const loadCommunity = () =>
   import('../features/community/CommunityPage').then((m) => ({
@@ -43,6 +50,7 @@ const LazyAccount = lazy(loadAccount),
 export async function prepareInitialRoute(state: InitialState) {
   const r = state.route;
   if (!('section' in r)) await loadFixture();
+  else if (r.section === 'quests') await loadQuests();
   else if (r.section === 'community') await loadCommunity();
   else if (r.section === 'account') await loadAccount();
   else if (r.section === 'meetings') {
@@ -57,7 +65,8 @@ export type InitialState = {
     | { section: 'places'; id?: string }
     | AccountRoute
     | MeetingsRoute
-    | CommunityRoute;
+    | CommunityRoute
+    | QuestsRoute;
   dehydratedState: DehydratedState;
   url?: string;
   fixture?: boolean;
@@ -70,6 +79,7 @@ export function initialURL(state: InitialState) {
   if (r.section === 'places') return '/places' + (r.id ? '/' + r.id : '');
   if (r.section === 'account') return '/account';
   if (r.section === 'community') return '/community';
+  if (r.section === 'quests') return '/quests';
   return r.mode === 'mine'
     ? '/account/meetups'
     : r.mode === 'create'
@@ -130,6 +140,7 @@ export function App({
         }
       />
       <Route path="/activity" element={<CommunityRoutePage mode="activity" initial={initial} />} />
+      <Route path="/quests" element={<QuestsRoutePage initial={initial} />} />
       <Route path="/community" element={<CommunityRoutePage mode="list" initial={initial} />} />
       <Route
         path="/community/new"
@@ -244,6 +255,21 @@ function AccountRoutePage({ initial }: { initial?: InitialState }) {
             }
           }
         />
+      )}
+    </ViewerGate>
+  );
+}
+
+function QuestsRoutePage({ initial }: { initial?: InitialState }) {
+  const location = useLocation(),
+    Page = loadedQuests ?? LazyQuests;
+  const known = initial && 'userId' in initial.route ? initial.route.userId : undefined;
+  return (
+    <ViewerGate key={location.pathname + location.search} initial={known}>
+      {(userId) => (
+        <AccountBoundary userId={userId}>
+          {(ready) => <Page key={userId ?? 'guest'} route={{ section: 'quests', userId }} ready={ready} />}
+        </AccountBoundary>
       )}
     </ViewerGate>
   );

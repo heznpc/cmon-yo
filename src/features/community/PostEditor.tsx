@@ -1,3 +1,5 @@
+import { useLocation } from 'react-router';
+import { placeIdSchema, regionOfPlace } from '../../contracts/place';
 import { useDraft } from '../recovery/useDraft';
 import { postDraftScope, postDraftSchema } from './postDraft';
 import { useState } from 'react';
@@ -22,6 +24,9 @@ export function PostEditor({
   disabled: boolean;
   submit: (input: z.infer<typeof postInputSchema>, version: number | null) => Promise<boolean>;
 }) {
+  const location = useLocation();
+  const linkedPlace = placeIdSchema.safeParse(new URLSearchParams(location.search).get('placeId'));
+  const initialPlace = !post && linkedPlace.success ? linkedPlace.data : '';
   const bodyId = 'post-body-' + (post?.id ?? 'new');
   const draft = useDraft(
     userId,
@@ -30,8 +35,8 @@ export function PostEditor({
       title: post?.title ?? '',
       body: post?.body ?? '',
       sport: post?.sport ?? 'walking',
-      regionCode: post?.regionCode ?? '',
-      placeId: post?.placeId ?? '',
+      regionCode: post?.regionCode ?? (initialPlace ? regionOfPlace(initialPlace) : ''),
+      placeId: post?.placeId ?? initialPlace,
       meetupId: post?.meetupId ?? '',
       version: post?.version ?? null,
     },

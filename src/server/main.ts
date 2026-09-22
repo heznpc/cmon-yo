@@ -1,3 +1,4 @@
+import { databaseWalking } from './walking/service';
 import { observeWeather } from './observability';
 import { databaseAttendance } from './services/attendance';
 import { readFile } from 'node:fs/promises';
@@ -50,6 +51,7 @@ const auth =
     : undefined;
 const app = createApp({
   trustProxy: proxyTrust(process.env.TRUST_PROXY),
+  walking: pool && !fixtureMode ? databaseWalking(pool) : undefined,
   attendance: pool && !fixtureMode ? databaseAttendance(pool) : undefined,
   community: pool && !fixtureMode ? databaseCommunity(pool) : undefined,
   telemetry: (event) => console.log(JSON.stringify(event)),

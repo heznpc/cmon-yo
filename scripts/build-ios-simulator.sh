@@ -10,6 +10,8 @@ cat > "$entitlements" <<'PLIST'
 <plist version="1.0"><dict>
 <key>application-identifier</key><string>app.heznpc.cmonyo</string>
 <key>keychain-access-groups</key><array><string>app.heznpc.cmonyo</string></array>
+<key>com.apple.developer.healthkit</key><true/>
+<key>com.apple.developer.healthkit.background-delivery</key><true/>
 </dict></plist>
 PLIST
 xcodegen generate --spec ios/project.yml

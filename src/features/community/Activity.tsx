@@ -110,6 +110,7 @@ export function Activity({
   return (
     <>
       <nav className={styles.actions}>
+        <Link to="/quests">걷기 퀘스트·포인트</Link>
         <Link to="/account/meetups">모임 전체 기록</Link>
         <Link to="/account/posts">내 글 전체</Link>
         <Link to="/account">로그인·복구·탈퇴</Link>

@@ -1,3 +1,5 @@
+import { registerWalking, type WalkingService } from './walking-routes';
+import { walkingPaths } from './walking-openapi';
 import { placeFiltersSchema } from '../contracts/place';
 import { installObservability, type Observation } from './observability';
 import { randomUUID } from 'node:crypto';
@@ -41,6 +43,7 @@ export function createApp({
   meetings,
   community,
   attendance,
+  walking,
   trustProxy = false,
 }: {
   service?: MeetupService;
@@ -61,6 +64,7 @@ export function createApp({
   meetings?: MeetingService;
   community?: CommunityService;
   attendance?: AttendanceService;
+  walking?: WalkingService;
   trustProxy?: false | string[];
 }) {
   const app = Fastify({
@@ -96,6 +100,7 @@ export function createApp({
   });
   if (community) registerCommunity(app, community, auth, renderer, assets, deadlineMs, meetings);
   if (attendance) registerAttendance(app, attendance, auth);
+  registerWalking(app, walking, auth, renderer, assets, deadlineMs);
   registerAuthRoutes(app, auth);
   registerNativeAuth(app, auth);
   if (meetings) registerMeetings(app, meetings, auth, renderer, assets, deadlineMs);
@@ -159,7 +164,14 @@ export function createApp({
     }
     return reply;
   });
-  app.get('/api/v1/openapi.json', async () => (meetings ? meetingsOpenapi : openapi));
+  app.get('/api/v1/openapi.json', async () => meetings ? meetingsOpenapi : {
+    ...openapi,
+    paths: { ...openapi.paths, ...walkingPaths },
+    components: {
+      ...openapi.components,
+      securitySchemes: meetingsOpenapi.components.securitySchemes,
+    },
+  });
   if (!meetings)
     app.get('/api/v1/meetups/:id', async (request, reply) => {
       const id = idSchema.safeParse((request.params as { id: string }).id);

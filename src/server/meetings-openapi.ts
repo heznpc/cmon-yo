@@ -1,3 +1,4 @@
+import { walkingPaths } from './walking-openapi';
 import {
   communityCommandSchema,
   profileSchema,
@@ -94,6 +95,7 @@ export const meetingsOpenapi = {
     },
   },
   paths: {
+    ...walkingPaths,
     ...openapi.paths,
     '/api/v1/me/profile': {
       get: {

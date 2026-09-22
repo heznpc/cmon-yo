@@ -6,6 +6,7 @@ const items = [
   { href: '/places', label: '둘러보기', icon: 'places' },
   { href: '/meetups', label: '모임', icon: 'meetings' },
   { href: '/community', label: '커뮤니티', icon: 'community' },
+  { href: '/quests', label: '퀘스트', icon: 'heart' },
   { href: '/activity', label: '내 활동', icon: 'activity' },
 ] as const;
 export function ProductNav() {
@@ -24,7 +25,11 @@ function Navigation({ pathname }: { pathname: string }) {
         <AppLink className={css.wordmark} href="/places" aria-label="C'mon Yo! 홈">
           C’mon Yo!
         </AppLink>
-        <nav aria-label="주 메뉴" className={css.primaryNav}>
+        <nav
+          aria-label="주 메뉴"
+          className={css.primaryNav}
+          style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
+        >
           {items.map(({ href, label, icon }) => (
             <AppLink
               key={href}
