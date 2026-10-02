@@ -32,11 +32,12 @@ export function MeetingEditor({
     userId,
     'editor:' + (initial?.id ?? 'new'),
     ready,
-    async (id) => {
+    async (id, current) => {
       await Promise.all([
         client.invalidateQueries({ queryKey: ['meetings', 'list'] }),
         client.invalidateQueries({ queryKey: ['private', userId, 'meetings'] }),
       ]);
+      if (!current()) return;
       if (onSaved) await onSaved();
       else navigate(`/meetups/${id}`);
     },

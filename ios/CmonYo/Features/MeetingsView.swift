@@ -134,7 +134,11 @@ struct MeetingRecordView: View {
       if loading { ProgressView("현재 상태를 확인하는 중…") }
       Button("현재 상태 다시 조회") { attempt += 1 }.disabled(loading || command.pending)
     }.navigationTitle("모임 상세")
-      .task(id: "\(attempt):\(session.generation):\(session.user?.id ?? "anonymous")") { await load() }
+      .task(id: "\(attempt):\(session.generation):\(session.user?.id ?? "anonymous")") {
+        _ = await command.restore(session: session, path: "api/v1/meetups/\(id)", method: "PATCH")
+        guard !Task.isCancelled else { return }
+        await load()
+      }
       .sheet(item: $login) { _ in AccountLoginView() }
       .sheet(item: $discussion) { route in
         AuthenticatedDiscussionView(meetupID: route.id) { attempt += 1 }
@@ -214,6 +218,18 @@ struct MeetingEditorView: View {
           if let m = initial { draft = MeetingDraft(title: m.title, description: m.description, sport: m.sport, placeId: m.place.id, startsAt: m.startsAt, endsAt: m.endsAt, capacity: m.capacity); start = m.start; end = m.end }
           else { draft.placeId = placeId ?? "" }
           initialized = true
+        }
+      }
+      .task(id: "\(session.generation):\(session.user?.id ?? "anonymous")") {
+        if let id = await command.restore(session: session,
+          path: initial.map { "api/v1/meetups/\($0.id)" } ?? "api/v1/meetups",
+          method: initial == nil ? "POST" : "PATCH"), !Task.isCancelled { saved(id) }
+      }
+      .onChange(of: command.uncertain) { _, uncertain in
+        if uncertain, let recovered = command.recoveryDraft {
+          draft = recovered
+          if let date = MeetingRecord.date(recovered.startsAt) { start = date }
+          if let date = MeetingRecord.date(recovered.endsAt) { end = date }
         }
       }
       .sheet(item: $login) { _ in AccountLoginView() }

@@ -62,6 +62,8 @@ export function registerWalking(
       try { return await work(request, reply); }
       catch (error) {
         const failure = error instanceof ServiceError ? error : new ServiceError(503, 'UNAVAILABLE', '요청 결과를 확인하지 못했습니다.');
+        if (failure.status >= 500)
+          request.observe({ event: 'server_error', phase: 'walking_api', status: failure.status });
         return reply.code(failure.status).send({ error: {
           code: failure.code, message: failure.message, requestId: request.id, retryable: failure.status >= 500,
         } });
@@ -116,6 +118,7 @@ export function registerWalking(
       reply.raw.off('finish', cleanup);
     };
     const timer = setTimeout(() => {
+      request.observe({ event: 'server_error', phase: 'walking_ssr_deadline', status: 504 });
       if (!reply.sent && !reply.raw.headersSent && !reply.raw.destroyed)
         reply.code(504).type('text/html').send(errorPage('화면을 불러오는 시간이 초과되었습니다.'));
       else reply.raw.destroy();
@@ -131,7 +134,15 @@ export function registerWalking(
       // failed client refresh, rather than replacing the complete page shell.
       if (userId && account.user?.emailVerified) {
         await client.prefetchQuery({ queryKey: walkingKey(userId), retry: false,
-          queryFn: async () => walkingDashboardSchema.parse(await getService().dashboard(userId)),
+          queryFn: async () => {
+            try { return walkingDashboardSchema.parse(await getService().dashboard(userId)); }
+            catch (error) {
+              const status = error instanceof ServiceError ? error.status : 503;
+              if (status >= 500)
+                request.observe({ event: 'server_error', phase: 'walking_ssr_dashboard', status });
+              throw error;
+            }
+          },
         });
       }
       const render = await renderer();
@@ -139,8 +150,11 @@ export function registerWalking(
         await render(reply, { url: request.url, route: { section: 'quests', userId },
           dehydratedState: dehydrate(client) }, client, assets, controller.signal);
     } catch (error) {
+      const status = error instanceof ServiceError ? error.status : 503;
+      if (status >= 500)
+        request.observe({ event: 'server_error', phase: 'walking_ssr', status });
       if (!controller.signal.aborted && !reply.sent && !reply.raw.headersSent && !reply.raw.destroyed)
-        reply.code(error instanceof ServiceError ? error.status : 503).type('text/html')
+        reply.code(status).type('text/html')
           .send(errorPage('걷기 화면을 불러오지 못했습니다. 다시 시도해 주세요.'));
       cleanup();
     }

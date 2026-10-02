@@ -5,6 +5,9 @@ on:
     branches: [main]
 permissions:
   contents: read
+concurrency:
+  group: web-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   web:
     runs-on: ubuntu-latest
@@ -23,14 +26,19 @@ jobs:
       DATABASE_URL: postgres://cmon:cmon@127.0.0.1:5432/cmon
       TEST_DATABASE_URL: postgres://cmon:cmon@127.0.0.1:5432/cmon
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
       - run: npm run check
-      - run: npm run facilities -- migrate
+      - name: Apply the complete production schema
+        run: npm run migrate
+        env:
+          AUTH_SECRET: ci-only-schema-validation-secret-not-for-deployment
+          AUTH_ORIGIN: http://127.0.0.1:3000
+          AUTH_MAIL_TRANSPORT: local
       - run: npm run facilities -- apply contracts/samples/muan-parks.json
       - run: npx playwright install --with-deps chromium
       - run: npm run test:web

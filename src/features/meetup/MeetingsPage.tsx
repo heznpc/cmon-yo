@@ -395,10 +395,10 @@ function MeetingActions({
     setConfirm(null);
     await Promise.all([query.refetch(), route.userId ? member.refetch() : Promise.resolve()]);
   };
-  const command = useMeetingCommand(route.userId, 'membership:' + id, ready, async () => {
+  const command = useMeetingCommand(route.userId, 'membership:' + id, ready, async (_id, current) => {
     await client.invalidateQueries({ queryKey: ['private', route.userId, 'meetings'] });
     await client.invalidateQueries({ queryKey: ['meetings', 'list'] });
-    await refresh();
+    if (current()) await refresh();
   });
   const active = m && summary(m) === '모집 중';
   const mutable = m && m.status === 'open' && new Date(m.startsAt).getTime() > Date.now();
@@ -488,7 +488,10 @@ function MeetingActions({
           ) : null}
         </>
       ) : (
-        <p role="status">계정을 확인하는 중…</p>
+        <p role="status">
+          계정을 확인하지 못했거나 확인 중입니다.{' '}
+          <button onClick={() => window.dispatchEvent(new Event('focus'))}>계정 다시 확인</button>
+        </p>
       )}
       {command.feedback}
       <button

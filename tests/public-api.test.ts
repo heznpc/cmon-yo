@@ -46,12 +46,15 @@ test('published OpenAPI matches actual HTTP reads, empty results and 400/404/503
       '/api/v1/me',
       '/api/v1/me/place-favorites',
       '/api/v1/me/place-favorites/{id}',
+      '/api/v1/me/walking',
+      '/api/v1/me/walking-commands/{id}',
       '/api/v1/meetups/{id}',
       '/api/v1/places',
       '/api/v1/places/{id}',
       '/api/v1/places/{id}/info',
       '/api/v1/places/{id}/weather',
       '/api/v1/regions',
+      '/api/v1/walking/commands',
     ]);
     const validate = responseContract(spec);
     const uuid = 'AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA';
@@ -146,7 +149,7 @@ test('web HTTP client validates wire data, retains error metadata, maps detail 4
     body = { placeIds: [place.place.id] };
     expect(await api.favoritePlaces(signal)).toEqual(body);
     body = { id: place.place.id, favorite: true };
-    expect(await api.setFavorite(place.place.id, true, signal)).toEqual(body);
+    expect(await api.setFavorite(place.place.id, true, signal, '11111111-1111-4111-8111-111111111111')).toEqual(body);
 
     body = { place: place.place };
     expect(await api.placeInfo(place.place.id, signal)).toEqual(body);

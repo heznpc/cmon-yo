@@ -6,10 +6,10 @@ import { createPool } from '../src/server/db';
 import { createAuth } from '../src/server/auth/service';
 import { createApp } from '../src/server/app';
 import { renderPage } from '../src/server/render';
-import { migrateWalking } from '../src/server/migrations';
+import { assertMigrationsCurrent, migrateWalking } from '../src/server/migrations';
 import { databaseWalking } from '../src/server/walking/service';
 import { canonicalCommand, dailyPoints, seoulDay, shiftDay } from '../src/server/walking/policy';
-import { walkingDashboardSchema, type WalkingCommand } from '../src/contracts/walking';
+import { walkingCommandSchema, walkingDashboardSchema, type WalkingCommand } from '../src/contracts/walking';
 import { commandResultSchema } from '../src/contracts/command';
 import { responseContract } from './helpers/openapi';
 
@@ -21,6 +21,22 @@ test('walking day boundaries use Seoul midnight and capped whole milestones', ()
   expect(dailyPoints(1999)).toBe(1);
   expect(dailyPoints(100000)).toBe(10);
   expect(() => canonicalCommand({ action: 'syncHealth', sourceId: randomUUID(), revision: 1, days: [{ day: '2026-09-22', steps: 1 }, { day: '2026-09-22', steps: 2 }] })).toThrow();
+  expect(walkingCommandSchema.safeParse({ action: 'createExpedition', title: '잘못된\u0000제목', placeId: null }).success).toBe(false);
+});
+
+test('walking SSR failures emit a private-safe observable error', async () => {
+  const events: unknown[] = [];
+  const app = createApp({
+    renderer: async () => { throw new Error('private diagnostic must not escape'); },
+    telemetry: (event) => { events.push(event); },
+  });
+  try {
+    const response = await app.inject({ method: 'GET', url: '/quests' });
+    expect(response.statusCode).toBe(503);
+    expect(events).toContainEqual(expect.objectContaining({ event: 'server_error', phase: 'walking_ssr', status: 503 }));
+    expect(JSON.stringify(events)).not.toContain('private diagnostic');
+    expect(response.body).not.toContain('private diagnostic');
+  } finally { await app.close(); }
 });
 
 // These database scenarios are authored for a later explicitly permitted run.
@@ -244,6 +260,21 @@ describe.runIf(process.env.TEST_DATABASE_URL)('walking rewards with isolated Pos
     await expect(walking.dashboard(owner)).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
   });
 
+  test('account deletion during recruitment frees the seat for a replacement member', async () => {
+    // The account deletion trigger uses the database clock, not the service test clock.
+    clock = Date.now();
+    const owner = await identity(), party = await expedition(owner);
+    const peers = await Promise.all(Array.from({ length: 4 }, () => identity()));
+    for (const peer of peers) await send(peer, { action: 'joinExpedition', code: party.inviteCode! });
+    const replacement = await identity();
+    await expect(send(replacement, { action: 'joinExpedition', code: party.inviteCode! })).rejects.toMatchObject({ code: 'EXPEDITION_FULL' });
+    await pool.query('DELETE FROM auth_user WHERE id=$1', [peers[0]]);
+    await send(replacement, { action: 'joinExpedition', code: party.inviteCode! });
+    const updated = (await walking.dashboard(owner)).expeditions.find((entry) => entry.id === party.id)!;
+    expect(updated.members).toHaveLength(5);
+    expect(updated.members.every((member) => !member.withdrawn)).toBe(true);
+  });
+
   test('every read, replay and command rechecks current account verification', async () => {
     const user = await identity(), key = randomUUID(), input: WalkingCommand = { action: 'bindHealth', deviceId: randomUUID() };
     await send(user, input, key);
@@ -278,6 +309,9 @@ describe.runIf(process.env.TEST_DATABASE_URL)('walking rewards with isolated Pos
     expect(wrongAccount.status).toBe(409);
     expect((await wrongAccount.json()).error.code).toBe('ACCOUNT_CHANGED');
     expect((await post(binding, { Authorization: `Bearer ${token}` })).status).toBe(409);
+    const invalidTitle = await post({ action: 'createExpedition', title: '잘못된\u0000제목', placeId: null }, native);
+    expect(invalidTitle.status).toBe(400);
+    expect(await invalidTitle.json()).toMatchObject({ error: { code: 'INVALID_INPUT', retryable: false } });
     const bound = await post(binding, native);
     expect(bound.status).toBe(200);
     const { id: sourceId } = commandResultSchema.parse(await bound.json());
@@ -310,11 +344,22 @@ describe.runIf(process.env.TEST_DATABASE_URL)('walking rewards with isolated Pos
     const user = await identity(), source = await bind(user);
     await sync(user, source.id, 1, 1234);
     await migrateWalking(pool);
+    await assertMigrationsCurrent(pool);
     expect((await walking.dashboard(user)).days[0].steps).toBe(1234);
     expect((await pool.query("SELECT count(*)::int AS n FROM schema_migrations WHERE name='006_activity_quests.sql'")).rows[0].n).toBe(1);
+    expect((await pool.query("SELECT count(*)::int AS n FROM schema_migrations WHERE name='007_walking_recruitment_deletion.sql'")).rows[0].n).toBe(1);
     const prior = (await pool.query("SELECT checksum FROM schema_migrations WHERE name='006_activity_quests.sql'")).rows[0].checksum;
     await pool.query("UPDATE schema_migrations SET checksum='changed' WHERE name='006_activity_quests.sql'");
-    try { await expect(migrateWalking(pool)).rejects.toThrow('Applied migration changed'); }
+    try {
+      await expect(assertMigrationsCurrent(pool)).rejects.toThrow('Applied migration changed');
+      await expect(migrateWalking(pool)).rejects.toThrow('Applied migration changed');
+    }
     finally { await pool.query("UPDATE schema_migrations SET checksum=$1 WHERE name='006_activity_quests.sql'", [prior]); }
+    const latest = (await pool.query("SELECT checksum,applied_at FROM schema_migrations WHERE name='007_walking_recruitment_deletion.sql'")).rows[0];
+    await pool.query("DELETE FROM schema_migrations WHERE name='007_walking_recruitment_deletion.sql'");
+    try { await expect(assertMigrationsCurrent(pool)).rejects.toThrow('Database migration is not applied: 007_walking_recruitment_deletion.sql'); }
+    finally {
+      await pool.query("INSERT INTO schema_migrations(name,checksum,applied_at) VALUES('007_walking_recruitment_deletion.sql',$1,$2)", [latest.checksum, latest.applied_at]);
+    }
   });
 });

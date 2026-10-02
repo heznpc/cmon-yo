@@ -29,21 +29,25 @@ function FacilityInfo({ place }: { place: Place }) {
   );
 }
 
-function FavoriteButton({ id }: { id: string }) {
-  const favorites = usePlaceFavorites();
+function FavoriteButton({ id, userId, ready }: { id: string; userId: string | null; ready: boolean }) {
+  const favorites = usePlaceFavorites(userId, ready);
   const isFavorite = favorites.ids.has(id);
   return (
     <>
       <button
         className={mapCSS.favorite}
-        aria-pressed={isFavorite}
-        aria-label={isFavorite ? '찜 해제' : '찜하기'}
-        disabled={favorites.busyId === id}
+        aria-pressed={favorites.known ? isFavorite : undefined}
+        aria-label={!favorites.known ? '찜 상태 확인' : isFavorite ? '찜 해제' : '찜하기'}
+        disabled={favorites.disabled}
         onClick={() => void favorites.toggle(id)}
       >
-        <Icon name="heart" /> {isFavorite ? '찜 해제' : '찜하기'}
+        <Icon name="heart" /> {!favorites.known ? '찜 상태 확인' : isFavorite ? '찜 해제' : '찜하기'}
       </button>
       {favorites.message ? <p role="alert">{favorites.message}</p> : null}
+      {favorites.accountAction ? <AppLink href={favorites.accountHref}>{favorites.accountAction}</AppLink> : null}
+      {favorites.canRetry ? (
+        <button disabled={favorites.retrying} onClick={() => void favorites.retry()}>찜 목록 다시 조회</button>
+      ) : null}
     </>
   );
 }
@@ -133,7 +137,7 @@ function WeatherPanel({ id, failed = false }: { id: string; failed?: boolean }) 
   );
 }
 
-export function PlaceDetail({ id }: { id: string }) {
+export function PlaceDetail({ id, userId, ready }: { id: string; userId: string | null; ready: boolean }) {
   const client = useQueryClient();
   const query = useQuery({
     queryKey: placeKey(id),
@@ -166,7 +170,7 @@ export function PlaceDetail({ id }: { id: string }) {
             <AppLink className={css.primary} href={`/meetups/new?placeId=${id}`}>
               이 장소에서 모임 만들기
             </AppLink>
-            <FavoriteButton id={id} />
+            <FavoriteButton id={id} userId={userId} ready={ready} />
           </div>
           <Suspense
             fallback={

@@ -48,9 +48,9 @@ test('community SSR, hydration, input recovery, comments, ownership, block and d
   await expect(initialForm.getByLabel('제목', { exact: true })).toBeDisabled();
   await noJS.close();
   const title = '[시험] 동네 질문 ' + randomUUID().slice(0, 6);
-  await page.getByLabel('제목', { exact: true }).fill(title);
+  await page.getByRole('textbox', { name: '제목', exact: true }).fill(title);
   await page
-    .getByLabel('본문', { exact: true })
+    .getByRole('textbox', { name: '본문', exact: true })
     .fill('<script>alert("unsafe")</script> 함께 걸어요.');
   await page.route('**/api/v1/community/commands', (route) =>
     route.fulfill({
@@ -60,7 +60,7 @@ test('community SSR, hydration, input recovery, comments, ownership, block and d
     }),
   );
   await page.getByRole('button', { name: '게시글 저장', exact: true }).click();
-  await expect(page.getByLabel('제목', { exact: true })).toHaveValue(title);
+  await expect(page.getByRole('textbox', { name: '제목', exact: true })).toHaveValue(title);
   await expect(page.getByRole('button', { name: '저장 결과 확인' })).toBeVisible();
   await page.unroute('**/api/v1/community/commands');
   await page.getByRole('button', { name: '같은 요청 다시 보내기' }).click();
@@ -78,7 +78,7 @@ test('community SSR, hydration, input recovery, comments, ownership, block and d
   await expect(page.getByRole('button', { name: '글 수정', exact: true })).toBeEnabled();
   expect(reads).toBe(0);
   await page.getByRole('button', { name: '글 수정', exact: true }).click();
-  await page.getByLabel('제목', { exact: true }).fill(title + ' 수정');
+  await page.getByRole('textbox', { name: '제목', exact: true }).fill(title + ' 수정');
   await page.getByRole('button', { name: '게시글 저장', exact: true }).click();
   await expect(page.getByRole('heading', { name: title + ' 수정', exact: true })).toBeVisible();
   const context = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 } });
@@ -332,6 +332,29 @@ test('unsent unknown command keeps the same number through reload and explicit r
   await expect(
     page.getByRole('heading', { name: '같은 번호로 다시 보내기', exact: true }),
   ).toBeVisible();
+});
+
+test('a gateway timeout after saving retains the receipt and does not permit a duplicate post', async ({
+  page,
+  request,
+  baseURL,
+}) => {
+  const user = await account(request, baseURL!, '게이트웨이 지연 시험');
+  await page.goto('/account?returnTo=%2Fcommunity%2Fnew');
+  await login(page, user);
+  const title = '저장 후 시간 초과 ' + randomUUID();
+  await page.getByLabel('제목', { exact: true }).fill(title);
+  await page.getByLabel('본문', { exact: true }).fill('서버는 저장했지만 프록시가 HTML 408을 반환합니다.');
+  await page.route('**/api/v1/community/commands', async (route) => {
+    expect((await route.fetch()).ok()).toBe(true);
+    await route.fulfill({ status: 408, contentType: 'text/html', body: '<h1>Request Timeout</h1>' });
+  });
+  await page.getByRole('button', { name: '게시글 저장', exact: true }).click();
+  await expect(page.getByRole('button', { name: '게시글 저장', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: '저장 결과 확인', exact: true }).click();
+  await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+  const posts = await (await page.request.get('/api/v1/posts?mine=1')).json();
+  expect(posts.posts.filter((post: { title: string }) => post.title === title)).toHaveLength(1);
 });
 
 test('account transition clears drafts and pending request records across tabs', async ({

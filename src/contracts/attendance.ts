@@ -19,7 +19,7 @@ export const positionSchema = z
 export const attendanceCommandSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('checkIn'), position: positionSchema }).strict(),
   z
-    .object({ action: z.literal('requestReview'), reason: z.string().trim().min(1).max(500) })
+    .object({ action: z.literal('requestReview'), reason: z.string().trim().min(1).max(500).refine((value) => !value.includes('\0')) })
     .strict(),
   z
     .object({

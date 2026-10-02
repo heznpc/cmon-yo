@@ -74,7 +74,7 @@ npm ci
 npm run with-env -- dev
 ```
 
-`with-env`는 Node의 `--env-file`로 `.env`를 읽고 지정한 npm script를 실행합니다. 셸에 이미 설정된 같은 이름의 환경변수가 우선합니다. `npm run with-env -- facilities -- migrate`, `npm run with-env -- check`, `npm run with-env -- test:web`, `npm run with-env -- start`에도 사용할 수 있습니다. `start` 전에 `npm run build`가 필요합니다. 기존 `npm run dev`/`npm start`는 실행 환경의 변수만 사용하므로 CI·배포 방식은 유지됩니다.
+`with-env`는 Node의 `--env-file`로 `.env`를 읽고 지정한 npm script를 실행합니다. 셸에 이미 설정된 같은 이름의 환경변수가 우선합니다. `npm run with-env -- migrate`, `npm run with-env -- check`, `npm run with-env -- test:web`, `npm run with-env -- start`에도 사용할 수 있습니다. `start` 전에 통합 `migrate`와 `npm run build`가 필요하며 production은 필수 설정과 최신 migration을 검사합니다. 기존 `npm run dev`/`npm start`는 실행 환경의 변수만 사용하므로 CI·배포 방식은 유지됩니다.
 
 | 입력할 곳 | 용도·준비 시점 |
 | --- | --- |

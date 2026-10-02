@@ -49,6 +49,8 @@ const favoriteMutationErrors = {
 };
 const favoriteReadErrors = {
   '401': response('ApiError', 'UNAUTHENTICATED: sign in before reading favorites.'),
+  '403': response('ApiError', 'EMAIL_NOT_VERIFIED: verify the account email before reading favorites.'),
+  '409': response('ApiError', 'ACCOUNT_CHANGED: the expected account differs from the active session.'),
   '503': unavailable,
 };
 
@@ -71,12 +73,15 @@ export const openapi = {
         operationId: 'getCurrentAccount',
         summary: 'Read the signed-in account without session or provider tokens.',
         security: [{ SessionCookie: [] }, { SecureSessionCookie: [] }],
+        parameters: [{ name: 'X-Cmon-User', in: 'header', required: false,
+          schema: { anyOf: [wireSchema(idSchema), { const: 'guest' }] } }],
         responses: {
           '200': response('Account', 'Current account. Never shared-cache this response.'),
           '401': response(
             'ApiError',
             'UNAUTHENTICATED: sign in; do not automatically repeat mutations.',
           ),
+          '409': response('ApiError', 'ACCOUNT_CHANGED: reload after the active account changes.'),
           '503': response('ApiError', 'AUTH_UNAVAILABLE: identity could not be checked.'),
         },
       },
@@ -179,6 +184,7 @@ export const openapi = {
         operationId: 'listFavoritePlaces',
         summary: 'Read facility favorites for the signed-in account.',
         security: [{ SessionCookie: [] }, { SecureSessionCookie: [] }],
+        parameters: [{ name: 'X-Cmon-User', in: 'header', required: false, schema: wireSchema(idSchema) }],
         responses: {
           '200': response('FavoritePlaces', 'Favorite facility identifiers in saved order.'),
           ...favoriteReadErrors,
@@ -186,7 +192,13 @@ export const openapi = {
       },
     },
     '/api/v1/me/place-favorites/{id}': {
-      parameters: [{ name: 'id', in: 'path', required: true, schema: wireSchema(placeIdSchema) }],
+      parameters: [
+        { name: 'id', in: 'path', required: true, schema: wireSchema(placeIdSchema) },
+        { name: 'X-Cmon-User', in: 'header', required: true, schema: wireSchema(idSchema),
+          description: 'Account ID displayed by the initiating screen; prevents a stale screen writing to a new session.' },
+        { name: 'Origin', in: 'header', required: true, schema: { type: 'string', format: 'uri' },
+          description: 'Must match the configured authentication origin.' },
+      ],
       put: {
         operationId: 'favoritePlace',
         summary: 'Save a facility to the signed-in account favorites.',

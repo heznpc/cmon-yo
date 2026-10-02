@@ -77,6 +77,16 @@ test('regions from imported data drive facility pages, meetup creation and commu
     'aria-pressed',
     'true',
   );
+  await page.reload();
+  await expect(page.getByRole('button', { name: '찜 해제', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await page.getByRole('button', { name: '찜 해제', exact: true }).click();
+  await expect(page.getByRole('button', { name: '찜하기', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  );
   await page.goto('/meetups?regionCode=46840');
   await expect(page.getByRole('link', { name: title, exact: true })).toHaveCount(0);
   await page.getByRole('combobox', { name: '동네', exact: true }).selectOption('11680');
@@ -88,8 +98,20 @@ test('regions from imported data drive facility pages, meetup creation and commu
   await page.getByLabel('제목', { exact: true }).fill(title);
   await page.getByLabel('본문', { exact: true }).fill('다른 동네의 운동 질문입니다.');
   await page.getByRole('combobox', { name: '게시글 동네', exact: true }).selectOption('11680');
+  await page.getByText('관련 시설·모임 (선택)', { exact: true }).click();
+  await page.getByRole('combobox', { name: '시설 지역', exact: true }).selectOption('11680');
+  await page.getByRole('combobox', { name: '관련 시설', exact: true }).selectOption(first.places[0].id);
+  await page.reload();
+  await page.getByText('관련 시설·모임 (선택)', { exact: true }).click();
+  await expect(page.getByRole('combobox', { name: '시설 지역', exact: true })).toHaveValue('11680');
+  await expect(page.getByRole('combobox', { name: '관련 시설', exact: true })).toHaveValue(first.places[0].id);
   await page.getByRole('button', { name: '게시글 저장', exact: true }).click();
   await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+  const postURL = page.url();
+  await page.goto('/community/new');
+  await expect(page.getByLabel('제목', { exact: true })).toHaveValue('');
+  await expect(page.getByRole('combobox', { name: '게시글 동네', exact: true })).toHaveValue('');
+  await page.goto(postURL);
   await page.getByRole('button', { name: '글 수정', exact: true }).click();
   await expect(page.getByRole('combobox', { name: '게시글 동네', exact: true })).toHaveValue(
     '11680',
@@ -105,4 +127,13 @@ test('regions from imported data drive facility pages, meetup creation and commu
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath('regional-community-mobile.png'), fullPage: true });
   expect(errors).toEqual([]);
+});
+
+test('nearby facility pagination preserves the selected coordinates across reloads', async ({ page }) => {
+  await page.goto('/places?latitude=37.5665&longitude=126.978');
+  await page.getByRole('link', { name: '다음 시설 페이지', exact: true }).click();
+  await expect(page).toHaveURL(/latitude=37\.5665&longitude=126\.978&page=1$/);
+  await page.reload();
+  await page.getByRole('link', { name: '이전 시설 페이지', exact: true }).click();
+  await expect(page).toHaveURL(/latitude=37\.5665&longitude=126\.978&page=0$/);
 });

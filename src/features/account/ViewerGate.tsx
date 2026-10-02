@@ -17,9 +17,11 @@ export const DocumentIdentity = createContext<RefObject<string | null | undefine
 export function ViewerGate({
   initial,
   children,
+  pendingContent,
 }: {
   initial?: string | null;
   children: (userId: string | null) => ReactNode;
+  pendingContent?: ReactNode;
 }) {
   const client = useQueryClient(),
     identity = useContext(DocumentIdentity);
@@ -60,10 +62,13 @@ export function ViewerGate({
   }, [initial, client, identity, attempt]);
   if (userId === undefined)
     return (
-      <div role="status">
-        {error ? '계정을 확인하지 못했습니다.' : '계정을 확인하는 중…'}
-        {error ? <button onClick={() => setAttempt((x) => x + 1)}>계정 다시 확인</button> : null}
-      </div>
+      <>
+        {pendingContent}
+        <div role="status">
+          {error ? '계정을 확인하지 못했습니다.' : '계정을 확인하는 중…'}
+          {error ? <button onClick={() => setAttempt((x) => x + 1)}>계정 다시 확인</button> : null}
+        </div>
+      </>
     );
   return children(userId);
 }

@@ -23,11 +23,19 @@ export async function apiRequest<T>(
   } catch (error) {
     if (!options.signal?.aborted)
       reportClientEvent({ event: 'request_failed', requestId, status: 0 });
-    throw error;
+    if (options.signal?.aborted) throw error;
+    throw new RequestError(0, 'NETWORK_ERROR', '연결을 확인하고 다시 시도해 주세요.');
   }
   if (!response.ok)
     reportClientEvent({ event: 'request_failed', requestId, status: response.status });
-  const body: unknown = await response.json();
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    options.signal?.throwIfAborted();
+    // Gateways can return HTML or no body. Preserve the HTTP failure so the
+    // recovery layer can distinguish a rejection from an uncertain timeout.
+  }
   if (!response.ok) {
     const code =
       body &&
@@ -37,7 +45,11 @@ export async function apiRequest<T>(
       typeof body.error === 'object' &&
       'code' in body.error
         ? String(body.error.code)
-        : 'UNAVAILABLE';
+        : response.status === 401 ? 'UNAUTHENTICATED'
+          : response.status === 403 ? 'FORBIDDEN'
+            : response.status === 429 ? 'RATE_LIMITED'
+              : response.status === 409 ? 'COMMAND_CONFLICT'
+                : 'UNAVAILABLE';
     const messages: Record<string, string> = {
       CHECKIN_TIME: '현장 확인 가능한 시간이 아닙니다.',
       STALE_POSITION: '오래된 위치입니다. 다시 위치를 확인해 주세요.',
@@ -87,5 +99,8 @@ export async function apiRequest<T>(
       messages[code] ?? '요청을 확인하지 못했습니다. 현재 상태를 다시 조회해 주세요.',
     );
   }
-  return schema.parse(body);
+  const parsed = schema.safeParse(body);
+  if (!parsed.success)
+    throw new RequestError(502, 'INVALID_RESPONSE', '서버 응답을 확인하지 못했습니다. 다시 조회해 주세요.');
+  return parsed.data;
 }

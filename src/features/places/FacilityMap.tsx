@@ -32,11 +32,13 @@ export const FacilityMap = memo(function FacilityMap({
   selectedId,
   onSelect,
   onLocation,
+  queryLocation,
 }: {
   places: Place[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   onLocation?: (location: DeviceLocation) => void;
+  queryLocation?: DeviceLocation;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const [runtime, setRuntime] = useState<Runtime | null>(null);
@@ -45,13 +47,13 @@ export const FacilityMap = memo(function FacilityMap({
   const [tileFailed, setTileFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [location, setLocation] = useState<DeviceLocation | null>(null);
+  const markerLocation = location ?? queryLocation;
   const [locationState, setLocationState] = useState<
     'idle' | 'loading' | 'granted' | 'denied' | 'timeout' | 'unavailable'
   >('idle');
-  const locationRequested = useRef(false);
   const mounted = useRef(true);
   const locationRef = useRef<DeviceLocation | null>(null);
-  locationRef.current = location;
+  locationRef.current = markerLocation ?? null;
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -92,12 +94,6 @@ export const FacilityMap = memo(function FacilityMap({
       setLocationState('unavailable');
     }
   }
-  useEffect(() => {
-    if (!locationRequested.current) {
-      locationRequested.current = true;
-      requestLocation();
-    }
-  }, []);
   useEffect(() => {
     let cancelled = false;
     let map: MapLibre.Map | undefined;
@@ -156,22 +152,22 @@ export const FacilityMap = memo(function FacilityMap({
   }, [attempt]);
 
   useEffect(() => {
-    if (!runtime || !location) return;
+    if (!runtime || !markerLocation) return;
     const element = document.createElement('div');
     element.className = css.userLocation;
     element.setAttribute('role', 'img');
-    element.setAttribute('aria-label', '현재 위치');
+    element.setAttribute('aria-label', location ? '현재 위치' : '조회 기준 위치');
     // Keep the device marker above facility pins when coordinates overlap.
     element.style.zIndex = '2';
     runtime.userMarker?.remove();
     const marker = new runtime.library.Marker({ element, anchor: 'center' })
-      .setLngLat([location.longitude, location.latitude])
+      .setLngLat([markerLocation.longitude, markerLocation.latitude])
       .addTo(runtime.map);
     runtime.userMarker = marker;
     marker.getElement().style.zIndex = '2';
     marker.getElement().parentElement?.style.setProperty('z-index', '2');
     runtime.map.flyTo({
-      center: [location.longitude, location.latitude],
+      center: [markerLocation.longitude, markerLocation.latitude],
       zoom: Math.max(13, runtime.map.getZoom()),
       duration: 0,
     });
@@ -179,7 +175,7 @@ export const FacilityMap = memo(function FacilityMap({
       runtime.userMarker?.remove();
       runtime.userMarker = null;
     };
-  }, [runtime, location]);
+  }, [runtime, location, markerLocation?.latitude, markerLocation?.longitude]);
 
   useEffect(() => {
     if (!runtime) return;
@@ -260,7 +256,7 @@ export const FacilityMap = memo(function FacilityMap({
       ) : null}
       {locationState === 'granted' ? (
         <p className={css.mapMessage} role="status">
-          현재 위치를 지도에 표시했습니다. 시설 목록은 선택한 동네 기준입니다.
+          현재 위치를 지도에 표시하고 가까운 시설부터 조회했습니다.
         </p>
       ) : null}
       {locationState === 'unavailable' ? (

@@ -10,9 +10,7 @@ Node 22.22.3, PostgreSQL, Caddy 2.11.4로 확인했습니다. 서버와 도메�
 
 ```sh
 npm ci
-npm run with-env -- auth -- migrate
-npm run with-env -- facilities -- migrate
-npm run with-env -- meetups -- migrate
+npm run with-env -- migrate
 npm run build
 npm run with-env -- start
 
@@ -21,6 +19,10 @@ CMON_DOMAIN="$CMON_DOMAIN" caddy run --config deploy/Caddyfile --adapter caddyfi
 ```
 
 공개 서비스 최초 발행 전에 실제 도메인·서버·외부 노출 범위를 확정합니다. 이 실행에서는 공개 서버 생성·DNS 변경·인증서 발급·과금 자원 생성을 수행하지 않습니다. 운영 서버에서는 프로세스 재시작·로그 보존·DB 백업/복구와 배포 전 migration을 서비스 관리 체계에 연결해야 합니다.
+
+통합 `migrate` 명령은 인증부터 시설·모임·커뮤니티·출석·찜·걷기까지 적용합니다. 기존 기능별 migration 명령만 실행하면 최신 스키마가 완성되지 않습니다. 적용한 SQL 파일을 수정하지 말고 새 migration으로 변경합니다. 배포 파일에는 `db/`도 포함합니다. production은 필수 DB·인증·HTTPS origin·SMTP 설정과 migration 기록/checksum이 없거나 맞지 않으면 listen 전에 실패합니다. production과 fixture 모두 loopback에서만 수신하므로 공개 HTTP로 HTTPS 프록시를 우회할 수 없습니다. fixture는 운영 배포로 사용하지 않습니다.
+
+`GET /health/live`는 프로세스 응답, `GET /health/ready`는 DB 연결 준비 상태를 반환합니다. readiness 실패는 503이며 내부 오류·연결 문자열은 노출하지 않습니다. 배포 직후 readiness 200 확인 후 트래픽을 전환하고, 종료 시 SIGTERM으로 요청을 정리합니다(최대 15초 후 실패 종료). 프로세스 관리자의 중지 유예 시간은 이보다 길게 잡습니다. DB 연결이 끊긴 idle client와 처리된 5xx도 민감 본문 없이 구조화한 이벤트로 남습니다. 이 경로들은 코드만 검토했으며 실제 서버·DB 장애/복구·종료는 미검증입니다.
 
 `TRUST_PROXY`를 비우면 전달 헤더를 신뢰하지 않는 기존 동작입니다. `loopback`은 `127.0.0.1`·`::1`만 허용하며 전체 주소/홉 수 신뢰는 지원하지 않습니다. 인증 handler는 이 결과로 얻은 IP를 사용하며 사용자가 보낸 `X-Cmon-Client-IP`는 대체합니다. Caddy 앞에 다른 프록시/CDN을 추가하면 이 구조의 검증 결과를 그대로 적용하지 않습니다.
 

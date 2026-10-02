@@ -17,8 +17,6 @@ final class DeviceLocation: NSObject, ObservableObject, CLLocationManagerDelegat
     switch manager.authorizationStatus {
     case .notDetermined:
       manager.requestWhenInUseAuthorization()
-    case .authorizedAlways, .authorizedWhenInUse:
-      manager.startUpdatingLocation()
     default:
       break
     }
@@ -26,9 +24,8 @@ final class DeviceLocation: NSObject, ObservableObject, CLLocationManagerDelegat
 
   func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
     authorization = manager.authorizationStatus
-    if authorization == .authorizedAlways || authorization == .authorizedWhenInUse {
-      manager.startUpdatingLocation()
-    }
+    // MapKit owns location updates while its user annotation is visible. This
+    // manager only requests permission and must not keep a second GPS stream alive.
   }
 }
 
@@ -56,6 +53,11 @@ struct FacilitiesView: View {
           if let error { Text(error).accessibilityIdentifier("facility-error") }
           if error != nil && places != nil { Text("이전에 불러온 목록입니다. 최신 정보를 확인하지 못했습니다.") }
           if places?.isEmpty == true { Text("등록된 시설 정보가 없습니다.") }
+          if location.authorization == .notDetermined {
+            Button("지도에 현재 위치 표시") { location.request() }.frame(minHeight: 44)
+          } else if location.authorization == .denied || location.authorization == .restricted {
+            Text("현재 위치를 표시하려면 기기 설정에서 위치 접근을 허용해 주세요.").font(.footnote)
+          }
           if places?.isEmpty == false { FacilityMapView(api: api, places: visiblePlaces, location: location) }
           ForEach(visiblePlaces) { place in
             NavigationLink { FacilityDetailView(api: api, id: place.id) } label: {
@@ -81,7 +83,6 @@ struct FacilitiesView: View {
           FacilitySource()
         }.padding(24).buttonStyle(.bordered).controlSize(.large)
       }.navigationTitle("공원과 운동시설")
-        .task { location.request() }
         .task(id: "\(region):\(page):\(attempt)") {
           loading = true
           do {

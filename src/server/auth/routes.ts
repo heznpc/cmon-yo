@@ -1,7 +1,11 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { fromNodeHeaders } from 'better-auth/node';
 import type { AuthService } from './service';
-import { accountSchema, type Account } from '../../contracts/account';
+import { accountNameSchema, accountSchema, type Account } from '../../contracts/account';
+
+export function validAccountName(value: unknown): value is string {
+  return accountNameSchema.safeParse(value).success;
+}
 
 export async function currentAccount(
   auth: AuthService | undefined,
@@ -36,6 +40,14 @@ export function registerAuthRoutes(app: FastifyInstance, auth?: AuthService) {
   app.get('/api/v1/me', async (request, reply) => {
     try {
       const account = await currentAccount(auth, request, reply);
+      const expected = request.headers['x-cmon-user'];
+      if (expected !== undefined && expected !== (account.user?.id ?? 'guest'))
+        return reply.code(409).send({ error: {
+          code: 'ACCOUNT_CHANGED',
+          message: '계정이 변경되었습니다. 화면을 새로 열어 주세요.',
+          requestId: request.id,
+          retryable: false,
+        } });
       return account.user
         ? account
         : reply.code(401).send({
@@ -111,6 +123,25 @@ export function registerAuthRoutes(app: FastifyInstance, auth?: AuthService) {
             retryable: false,
           },
         });
+      // PostgreSQL text cannot store NUL. Reject malformed account names before
+      // they reach the auth adapter, rather than reporting an internal outage.
+      if (request.method === 'POST' && ['sign-up/email', 'update-user'].includes(path)) {
+        const body = request.body;
+        const name = typeof body === 'object' && body !== null && 'name' in body
+          ? body.name
+          : undefined;
+        if ((path === 'sign-up/email' || name !== undefined) && !validAccountName(name))
+          return reply.code(400).send({
+            error: {
+              code: 'INVALID_INPUT',
+              message: '이름은 1자 이상 60자 이하로 입력해 주세요.',
+              requestId: request.id,
+              retryable: false,
+            },
+          });
+        if (name !== undefined)
+          request.body = { ...(body as Record<string, unknown>), name: accountNameSchema.parse(name) };
+      }
       try {
         const headers = fromNodeHeaders(request.headers);
         // Fastify trusts the socket peer by default. Replace, never forward, a

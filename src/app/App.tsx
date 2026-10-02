@@ -4,7 +4,7 @@ import {
   type DehydratedState,
   type QueryClient,
 } from '@tanstack/react-query';
-import { lazy, Suspense, useRef, type ComponentType } from 'react';
+import { lazy, Suspense, useContext, useRef, type ComponentType } from 'react';
 import { Routes, Route, useLocation, useParams } from 'react-router';
 import type { Route as FixtureRoute } from '../features/meetup/MeetupPage';
 import { PlacesPage } from '../features/places/PlacesPage';
@@ -14,6 +14,7 @@ import { ViewerGate, AccountBoundary, DocumentIdentity } from '../features/accou
 import { meetingFiltersSchema } from '../contracts/meetings';
 import { accountReturnPath } from '../contracts/account';
 import { NavigationEffects } from './navigation';
+import { AppErrorBoundary } from './AppErrorBoundary';
 import type { CommunityRoute } from '../features/community/CommunityPage';
 import type { QuestsRoute } from '../features/quests/QuestsPage';
 import { StreamContext, type StreamResources, type StreamState } from './stream';
@@ -62,7 +63,7 @@ export async function prepareInitialRoute(state: InitialState) {
 export type InitialState = {
   route:
     | FixtureRoute
-    | { section: 'places'; id?: string }
+    | { section: 'places'; id?: string; userId?: string | null }
     | AccountRoute
     | MeetingsRoute
     | CommunityRoute
@@ -114,9 +115,9 @@ export function App({
   // into hidden HTML that needs JavaScript to reveal. SPA code loading still suspends.
   const routes = (
     <Routes>
-      <Route path="/" element={<PlacesPage />} />
-      <Route path="/places" element={<PlacesPage />} />
-      <Route path="/places/:id" element={<PlaceRoute />} />
+      <Route path="/" element={<PlaceRoute initial={initial} />} />
+      <Route path="/places" element={<PlaceRoute initial={initial} />} />
+      <Route path="/places/:id" element={<PlaceRoute initial={initial} />} />
       <Route path="/meetups" element={<MeetingRoute mode="list" initial={initial} />} />
       <Route path="/meetups/new" element={<MeetingRoute mode="create" initial={initial} />} />
       <Route
@@ -170,6 +171,7 @@ export function App({
           <StreamContext.Provider
             value={first && state.stream ? { state: state.stream, resources } : null}
           >
+            <AppErrorBoundary resetKey={location.key}>
             <NavigationEffects />
             {first ? (
               routes
@@ -184,15 +186,32 @@ export function App({
                 {routes}
               </Suspense>
             )}
+            </AppErrorBoundary>
           </StreamContext.Provider>
         </DocumentIdentity.Provider>
       </HydrationBoundary>
     </QueryClientProvider>
   );
 }
-function PlaceRoute() {
+function PlaceRoute({ initial }: { initial?: InitialState }) {
   const { id } = useParams();
-  return <PlacesPage key={id} id={id} />;
+  const identity = useContext(DocumentIdentity);
+  const known = initial && 'section' in initial.route && initial.route.section === 'places'
+    ? initial.route.userId
+    : identity.current;
+  return (
+    <ViewerGate
+      key={id ?? 'list'}
+      initial={known}
+      pendingContent={<PlacesPage id={id} userId={null} ready={false} />}
+    >
+      {(userId) => (
+        <AccountBoundary userId={userId}>
+          {(ready) => <PlacesPage key={userId ?? 'guest'} id={id} userId={userId} ready={ready} />}
+        </AccountBoundary>
+      )}
+    </ViewerGate>
+  );
 }
 function FixturePage({ discussion = false }: { discussion?: boolean }) {
   const { id } = useParams(),

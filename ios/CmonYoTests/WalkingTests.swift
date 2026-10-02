@@ -88,6 +88,19 @@ final class WalkingTests: XCTestCase {
     XCTAssertEqual(api.sent[0].key, api.sent[1].key)
   }
 
+  func testReplacedHealthSourceDoesNotInheritPreviousSourcesRevision() async throws {
+    let storage = MemoryWalkingStorage()
+    var journal = WalkingJournal(owner: account)
+    journal.sourceId = other; journal.revision = 900
+    storage.journals[account] = journal
+    let api = TestWalkingTransport(owner: account)
+    api.sourceID = source; api.deviceID = storage.device; api.sourceRevision = 4
+    let service = WalkingSyncService(health: TestWalkingHealth(), storage: storage)
+    await service.activate(api)
+    XCTAssertEqual(service.journal?.sourceId, source)
+    XCTAssertEqual(service.journal?.revision, 4)
+  }
+
   func testConflictRetainsUnknownAndStorageFailurePreventsFirstMutation() async throws {
     let storage = MemoryWalkingStorage()
     let api = TestWalkingTransport(owner: account)
@@ -151,6 +164,18 @@ final class WalkingTests: XCTestCase {
     XCTAssertEqual(journal, before)
     let restored = try JSONDecoder().decode(WalkingJournal.self, from: JSONEncoder().encode(journal))
     XCTAssertEqual(restored, journal)
+  }
+
+  func testSyncReceiptCannotAcknowledgeAnotherHealthSource() throws {
+    var journal = WalkingJournal(owner: account)
+    journal.sourceId = source
+    try journal.reserve(.init(action: .syncHealth, sourceId: source, revision: 1,
+      days: [.init(day: WalkingCalendar.day(Date()), steps: 123)]), now: Date())
+    let pending = journal.pending
+    XCTAssertThrowsError(try journal.acknowledge(other))
+    XCTAssertEqual(journal.pending, pending)
+    try journal.acknowledge(source)
+    XCTAssertNil(journal.pending)
   }
 
   func testProtectedJournalSurvivesRecreationAndPartitionsAccountAndOrigin() throws {

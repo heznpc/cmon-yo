@@ -61,6 +61,10 @@ export function installObservability(
     request.observe({ event: 'server_error', status: error.statusCode ?? 500 });
   });
   app.addHook('onResponse', async (request, reply) => {
+    // Handled failures never reach onError; retain a safe status signal for all
+    // 5xx responses without logging raw exception messages or private payloads.
+    if (reply.statusCode >= 500)
+      request.observe({ event: 'http_failure', status: reply.statusCode });
     const key = request.headers['idempotency-key'];
     if (typeof key === 'string' && /^[0-9a-f-]{36}$/i.test(key))
       request.observe({

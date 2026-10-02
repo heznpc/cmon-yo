@@ -108,6 +108,11 @@ struct WalkingJournal: Codable, Equatable, Sendable {
 
   mutating func acknowledge(_ id: String) throws {
     guard UUID(uuidString: id) != nil, let pending else { throw ProductError(status: 0, code: "RESPONSE") }
+    if pending.payload.action == .syncHealth {
+      guard id.lowercased() == pending.payload.sourceId?.lowercased() else {
+        throw ProductError(status: 0, code: "RESPONSE")
+      }
+    }
     if pending.payload.action == .bindHealth {
       sourceId = id.lowercased()
       revision = 0

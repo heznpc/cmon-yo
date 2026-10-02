@@ -13,7 +13,7 @@ export function useMeetingCommand(
   userId: string | null,
   scope: string,
   ready: boolean,
-  onSuccess: (id: string) => Promise<void>,
+  onSuccess: (id: string, current: () => boolean) => Promise<void>,
 ) {
   const command = useCommand({
     userId,
@@ -32,7 +32,9 @@ export function useMeetingCommand(
         },
         body: JSON.stringify(input.body),
       }),
-    completed: async (_input, _key, id) => onSuccess(id),
+    completed: async (_input, _key, id, current) => {
+      if (current()) await onSuccess(id, current);
+    },
   });
   return {
     ...command,

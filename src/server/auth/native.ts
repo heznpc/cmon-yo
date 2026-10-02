@@ -2,6 +2,7 @@ import { getCookies } from 'better-auth/cookies';
 import { currentAccount } from './routes';
 import type { FastifyInstance } from 'fastify';
 import type { AuthService } from './service';
+import { accountNameSchema } from '../../contracts/account';
 
 // Native uses the same verified email accounts and revocable server sessions.
 // A separate transport drops browser cookies and never exposes a credential on
@@ -9,7 +10,7 @@ import type { AuthService } from './service';
 export function registerNativeAuth(app: FastifyInstance, auth?: AuthService) {
   app.post('/api/native/web-session', { bodyLimit: 1024 }, async (request, reply) => {
     const fail = (status: number, code: string) =>
-      reply.code(status).send({ error: { code, requestId: request.id, retryable: status >= 500 } });
+      reply.code(status).send({ error: { code, message: '웹 세션을 준비하지 못했습니다.', requestId: request.id, retryable: status >= 500 } });
     if (!auth) return fail(503, 'AUTH_UNAVAILABLE');
     if (request.headers.cookie || request.headers.origin || request.headers['sec-fetch-site'])
       return fail(403, 'INVALID_ORIGIN');
@@ -47,6 +48,14 @@ export function registerNativeAuth(app: FastifyInstance, auth?: AuthService) {
         return fail(403, 'INVALID_ORIGIN');
       if (action === 'sign-out' && !request.headers.authorization?.startsWith('Bearer '))
         return fail(401, 'UNAUTHENTICATED');
+      let payload = request.body ?? {};
+      if (action === 'sign-up/email') {
+        const name = accountNameSchema.safeParse(
+          typeof payload === 'object' && payload !== null && 'name' in payload ? payload.name : undefined,
+        );
+        if (!name.success) return fail(400, 'INVALID_INPUT');
+        payload = { ...(payload as Record<string, unknown>), name: name.data };
+      }
       try {
         const headers = new Headers({
           'Content-Type': 'application/json',
@@ -59,7 +68,7 @@ export function registerNativeAuth(app: FastifyInstance, auth?: AuthService) {
           new Request(`${auth.options.baseURL}/api/auth/${action}`, {
             method: 'POST',
             headers,
-            body: JSON.stringify(request.body ?? {}),
+            body: JSON.stringify(payload),
           }),
         );
         const body = await result.json();

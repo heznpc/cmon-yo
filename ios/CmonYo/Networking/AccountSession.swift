@@ -128,6 +128,7 @@ final class AccountSession {
       catch { retryCredentialRestore = true; throw error }
       if token != nil { try await refreshAccount() }
     }
+    catch is CancellationError { return }
     catch { notice = error.localizedDescription }
   }
   func refreshAccount() async throws {
@@ -145,10 +146,16 @@ final class AccountSession {
   }
   func login(email: String, password: String) async throws {
     let credential: NativeCredential = try await request("api/native/auth/sign-in/email", method: "POST", body: JSONEncoder().encode(["email": email, "password": password]), authenticated: false)
+    guard !credential.token.isEmpty, !credential.token.contains(where: { $0.isWhitespace || $0.isNewline }) else {
+      throw ProductError(status: 0, code: "RESPONSE")
+    }
     try vault.save(credential.token)
     retryCredentialRestore = false
     webSessionDataStore = WKWebsiteDataStore.nonPersistent()
-    generation += 1; token = credential.token
+    // A new credential must never be paired with the previous account identity.
+    if user != nil { privacyEpoch += 1 }
+    user = nil; generation += 1; token = credential.token
+    transport.invalidateAndCancel(); transport = Self.makeTransport()
     try await refreshAccount()
     notice = nil
   }
@@ -169,6 +176,7 @@ final class AccountSession {
     let store = webSessionDataStore
     await store.httpCookieStore.setCookie(cookie)
     guard epoch == generation else { throw CancellationError() }
+    try Task.checkCancellation()
     return store
   }
   func prepareDiscussion() async throws -> WKWebsiteDataStore { try await prepareWebSession() }
@@ -180,8 +188,13 @@ final class AccountSession {
     let _: ActionResult = try await request("api/native/auth/\(action)", method: "POST", body: JSONEncoder().encode(body), authenticated: false)
   }
   func logout() async {
+    let epoch = generation
     do { let _: ActionResult = try await request("api/native/auth/sign-out", method: "POST", body: Data("{}".utf8)) }
-    catch { notice = "서버 로그아웃 응답을 확인하지 못했습니다. 이 기기의 로그인 정보를 제거합니다." }
+    catch {
+      guard epoch == generation else { return }
+      notice = "서버 로그아웃 응답을 확인하지 못했습니다. 이 기기의 로그인 정보를 제거합니다."
+    }
+    guard epoch == generation else { return }
     do { try clear() } catch { notice = error.localizedDescription }
   }
   private func clear() throws {

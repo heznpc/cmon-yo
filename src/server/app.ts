@@ -1,13 +1,13 @@
 import { registerWalking, type WalkingService } from './walking-routes';
 import { walkingPaths } from './walking-openapi';
-import { placeFiltersSchema } from '../contracts/place';
+import { favoritePlacesKey, placeFiltersSchema } from '../contracts/place';
 import { installObservability, type Observation } from './observability';
 import { randomUUID } from 'node:crypto';
 import { deferState } from './deferred';
 import type { StreamResources } from '../app/stream';
 import { weatherKey, type PlaceInfo, placeKey } from '../contracts/place';
 import { errorPage } from './error-page';
-import Fastify, { type FastifyRequest } from 'fastify';
+import Fastify, { type FastifyError, type FastifyRequest } from 'fastify';
 import { idSchema } from '../contracts/meetup';
 import { fixtureService, ServiceError, type MeetupService } from './services/meetup';
 import { createRequestClient, loadMeetup } from './loaders/meetup';
@@ -44,6 +44,7 @@ export function createApp({
   community,
   attendance,
   walking,
+  ready,
   trustProxy = false,
 }: {
   service?: MeetupService;
@@ -65,6 +66,7 @@ export function createApp({
   community?: CommunityService;
   attendance?: AttendanceService;
   walking?: WalkingService;
+  ready?: () => Promise<void>;
   trustProxy?: false | string[];
 }) {
   const app = Fastify({
@@ -79,6 +81,31 @@ export function createApp({
     },
   });
   installObservability(app, telemetry);
+  // Do not expose database/library exception messages through Fastify's default
+  // error handler. Route-specific product errors retain their own envelopes.
+  app.setErrorHandler<FastifyError>((error, request, reply) => {
+    const status = error.statusCode && error.statusCode >= 400 && error.statusCode <= 599
+      ? error.statusCode
+      : 500;
+    return reply.code(status).send({
+      error: {
+        code: status >= 500 ? 'INTERNAL_ERROR' : 'INVALID_REQUEST',
+        message: status >= 500 ? '요청을 처리하지 못했습니다.' : '요청 형식을 확인해 주세요.',
+        requestId: request.id,
+        retryable: status >= 500,
+      },
+    });
+  });
+  app.get('/health/live', async () => ({ status: 'ok' }));
+  app.get('/health/ready', async (_request, reply) => {
+    try {
+      if (!ready) return reply.code(503).send({ status: 'unavailable' });
+      await ready();
+      return { status: 'ok' };
+    } catch {
+      return reply.code(503).send({ status: 'unavailable' });
+    }
+  });
   app.addHook('onResponse', async (request, reply) => {
     observe?.({
       route: request.routeOptions.url ?? 'unmatched',
@@ -97,6 +124,10 @@ export function createApp({
         : 'private, no-store',
     );
     reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('Referrer-Policy', 'no-referrer');
+    reply.header('X-Frame-Options', 'DENY');
+    reply.header('Content-Security-Policy', "frame-ancestors 'none'; base-uri 'self'; object-src 'none'");
+    reply.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
   });
   if (community) registerCommunity(app, community, auth, renderer, assets, deadlineMs, meetings);
   if (attendance) registerAttendance(app, attendance, auth);
@@ -316,6 +347,8 @@ export function createApp({
           const id = placeIdSchema.safeParse((request.params as { id: string }).id);
           if (!id.success) throw new ServiceError(400, 'INVALID_ID', '시설 주소를 확인해 주세요.');
           const user = await favoriteUser(request, reply);
+          if (request.headers['x-cmon-user'] !== user)
+            throw new ServiceError(409, 'ACCOUNT_CHANGED', '계정이 변경되었습니다.');
           if (!places.setFavorite)
             throw new ServiceError(503, 'UNAVAILABLE', '찜 목록을 사용할 수 없습니다.');
           return await places.setFavorite(user, id.data, favorite);
@@ -359,6 +392,30 @@ export function createApp({
       const state = isPlace
         ? await loadPlaces(id.data, places, controller.signal, client, placeFilters(request))
         : await loadMeetup(id.data!, service, controller.signal, client);
+      let userId: string | null | undefined = null;
+      if (isPlace && auth) {
+        try {
+          const account = await currentAccount(auth, request, reply);
+          userId = account.user?.id ?? null;
+          client.setQueryData(accountKey(userId), account);
+          if (userId && account.user?.emailVerified && places.favorites) {
+            try {
+              client.setQueryData(
+                favoritePlacesKey(userId),
+                await places.favorites(userId, controller.signal),
+              );
+            } catch {
+              request.observe({ event: 'server_error', phase: 'place_favorites', status: 503 });
+            }
+          }
+        } catch {
+          // Account service failures must not turn public facility reads into an
+          // outage or assert that an authenticated visitor has become a guest.
+          userId = undefined;
+          request.observe({ event: 'server_error', phase: 'place_viewer', status: 503 });
+        }
+        controller.signal.throwIfAborted();
+      }
       const resources: StreamResources = {};
       if (isPlace && id.data) {
         const info = client.getQueryData<PlaceInfo>(placeKey(id.data))!;
@@ -383,12 +440,12 @@ export function createApp({
               ? { id: randomUUID(), slots: ['weather'], deadlineMs }
               : undefined,
             route: isPlace
-              ? { section: 'places', id: id.data }
+              ? { section: 'places', id: id.data, userId }
               : {
                   id: id.data!,
                   discussion: request.routeOptions.url?.endsWith('/discussion') ?? false,
                 },
-            dehydratedState: state,
+            dehydratedState: isPlace ? dehydrate(client) : state,
           },
           client,
           assets,

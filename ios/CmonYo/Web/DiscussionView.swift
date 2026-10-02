@@ -51,8 +51,9 @@ struct DiscussionWebView: UIViewRepresentable {
     view.load(URLRequest(url: url))
     return view
   }
-  func updateUIView(_ view: WKWebView, context: Context) {}
+  func updateUIView(_ view: WKWebView, context: Context) { context.coordinator.parent = self }
   static func dismantleUIView(_ view: WKWebView, coordinator: Coordinator) {
+    coordinator.closed = true
     coordinator.bridge.close()
     view.stopLoading()
     view.navigationDelegate = nil
@@ -60,7 +61,8 @@ struct DiscussionWebView: UIViewRepresentable {
       forName: "cmonYo", contentWorld: .page)
   }
   @MainActor final class Coordinator: NSObject, WKNavigationDelegate {
-    let parent: DiscussionWebView
+    var parent: DiscussionWebView
+    var closed = false
     let bridge: MeetupBridge
     init(_ parent: DiscussionWebView) {
       self.parent = parent
@@ -68,6 +70,7 @@ struct DiscussionWebView: UIViewRepresentable {
         origin: parent.origin, meetupID: parent.meetupID, openMeetup: parent.onReturn)
     }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+      guard !closed else { return }
       parent.loading = false
     }
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
@@ -78,11 +81,12 @@ struct DiscussionWebView: UIViewRepresentable {
       withError error: Error
     ) { fail(error) }
     private func fail(_ error: Error) {
-      guard (error as NSError).code != NSURLErrorCancelled else { return }
+      guard !closed, (error as NSError).code != NSURLErrorCancelled else { return }
       parent.loading = false
       parent.failed = true
     }
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+      guard !closed else { return }
       bridge.close()
       parent.loading = false
       parent.failed = true
@@ -91,7 +95,8 @@ struct DiscussionWebView: UIViewRepresentable {
       _ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
       decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
     ) {
-      guard let url = navigationAction.request.url else {
+      guard !closed, navigationAction.sourceFrame.isMainFrame,
+        let url = navigationAction.request.url, url.user == nil, url.password == nil else {
         decisionHandler(.cancel)
         return
       }
@@ -105,7 +110,8 @@ struct DiscussionWebView: UIViewRepresentable {
           return
         }
         guard url.path == "/meetups/\(parent.meetupID)/discussion" else {
-          if url.path == "/account" { parent.failed = true }
+          parent.loading = false
+          parent.failed = true
           decisionHandler(.cancel)
           return
         }
@@ -116,10 +122,13 @@ struct DiscussionWebView: UIViewRepresentable {
       _ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse,
       decisionHandler: @escaping @MainActor @Sendable (WKNavigationResponsePolicy) -> Void
     ) {
-      if let response = navigationResponse.response as? HTTPURLResponse, response.statusCode >= 400
-      {
+      guard !closed else { decisionHandler(.cancel); return }
+      if navigationResponse.isForMainFrame,
+        let response = navigationResponse.response as? HTTPURLResponse, response.statusCode >= 400 {
         parent.loading = false
         parent.failed = true
+        decisionHandler(.cancel)
+        return
       }
       decisionHandler(.allow)
     }
@@ -159,7 +168,11 @@ struct AuthenticatedDiscussionView: View {
       .toolbar { ToolbarItem(placement: .cancellationAction) { Button("닫기") { dismiss() } } }
       .task(id: attempt) {
         loading = true; failed = false; dataStore = nil
-        do { dataStore = try await session.prepareDiscussion() }
+        do {
+          let store = try await session.prepareDiscussion()
+          try Task.checkCancellation()
+          dataStore = store
+        }
         catch is CancellationError { return }
         catch { loading = false; failed = true }
       }
