@@ -21,6 +21,14 @@ const app = createApp({
     return value;
   },
 });
+// This loopback-only adversarial bridge fixture must actually load its iframe.
+// Product documents keep DENY/frame-ancestors 'none'.
+app.addHook('onSend', async (request, reply) => {
+  if (request.routeOptions.url === '/_test/frame') {
+    reply.header('X-Frame-Options', 'SAMEORIGIN');
+    reply.header('Content-Security-Policy', "frame-ancestors 'self'; base-uri 'self'; object-src 'none'");
+  }
+});
 app.addHook('onRequest', async (request, reply) => {
   if (state === 'disconnect' && request.url.startsWith('/api/v1/meetups/')) {
     reply.hijack();

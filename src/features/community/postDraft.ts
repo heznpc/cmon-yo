@@ -7,7 +7,7 @@ export const postDraftSchema = z.object({
   regionCode: z
     .string()
     .regex(/^[0-9]{5}$/)
-    .or(z.literal('')),
+    .or(z.literal('')).default(''),
   placeId: z.string().max(100),
   meetupId: z.string().max(100),
   version: z.number().int().positive().nullable(),

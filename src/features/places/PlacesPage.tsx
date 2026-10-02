@@ -13,7 +13,7 @@ import * as mapCSS from './places.css';
 import { usePlaceFavorites } from './usePlaceFavorites';
 import { FacilityRefresh } from './FacilityRefresh';
 import { PlaceDetail } from './PlaceDetail';
-export function PlacesPage({ id }: { id?: string }) {
+export function PlacesPage({ id, userId, ready }: { id?: string; userId: string | null; ready: boolean }) {
   return (
     <>
       <ProductNav />
@@ -22,7 +22,13 @@ export function PlacesPage({ id }: { id?: string }) {
         tabIndex={-1}
         className={[css.page, id ? '' : mapCSS.explorePage].join(' ')}
       >
-        {id ? <PlaceDetail id={id} /> : <PlaceList />}
+        {!ready ? (
+          <p role="status">
+            계정을 확인하는 중입니다.{' '}
+            <button onClick={() => window.dispatchEvent(new Event('focus'))}>계정 다시 확인</button>
+          </p>
+        ) : null}
+        {id ? <PlaceDetail id={id} userId={userId} ready={ready} /> : <PlaceList userId={userId} ready={ready} />}
         <footer className={css.footer}>
           <p>선택한 동네의 공공시설 · 공개 자료에 기반한 시설 정보입니다.</p>
           <p>
@@ -34,28 +40,20 @@ export function PlacesPage({ id }: { id?: string }) {
     </>
   );
 }
-function PlaceList() {
+function PlaceList({ userId, ready }: { userId: string | null; ready: boolean }) {
   const [params, setParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [deviceLocation, setDeviceLocation] = useState<{
-    latitude: number;
-    longitude: number;
-  } | null>(null);
   const parsedFilters = placeFiltersSchema.safeParse(
     Object.fromEntries([...params].filter(([, value]) => value !== '')),
   );
   const filters = parsedFilters.success ? parsedFilters.data : { page: 0 };
-  const queryFilters =
-    filters.regionCode || !deviceLocation
-      ? filters
-      : { ...filters, latitude: deviceLocation.latitude, longitude: deviceLocation.longitude };
   const query = useQuery({
     enabled: parsedFilters.success,
-    queryKey: placeListKey(queryFilters),
+    queryKey: placeListKey(filters),
     staleTime: 60_000,
     retry: false,
-    queryFn: ({ signal }) => publicAPI.places(signal, queryFilters),
+    queryFn: ({ signal }) => publicAPI.places(signal, filters),
   });
   const visiblePlaces = useMemo(
     () =>
@@ -66,7 +64,12 @@ function PlaceList() {
       ),
     [query.data?.places, search],
   );
-  const favorites = usePlaceFavorites();
+  const favorites = usePlaceFavorites(userId, ready);
+  const pageURL = (page: number) => {
+    const next = new URLSearchParams(params);
+    next.set('page', String(page));
+    return '/places?' + next;
+  };
   const selected = visiblePlaces.find((place) => place.id === selectedId);
   const selectedCard = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -109,6 +112,10 @@ function PlaceList() {
       ) : null}
       {query.data?.places.length === 0 ? <p>등록된 시설 정보가 없습니다.</p> : null}
       {favorites.message ? <p role="alert">{favorites.message}</p> : null}
+      {favorites.accountAction ? <AppLink href={favorites.accountHref}>{favorites.accountAction}</AppLink> : null}
+      {favorites.canRetry ? (
+        <button disabled={favorites.retrying} onClick={() => void favorites.retry()}>찜 목록 다시 조회</button>
+      ) : null}
       <div className={mapCSS.layout}>
         <div className={mapCSS.mapColumn}>
           {query.data?.places.length ? (
@@ -116,7 +123,13 @@ function PlaceList() {
               places={visiblePlaces}
               selectedId={selected?.id ?? null}
               onSelect={setSelectedId}
-              onLocation={setDeviceLocation}
+              queryLocation={filters.latitude != null && filters.longitude != null
+                ? { latitude: filters.latitude, longitude: filters.longitude }
+                : undefined}
+              onLocation={({ latitude, longitude }) => {
+                setSelectedId(null);
+                setParams({ latitude: String(latitude), longitude: String(longitude) });
+              }}
             />
           ) : null}
           {query.data?.places.length ? (
@@ -144,12 +157,12 @@ function PlaceList() {
                 </AppLink>
                 <button
                   className={mapCSS.favorite}
-                  aria-pressed={favorites.ids.has(selected.id)}
-                  aria-label={favorites.ids.has(selected.id) ? '찜 해제' : '찜하기'}
-                  disabled={favorites.busyId === selected.id}
+                  aria-pressed={favorites.known ? favorites.ids.has(selected.id) : undefined}
+                  aria-label={!favorites.known ? '찜 상태 확인' : favorites.ids.has(selected.id) ? '찜 해제' : '찜하기'}
+                  disabled={favorites.disabled}
                   onClick={() => void favorites.toggle(selected.id)}
                 >
-                  <Icon name="heart" /> {favorites.ids.has(selected.id) ? '찜 해제' : '찜하기'}
+                  <Icon name="heart" /> {!favorites.known ? '찜 상태 확인' : favorites.ids.has(selected.id) ? '찜 해제' : '찜하기'}
                 </button>
               </div>
             </div>
@@ -185,14 +198,14 @@ function PlaceList() {
                 </button>
                 <button
                   className={mapCSS.favorite}
-                  aria-pressed={favorites.ids.has(place.id)}
+                  aria-pressed={favorites.known ? favorites.ids.has(place.id) : undefined}
                   aria-label={
-                    favorites.ids.has(place.id) ? `${place.name} 찜 해제` : `${place.name} 찜하기`
+                    !favorites.known ? `${place.name} 찜 상태 확인` : favorites.ids.has(place.id) ? `${place.name} 찜 해제` : `${place.name} 찜하기`
                   }
-                  disabled={favorites.busyId === place.id}
+                  disabled={favorites.disabled}
                   onClick={() => void favorites.toggle(place.id)}
                 >
-                  <Icon name="heart" /> {favorites.ids.has(place.id) ? '찜 해제' : '찜하기'}
+                  <Icon name="heart" /> {!favorites.known ? '찜 상태 확인' : favorites.ids.has(place.id) ? '찜 해제' : '찜하기'}
                 </button>
               </li>
             ))}
@@ -204,28 +217,12 @@ function PlaceList() {
       </div>
       <p role="status">{query.isFetching ? '시설을 불러오는 중…' : ''}</p>
       {filters.page > 0 ? (
-        <AppLink
-          href={
-            '/places?' +
-            new URLSearchParams({
-              regionCode: filters.regionCode ?? '',
-              page: String(filters.page - 1),
-            })
-          }
-        >
+        <AppLink href={pageURL(filters.page - 1)}>
           이전 시설 페이지
         </AppLink>
       ) : null}
       {query.data?.nextPage != null ? (
-        <AppLink
-          href={
-            '/places?' +
-            new URLSearchParams({
-              regionCode: filters.regionCode ?? '',
-              page: String(query.data.nextPage),
-            })
-          }
-        >
+        <AppLink href={pageURL(query.data.nextPage)}>
           다음 시설 페이지
         </AppLink>
       ) : null}

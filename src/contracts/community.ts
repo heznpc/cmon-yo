@@ -4,8 +4,8 @@ import { sportSchema } from './meetings';
 import { placeIdSchema, regionCodeSchema } from './place';
 export const postInputSchema = z
   .object({
-    title: z.string().trim().min(1).max(120),
-    body: z.string().trim().min(1).max(5000),
+    title: z.string().trim().min(1).max(120).refine((value) => !value.includes('\0')),
+    body: z.string().trim().min(1).max(5000).refine((value) => !value.includes('\0')),
     sport: sportSchema,
     regionCode: regionCodeSchema.nullable().default(null),
     placeId: placeIdSchema.nullable().default(null),
@@ -52,7 +52,7 @@ export const commentListSchema = z.object({
 const version = z.number().int().positive();
 export const profileSchema = z.object({
   userId: idSchema,
-  name: z.string().trim().min(1).max(60),
+  name: z.string().trim().min(1).max(60).refine((value) => !value.includes('\0')),
   regionCode: regionCodeSchema.nullable(),
   version: z.number().int().min(0),
 });
@@ -60,7 +60,7 @@ export const communityCommandSchema = z.discriminatedUnion('action', [
   z
     .object({
       action: z.literal('profile'),
-      name: z.string().trim().min(1).max(60),
+      name: z.string().trim().min(1).max(60).refine((value) => !value.includes('\0')),
       regionCode: regionCodeSchema.nullable(),
       expectedVersion: z.number().int().min(0),
     })
@@ -80,7 +80,7 @@ export const communityCommandSchema = z.discriminatedUnion('action', [
       action: z.literal('comment'),
       parent: z.enum(['post', 'meetup']),
       id: idSchema,
-      body: z.string().trim().min(1).max(2000),
+      body: z.string().trim().min(1).max(2000).refine((value) => !value.includes('\0')),
     })
     .strict(),
   z.object({ action: z.literal('deleteComment'), id: idSchema, expectedVersion: version }).strict(),
@@ -89,7 +89,7 @@ export const communityCommandSchema = z.discriminatedUnion('action', [
       action: z.literal('report'),
       target: z.enum(['post', 'comment']),
       id: idSchema,
-      reason: z.string().trim().min(1).max(500),
+      reason: z.string().trim().min(1).max(500).refine((value) => !value.includes('\0')),
     })
     .strict(),
   z.object({ action: z.literal('block'), id: idSchema, blocked: z.boolean() }).strict(),

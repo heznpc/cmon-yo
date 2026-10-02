@@ -36,6 +36,9 @@ export function registerMeetings(
   const requireUser = async (request: FastifyRequest, reply: FastifyReply) => {
     const user = (await account(request, reply)).user;
     if (!user) throw new ServiceError(401, 'UNAUTHENTICATED', '로그인 후 다시 확인해 주세요.');
+    const expected = request.headers['x-cmon-user'];
+    if (expected !== undefined && expected !== user.id)
+      throw new ServiceError(409, 'ACCOUNT_CHANGED', '계정이 변경되었습니다. 화면을 새로 열어 주세요.');
     if (!user.emailVerified)
       throw new ServiceError(403, 'EMAIL_NOT_VERIFIED', '이메일 인증을 완료해 주세요.');
     return user.id;

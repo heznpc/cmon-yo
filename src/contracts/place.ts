@@ -72,4 +72,5 @@ export const favoritePlacesSchema = z.object({ placeIds: z.array(placeIdSchema) 
 export type FavoritePlaces = z.infer<typeof favoritePlacesSchema>;
 export const favoritePlaceResultSchema = z.object({ id: placeIdSchema, favorite: z.boolean() });
 export type FavoritePlaceResult = z.infer<typeof favoritePlaceResultSchema>;
-export const favoritePlacesKey = ['private', 'place-favorites'] as const;
+export const favoritePlacesKey = (userId: string | null) =>
+  ['private', userId, 'place-favorites'] as const;

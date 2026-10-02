@@ -19,7 +19,17 @@ export function PlacePicker({
   label?: string;
   name?: string;
 }) {
-  const [region, setRegion] = useState(value ? regionOfPlace(value) : '');
+  const [selection, setSelection] = useState({
+    value,
+    region: value ? regionOfPlace(value) : '',
+  });
+  // Draft recovery and discard can replace the value after mount. Keep the
+  // filter in step with that external selection without overwriting a region
+  // the user has just chosen while looking for a new facility.
+  if (selection.value !== value) {
+    setSelection({ value, region: value ? regionOfPlace(value) : '' });
+  }
+  const region = selection.value === value ? selection.region : value ? regionOfPlace(value) : '';
   const query = useInfiniteQuery({
     queryKey: ['place-options', region],
     initialPageParam: 0,
@@ -30,9 +40,10 @@ export function PlacePicker({
     retry: false,
   });
   const options = query.data?.pages.flatMap((page) => page.places) ?? [];
+  const selectedMissing = !!value && !options.some((place) => place.id === value);
   const selected = useQuery({
     queryKey: placeKey(value),
-    enabled: !!value && !options.some((place) => place.id === value),
+    enabled: selectedMissing,
     queryFn: ({ signal }) => publicAPI.placeInfo(value, signal),
     staleTime: 60_000,
     retry: false,
@@ -44,7 +55,7 @@ export function PlacePicker({
         value={region}
         disabled={disabled}
         onChange={(e) => {
-          setRegion(e.target.value);
+          setSelection({ value: '', region: e.target.value });
           onChange('');
         }}
       />
@@ -55,7 +66,10 @@ export function PlacePicker({
           required={!optional}
           disabled={disabled}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => {
+            setSelection({ value: e.target.value, region });
+            onChange(e.target.value);
+          }}
         >
           <option value="">{optional ? '연결하지 않음' : '시설 선택'}</option>
           {options.map((place) => (
@@ -63,7 +77,7 @@ export function PlacePicker({
               {place.name}
             </option>
           ))}
-          {value && !options.some((place) => place.id === value) ? (
+          {selectedMissing ? (
             <option value={value}>{selected.data?.place.name ?? '선택한 시설'}</option>
           ) : null}
         </select>
@@ -85,6 +99,17 @@ export function PlacePicker({
             시설 다시 조회
           </button>
         </p>
+      ) : null}
+      {selectedMissing && selected.isError ? (
+        <p role="alert">
+          선택한 시설을 확인하지 못했습니다.{' '}
+          <button type="button" disabled={disabled || selected.isFetching} onClick={() => void selected.refetch()}>
+            선택한 시설 다시 조회
+          </button>
+        </p>
+      ) : null}
+      {selectedMissing && selected.data === null ? (
+        <p role="alert">선택한 시설이 더 이상 제공되지 않습니다. 다른 시설을 선택해 주세요.</p>
       ) : null}
     </>
   );

@@ -36,6 +36,7 @@ final class WalkingSyncService {
   private(set) var owner: String?
   private(set) var lastSync: Date?
   private var generation = -1
+  private var activation = 0
   private weak var transport: (any WalkingTransport)?
   private let health: any WalkingHealthProvider
   private let storage: any WalkingJournalStore
@@ -60,6 +61,7 @@ final class WalkingSyncService {
     if owner != nextOwner || generation != transport.walkingGeneration || self.transport?.walkingOrigin != transport.walkingOrigin
       || (nextOwner != nil && journal == nil) {
       health.stop()
+      activation += 1
       self.transport = transport
       owner = nextOwner
       generation = transport.walkingGeneration
@@ -83,13 +85,13 @@ final class WalkingSyncService {
   }
 
   private func matches(_ epoch: Int, _ account: String) -> Bool {
-    generation == epoch && owner == account && transport?.walkingGeneration == epoch
+    activation == epoch && owner == account && transport?.walkingGeneration == generation
       && transport?.walkingUserID == account
   }
 
   private func startObserving() {
     guard owner != nil, journal != nil else { return }
-    let epoch = generation, account = owner!
+    let epoch = activation, account = owner!
     health.observe { [weak self] in
       guard let self, self.current(epoch, account) else { return }
       await self.reconcile()
@@ -100,7 +102,7 @@ final class WalkingSyncService {
   // automatically after reconciliation, but an uncertain mutation is never replayed here.
   func reconcile() async {
     guard !busy, let account = owner, journal != nil, let transport else { return }
-    let epoch = generation
+    let epoch = activation
     busy = true
     if pending == nil { message = nil }
     defer { if matches(epoch, account) { busy = false } }
@@ -117,7 +119,7 @@ final class WalkingSyncService {
 
   func connect() async {
     guard !busy, pending == nil, let account = owner, journal != nil, let deviceID, let transport else { return }
-    let epoch = generation
+    let epoch = activation
     busy = true; message = nil
     defer { if matches(epoch, account) { busy = false } }
     do {
@@ -140,7 +142,7 @@ final class WalkingSyncService {
 
   func inspect() async {
     guard !busy, pending != nil, let account = owner, let transport else { return }
-    let epoch = generation
+    let epoch = activation
     busy = true
     defer { if matches(epoch, account) { busy = false } }
     do {
@@ -153,7 +155,7 @@ final class WalkingSyncService {
   // This method is called only by the explicit retry button. Stored key and body are unchanged.
   func retryPending() async {
     guard !busy, pending != nil, let account = owner, let transport else { return }
-    let epoch = generation
+    let epoch = activation
     busy = true
     defer { if matches(epoch, account) { busy = false } }
     do {
@@ -173,8 +175,9 @@ final class WalkingSyncService {
     if var next = journal, next.pending == nil, result.sourceDeviceId?.lowercased() == deviceID,
       let source = result.sourceId {
       let revision = result.sourceRevision
+      let sameSource = next.sourceId?.lowercased() == source.lowercased()
       next.sourceId = source.lowercased()
-      next.revision = max(next.revision, revision)
+      next.revision = sameSource ? max(next.revision, revision) : revision
       try storage.save(next, origin: transport.walkingOrigin)
       journal = next
     }

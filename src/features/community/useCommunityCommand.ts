@@ -75,6 +75,7 @@ export function useCommunityCommand(
                 title: draft.title,
                 body: draft.body,
                 sport: draft.sport,
+                regionCode: draft.regionCode || null,
                 placeId: draft.placeId || null,
                 meetupId: draft.meetupId || null,
               }

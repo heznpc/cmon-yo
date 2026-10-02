@@ -10,7 +10,31 @@ const files = [
   { name: '004_attendance.sql', repeatable: true },
   { name: '005_place_favorites.sql', repeatable: true },
   { name: '006_activity_quests.sql', repeatable: false },
+  { name: '007_walking_recruitment_deletion.sql', repeatable: false },
 ];
+
+// Deployment verifies the complete journal before accepting traffic; it never
+// silently mutates the database when an application process starts.
+export async function assertMigrationsCurrent(pool: pg.Pool) {
+  let applied: Map<string, string>;
+  try {
+    const result = await pool.query<{ name: string; checksum: string }>(
+      'SELECT name,checksum FROM schema_migrations',
+    );
+    applied = new Map(result.rows.map((row) => [row.name, row.checksum]));
+  } catch {
+    throw new Error('Database migration journal is unavailable. Apply migrations before starting.');
+  }
+  for (const { name } of files) {
+    const recorded = applied.get(name);
+    if (!recorded) throw new Error('Database migration is not applied: ' + name);
+    let sql: string;
+    try { sql = await readFile('db/' + name, 'utf8'); }
+    catch { throw new Error('Database migration file is unavailable: ' + name); }
+    const checksum = createHash('sha256').update(sql).digest('hex');
+    if (recorded !== checksum) throw new Error('Applied migration changed: ' + name);
+  }
+}
 
 export async function migrateDatabase(pool: pg.Pool, through = files.length) {
   if (!Number.isInteger(through) || through < 1 || through > files.length)
@@ -44,5 +68,5 @@ export async function migrateDatabase(pool: pg.Pool, through = files.length) {
 }
 
 export async function migrateWalking(pool: pg.Pool) {
-  await migrateDatabase(pool, 6);
+  await migrateDatabase(pool, 7);
 }

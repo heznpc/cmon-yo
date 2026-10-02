@@ -42,6 +42,17 @@ export function useCommand<I>({
   latest.current = { execute, completed, accepted, ready, persistInput };
   const validator = useRef(schema);
   const storageScope = 'command:' + scope;
+  const identity = useRef({ userId, storageScope });
+  if (identity.current.userId !== userId || identity.current.storageScope !== storageScope)
+    identity.current = { userId, storageScope };
+  const owner = identity.current;
+  const current = () => alive.current && identity.current === owner && latest.current.ready;
+  function release(controller: AbortController) {
+    if (active.current !== controller) return;
+    active.current = null;
+    busy.current = false;
+    if (alive.current && identity.current === owner) setPending(false);
+  }
   function report(outcome: ClientEvent['outcome'], key?: string) {
     const area = scope.split(':')[0] as 'community' | 'meeting' | 'attendance' | 'quests';
     reportClientEvent({
@@ -54,6 +65,9 @@ export function useCommand<I>({
   }
   useEffect(() => {
     alive.current = true;
+    active.current = null;
+    busy.current = false;
+    setPending(false);
     try {
       record.current = userId
         ? readRecovery(
@@ -63,8 +77,9 @@ export function useCommand<I>({
           )
         : null;
       setUnknown(record.current);
-      if (record.current)
-        setMessage('응답을 받지 못한 요청을 복구했습니다. 저장 결과를 확인해 주세요.');
+      setMessage(record.current
+        ? '응답을 받지 못한 요청을 복구했습니다. 저장 결과를 확인해 주세요.'
+        : '');
     } catch {
       setMessage('요청 기록을 읽지 못했습니다. 브라우저 저장 공간을 확인해 주세요.');
     }
@@ -74,6 +89,9 @@ export function useCommand<I>({
       active.current?.abort();
     };
   }, [userId, storageScope]);
+  useEffect(() => {
+    if (!ready) active.current?.abort();
+  }, [ready]);
   function withRecordLock<T>(work: () => T): Promise<T> {
     return navigator.locks
       ? navigator.locks.request('cmon:' + userId + ':' + scope, work)
@@ -82,6 +100,7 @@ export function useCommand<I>({
   async function clear(command: Command<I>, confirmed = false) {
     if (userId)
       await withRecordLock(() => {
+        if (!current()) return;
         const stored = readRecovery(
           userId,
           storageScope,
@@ -93,24 +112,31 @@ export function useCommand<I>({
         if (confirmed) latest.current.accepted?.(command.input);
         removeRecovery(userId, storageScope);
       });
+    if (!current()) return;
     record.current = null;
     setUnknown(null);
   }
   async function accept(command: Command<I>, id: string) {
     await clear(command, true);
+    if (!current()) return;
     setMessage('저장 결과를 확인했습니다.');
     // A successful command stays successful even if refreshing the view fails.
     try {
-      await latest.current.completed(command.input, command.key, id, () => alive.current);
-      if (alive.current) setMessage('');
+      await latest.current.completed(
+        command.input,
+        command.key,
+        id,
+        current,
+      );
+      if (current()) setMessage('');
     } catch {
-      if (alive.current) setMessage('저장했습니다. 화면의 현재 상태를 다시 조회해 주세요.');
+      if (current()) setMessage('저장했습니다. 화면의 현재 상태를 다시 조회해 주세요.');
     }
   }
   async function send(command: Command<I>, retry: boolean) {
     if (
       !userId ||
-      !latest.current.ready ||
+      !current() ||
       !hydrated ||
       busy.current ||
       (!retry && record.current) ||
@@ -120,9 +146,11 @@ export function useCommand<I>({
     busy.current = true;
     setPending(true);
     setMessage('');
-    active.current = new AbortController();
+    const controller = new AbortController();
+    active.current = controller;
     try {
       const reserve = () => {
+        if (!current()) return null;
         const prior = readRecovery(
           userId,
           storageScope,
@@ -138,23 +166,24 @@ export function useCommand<I>({
       // Reserve the target across tabs before fetch; never replace an unresolved
       // request with a fresh UUID. Web Locks also covers simultaneous clicks.
       const prior = await withRecordLock(reserve);
+      if (!current()) {
+        release(controller);
+        return false;
+      }
       if (prior) {
         record.current = prior;
         setUnknown(prior);
-        busy.current = false;
-        setPending(false);
+        release(controller);
         setMessage('이 작성 대상에 미확인 요청이 있습니다. 저장 결과를 먼저 확인해 주세요.');
         return false;
       }
-      if (!alive.current || !latest.current.ready) {
-        busy.current = false;
-        setPending(false);
+    } catch {
+      if (!current()) {
+        release(controller);
         return false;
       }
-    } catch {
       report('storage_failed', command.key);
-      busy.current = false;
-      setPending(false);
+      release(controller);
       setMessage(
         '요청 번호를 보관하지 못해 전송하지 않았습니다. 브라우저 저장 공간을 확인해 주세요.',
       );
@@ -167,17 +196,19 @@ export function useCommand<I>({
       const result = await latest.current.execute(
         command.input,
         command.key,
-        active.current.signal,
+        controller.signal,
       );
-      if (!alive.current || !latest.current.ready) return false;
+      if (!current()) return false;
       if (!result.id) throw new Error('Missing receipt');
       report('succeeded', command.key);
       await accept(command, result.id);
       return true;
     } catch (error) {
-      if (!alive.current || !latest.current.ready) return false;
+      if (!current()) return false;
       const uncertain =
         !(error instanceof RequestError) ||
+        error.status === 0 ||
+        error.status === 408 ||
         error.status >= 500 ||
         error.code === 'COMMAND_CONFLICT';
       report(uncertain ? 'unknown' : 'rejected', command.key);
@@ -185,33 +216,34 @@ export function useCommand<I>({
         try {
           await clear(command);
         } catch {
-          setMessage(
+          if (current()) setMessage(
             '요청은 거절됐지만 기록을 정리하지 못했습니다. 저장 결과를 다시 확인해 주세요.',
           );
           return false;
         }
       }
+      if (!current()) return false;
       setMessage(
         uncertain ? '응답을 확인하지 못했습니다. 저장 결과를 먼저 확인해 주세요.' : error.message,
       );
       return false;
     } finally {
-      busy.current = false;
-      if (alive.current) setPending(false);
+      release(controller);
     }
   }
   async function inspect() {
     const command = record.current;
-    if (!command || !userId || !latest.current.ready || busy.current) return;
+    if (!command || !userId || !current() || busy.current) return;
     busy.current = true;
     setPending(true);
-    active.current = new AbortController();
+    const controller = new AbortController();
+    active.current = controller;
     try {
       const result = await apiRequest(lookup + command.key, commandResultSchema, {
-        signal: active.current.signal,
+        signal: controller.signal,
         headers: { 'X-Cmon-User': userId },
       });
-      if (!alive.current) return;
+      if (!current()) return;
       if (result.id) {
         report('recovered', command.key);
         await accept(command, result.id);
@@ -223,10 +255,9 @@ export function useCommand<I>({
       }
     } catch {
       report('lookup_failed', command.key);
-      if (alive.current) setMessage('결과 조회에 실패했습니다. 연결 후 다시 확인해 주세요.');
+      if (current()) setMessage('결과 조회에 실패했습니다. 연결 후 다시 확인해 주세요.');
     } finally {
-      busy.current = false;
-      if (alive.current) setPending(false);
+      release(controller);
     }
   }
   const inspectRef = useRef(inspect);

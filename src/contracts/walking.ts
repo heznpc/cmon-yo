@@ -21,11 +21,14 @@ export const rewardCatalog = [
   { id: 'summit', title: '원정 동료', price: 50 },
 ] as const;
 export const walkingDateSchema = z.iso.date();
+// PostgreSQL text cannot store NUL; reject it as input rather than a retryable 503.
+// eslint-disable-next-line no-control-regex
+const expeditionTitleSchema = z.string().trim().min(1).max(80).regex(/^[^\u0000]*$/u);
 export const walkingCommandSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('bindHealth'), deviceId: z.uuid() }).strict(),
   z.object({ action: z.literal('syncHealth'), sourceId: z.uuid(), revision: z.number().int().positive().max(Number.MAX_SAFE_INTEGER), days: z.array(z.object({ day: walkingDateSchema, steps: z.number().int().min(0).max(100000) }).strict()).min(1).max(8) }).strict(),
   z.object({ action: z.literal('claimDaily'), day: walkingDateSchema }).strict(),
-  z.object({ action: z.literal('createExpedition'), title: z.string().trim().min(1).max(80), placeId: z.string().regex(/^park-[0-9]{5}-[0-9]{5}$/).nullable() }).strict(),
+  z.object({ action: z.literal('createExpedition'), title: expeditionTitleSchema, placeId: z.string().regex(/^park-[0-9]{5}-[0-9]{5}$/).nullable() }).strict(),
   z.object({ action: z.literal('joinExpedition'), code: z.string().trim().regex(/^[A-Z0-9]{12}$/) }).strict(),
   z.object({ action: z.literal('leaveExpedition'), expeditionId: z.uuid() }).strict(),
   z.object({ action: z.literal('claimStage'), expeditionId: z.uuid(), stage: z.number().int().min(0).max(2) }).strict(),

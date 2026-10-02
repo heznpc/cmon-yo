@@ -41,8 +41,8 @@ export function registerAttendance(
             throw new ServiceError(409, 'ACCOUNT_CHANGED', '계정이 변경되었습니다.');
           if (method === 'GET')
             return url.includes('/me/')
-              ? service.result(user.id, id.data)
-              : service.detail(user.id, id.data);
+              ? await service.result(user.id, id.data)
+              : await service.detail(user.id, id.data);
           if (r.headers['x-cmon-user'] !== user.id)
             throw new ServiceError(409, 'ACCOUNT_CHANGED', '계정이 변경되었습니다.');
           const input = attendanceCommandSchema.safeParse(r.body),

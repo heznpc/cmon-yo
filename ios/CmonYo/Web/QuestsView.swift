@@ -42,7 +42,11 @@ struct AuthenticatedQuestsView: View {
       }
       .task(id: attempt) {
         loading = true; failed = false; dataStore = nil; externalURL = nil
-        do { dataStore = try await session.prepareWebSession() }
+        do {
+          let store = try await session.prepareWebSession()
+          try Task.checkCancellation()
+          dataStore = store
+        }
         catch is CancellationError { return }
         catch { loading = false; failed = true }
       }
@@ -114,7 +118,8 @@ struct QuestsWebView: UIViewRepresentable {
     }
     func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse,
       decisionHandler: @escaping @MainActor @Sendable (WKNavigationResponsePolicy) -> Void) {
-      guard !closed, navigationResponse.isForMainFrame,
+      guard !closed else { decisionHandler(.cancel); return }
+      guard navigationResponse.isForMainFrame,
         let response = navigationResponse.response as? HTTPURLResponse,
         let url = response.url, policy.owned(url), response.statusCode < 400 else {
         parent.loading = false; parent.failed = true

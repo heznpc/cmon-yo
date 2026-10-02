@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+// Shared by browser and Native writes. Keep legacy account reads permissive.
+export const accountNameSchema = z.string().trim().min(1).max(60)
+  .refine((value) => !value.includes('\0'));
+
 export const accountUserSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),

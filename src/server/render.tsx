@@ -10,6 +10,13 @@ import { serialize } from '../app/serialize';
 export { serialize } from '../app/serialize';
 import { StaticRouter } from 'react-router';
 import { streamBootstrap, type StreamResources } from '../app/stream';
+const sectionTitles = {
+  account: '내 계정',
+  meetings: '모임',
+  community: '커뮤니티',
+  places: '시설',
+  quests: '걷기·퀘스트',
+} as const;
 export async function renderPage(
   reply: FastifyReply,
   state: InitialState,
@@ -40,7 +47,7 @@ export async function renderPage(
         {state.stream ? (
           <script dangerouslySetInnerHTML={{ __html: streamBootstrap(state.stream) }} />
         ) : null}
-        <title>{`C'mon Yo! · ${'section' in state.route ? (state.route.section === 'account' ? '내 계정' : state.route.section === 'meetings' ? '모임' : state.route.section === 'community' ? '커뮤니티' : '시설') : '모임'}`}</title>
+        <title>{`C'mon Yo! · ${'section' in state.route ? sectionTitles[state.route.section] : '모임'}`}</title>
         {assets.preloads?.map((href) => (
           <link key={href} rel="modulepreload" href={href} />
         ))}

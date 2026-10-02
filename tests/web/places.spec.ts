@@ -199,7 +199,10 @@ test('device location permission adds the actual position marker without hiding 
   await page.context().grantPermissions(['geolocation'], { origin: baseURL });
   await page.context().setGeolocation({ latitude: 37.5665, longitude: 126.978 });
   await page.goto('/places');
-  await expect(page.getByRole('img', { name: '현재 위치' })).toBeVisible();
+  await expect(page.getByRole('img', { name: '현재 위치' })).toHaveCount(0);
+  await page.getByRole('button', { name: '내 위치 찾기' }).click();
+  await expect(page.getByRole('img', { name: /^(현재 위치|조회 기준 위치)$/ })).toBeVisible();
+  await expect(page).toHaveURL(/latitude=37\.5665&longitude=126\.978/);
   await expect(page.getByRole('button', { name: '내 위치 찾기' })).toBeVisible();
   await expect(page.getByRole('link', { name: '근린공원 36', exact: true })).toBeVisible();
 });

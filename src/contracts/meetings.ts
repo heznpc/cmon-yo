@@ -6,8 +6,8 @@ const utc = z.iso.datetime({ precision: 3 }).refine((v) => new Date(v).toISOStri
 export const sportSchema = z.enum(['walking', 'running', 'cycling']);
 export const meetingInputSchema = z
   .object({
-    title: z.string().trim().min(1).max(120),
-    description: z.string().trim().max(2000),
+    title: z.string().trim().min(1).max(120).refine((value) => !value.includes('\0')),
+    description: z.string().trim().max(2000).refine((value) => !value.includes('\0')),
     sport: sportSchema,
     placeId: placeIdSchema,
     startsAt: utc,

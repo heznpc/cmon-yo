@@ -35,11 +35,16 @@ export function createPublicAPI(fetcher: typeof fetch = fetch) {
     schema: z.ZodType<T>,
     signal: AbortSignal,
     messages: { unavailable: string; invalid: string },
+    headers?: Record<string, string>,
   ): Promise<T> {
     signal.throwIfAborted();
     let response: Response;
     try {
-      response = await fetcher(path, { signal, headers: { Accept: 'application/json' } });
+      response = await fetcher(path, {
+        signal,
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json', ...headers },
+      });
     } catch {
       signal.throwIfAborted();
       throw new PublicApiError(messages.unavailable, null, 'NETWORK_ERROR', true);
@@ -128,12 +133,18 @@ export function createPublicAPI(fetcher: typeof fetch = fetch) {
       detail(
         read(`/api/v1/places/${encodeURIComponent(id)}`, placeDetailSchema, signal, placeMessages),
       ),
-    favoritePlaces: async (signal: AbortSignal): Promise<FavoritePlaces | null> => {
+    favoritePlaces: async (signal: AbortSignal, userId?: string): Promise<FavoritePlaces | null> => {
       try {
-        return await read('/api/v1/me/place-favorites', favoritePlacesSchema, signal, {
-          unavailable: '찜 목록을 불러오지 못했습니다. 다시 시도해 주세요.',
-          invalid: '찜 목록을 읽을 수 없습니다.',
-        });
+        return await read(
+          '/api/v1/me/place-favorites',
+          favoritePlacesSchema,
+          signal,
+          {
+            unavailable: '찜 목록을 불러오지 못했습니다. 다시 시도해 주세요.',
+            invalid: '찜 목록을 읽을 수 없습니다.',
+          },
+          userId ? { 'X-Cmon-User': userId } : undefined,
+        );
       } catch (error) {
         if (error instanceof PublicApiError && error.status === 401) return null;
         throw error;
@@ -143,6 +154,7 @@ export function createPublicAPI(fetcher: typeof fetch = fetch) {
       id: string,
       favorite: boolean,
       signal: AbortSignal,
+      userId: string,
     ): Promise<FavoritePlaceResult> => {
       signal.throwIfAborted();
       let response: Response;
@@ -151,7 +163,7 @@ export function createPublicAPI(fetcher: typeof fetch = fetch) {
           method: favorite ? 'PUT' : 'DELETE',
           signal,
           credentials: 'same-origin',
-          headers: { Accept: 'application/json' },
+          headers: { Accept: 'application/json', ...(userId ? { 'X-Cmon-User': userId } : {}) },
         });
       } catch {
         signal.throwIfAborted();
